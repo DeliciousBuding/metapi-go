@@ -1,6 +1,6 @@
-// metapi-go/components — shared language, appearance, and color-scheme controls.
+// Shared language and appearance controls for the header and mobile drawer.
 
-import { Check, Languages, Moon, Sun } from 'lucide-react'
+import { Check, Languages } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { ThemeCustomizer } from '@/components/theme-customizer'
@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useTheme } from '@/context/theme-provider'
 import { normalizeInterfaceLanguage } from '@/i18n/languages'
 import { cn } from '@/lib/utils'
 
@@ -62,26 +61,10 @@ function LanguageSwitcher() {
 }
 
 export function InterfaceControls({ className }: InterfaceControlsProps) {
-  const { t } = useTranslation()
-  const { resolvedTheme, setTheme } = useTheme()
-
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
-  }
-
   return (
     <div className={cn('flex items-center gap-1', className)}>
       <LanguageSwitcher />
       <ThemeCustomizer />
-      <Button
-        variant='ghost'
-        size='icon'
-        onClick={toggleTheme}
-        aria-label={t('theme.toggle')}
-      >
-        <Sun className='size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90' />
-        <Moon className='absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0' />
-      </Button>
     </div>
   )
 }

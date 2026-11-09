@@ -1,4 +1,4 @@
-// metapi-go/context — ThemeProvider: the light / dark / system colour scheme.
+// ThemeProvider owns the light/dark/system mode and persisted display size.
 //
 // Three jobs, in the order they matter:
 //   1. resolve `system` against `prefers-color-scheme` and keep resolving it —
@@ -26,6 +26,11 @@ import {
 
 import { getCookie, removeCookie, setCookie } from '@/lib/cookies'
 import { syncThemeColorMeta } from '@/lib/theme-color-meta'
+import {
+  THEME_SCALE_COOKIE,
+  THEME_SCALE_VALUES,
+  type ThemeScale,
+} from '@/lib/theme-scale'
 
 export type Theme = 'dark' | 'light' | 'system'
 export type ResolvedTheme = Exclude<Theme, 'system'>
@@ -45,11 +50,11 @@ type ThemeProviderProps = {
 }
 
 type ThemeContextValue = {
-  defaultTheme: Theme
   resolvedTheme: ResolvedTheme
   theme: Theme
   setTheme: (theme: Theme) => void
-  resetTheme: () => void
+  scale: ThemeScale
+  setScale: (scale: ThemeScale) => void
 }
 
 /**
@@ -59,11 +64,11 @@ type ThemeContextValue = {
  * provider stack is ready. A stray `useTheme()` should degrade, not crash.
  */
 const UNMOUNTED: ThemeContextValue = {
-  defaultTheme: DEFAULT_THEME,
   resolvedTheme: 'light',
   theme: DEFAULT_THEME,
   setTheme: () => {},
-  resetTheme: () => {},
+  scale: 'default',
+  setScale: () => {},
 }
 
 const ThemeContext = createContext<ThemeContextValue>(UNMOUNTED)
@@ -93,6 +98,21 @@ export function ThemeProvider({
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
     resolve(readStoredTheme(storageKey, defaultTheme))
   )
+  const [scale, setScaleState] = useState<ThemeScale>(() => {
+    const stored = getCookie(THEME_SCALE_COOKIE) as ThemeScale | undefined
+    return stored && THEME_SCALE_VALUES.has(stored) ? stored : 'default'
+  })
+
+  useEffect(() => {
+    if (scale === 'default') document.body.removeAttribute('data-theme-scale')
+    else document.body.setAttribute('data-theme-scale', scale)
+  }, [scale])
+
+  const setScale = useCallback((next: ThemeScale) => {
+    if (next === 'default') removeCookie(THEME_SCALE_COOKIE)
+    else setCookie(THEME_SCALE_COOKIE, next, THEME_COOKIE_MAX_AGE)
+    setScaleState(next)
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -126,15 +146,15 @@ export function ThemeProvider({
     [storageKey]
   )
 
-  /** Back to following the system, and forget the stored override. */
-  const resetTheme = useCallback(() => {
-    removeCookie(storageKey)
-    setThemeState(defaultTheme)
-  }, [defaultTheme, storageKey])
-
   const value = useMemo<ThemeContextValue>(
-    () => ({ defaultTheme, resolvedTheme, resetTheme, setTheme, theme }),
-    [defaultTheme, resolvedTheme, resetTheme, setTheme, theme]
+    () => ({
+      resolvedTheme,
+      setTheme,
+      theme,
+      scale,
+      setScale,
+    }),
+    [resolvedTheme, setTheme, theme, scale, setScale]
   )
 
   return <ThemeContext value={value}>{children}</ThemeContext>

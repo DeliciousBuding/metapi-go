@@ -12,19 +12,6 @@
     'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC',
     sans-serif;
-  /* Editorial serif token — the body face used by the `serif` font axis
-   * (an explicit user choice; every preset defaults to sans). Lora carries
-   * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source
-   * Han / Songti / SimSun) before the generic `serif` fallback. Without
-   * these explicit CJK fonts the browser's generic-serif pick on Windows is
-   * non-deterministic at small sizes and often appears sans-like. */
-  --font-serif:
-    'Lora Variable', 'Lora', 'Source Serif Pro', 'Source Serif 4',
-    'Noto Serif SC', 'Noto Serif TC', 'Noto Serif JP', 'Noto Serif KR',
-    'Source Han Serif SC', 'Source Han Serif TC', 'Source Han Serif',
-    'Songti SC', 'STSong', 'STSongti-SC-Regular', 'PingFang SC', 'SimSun',
-    'NSimSun', '宋体', 'FangSong', '仿宋', 'KaiTi', '楷体', Georgia,
-    'Times New Roman', Cambria, 'Liberation Serif', serif;
   --font-mono:
     'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
     Monaco, monospace;
@@ -86,7 +73,7 @@
 /* Sub-xs caption sizes, in their own NON-inline @theme block on purpose:
  * `@theme inline` would freeze the px literal into the utility at compile
  * time; a plain @theme emits `font-size: var(--text-2xs)` so the
- * `data-theme-scale` density blocks in theme-presets.css can scale these
+ * `data-theme-scale` density blocks in theme.css can scale these
  * along with `--text-xs` (each density sets them at the xs ratio). The
  * defaults match the 11px / 10px hard-coded literals they replaced at the
  * default (md) density. Arbitrary-size classes (`text-[11px]` et al.) are
@@ -99,16 +86,7 @@
 :root {
   --radius: 0.625rem;
   --app-header-height: 3.5rem;
-  /* Currently active body font. The font axis swaps this between
-   * `--font-sans` and `--font-serif` via `[data-theme-font='...']` blocks
-   * in theme-presets.css. Default mirrors `--font-sans` so behavior is
-   * identical when no font preference is set. */
   --font-body: var(--font-sans);
-  /* Editorial (serif-axis) tracking, as tokens rather than the literals they
-   * replaced in theme-presets.css, so the `:root[lang|='zh']` block below can
-   * neutralise them for a Chinese UI. */
-  --tracking-editorial-heading: -0.012em;
-  --tracking-editorial-display: -0.02em;
   --background: oklch(1 0 0);
   --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
@@ -199,13 +177,9 @@
  * (0,2,0) outranks Tailwind's `@layer theme` default. Negative tracking is a
  * Latin display convention: an ideograph's side bearing is its only spacing,
  * so -0.025em at `text-2xl` removes ~0.6px of it and neighbouring glyphs
- * start to touch. 0 is the correct Chinese setting; the two editorial tokens
- * are zeroed for the same reason (they drive the serif axis in
- * theme-presets.css). */
+ * start to touch. 0 is the correct Chinese setting. */
 :root[lang|='zh'] {
   --tracking-tight: 0em;
-  --tracking-editorial-heading: 0em;
-  --tracking-editorial-display: 0em;
 }
 
 .dark {
@@ -279,4 +253,43 @@
     var(--foreground) 9%,
     var(--background)
   );
+}
+
+/* ── Density scale ────────────────────────────────────────────────────── */
+/* `sm` = compact UI; `lg` = comfortable; `xl` = extra readable. Default keeps Tailwind defaults. */
+[data-theme-scale='sm'] {
+  --text-2xs: 0.64rem;
+  --text-3xs: 0.58rem;
+  --text-xs: 0.7rem;
+  --text-sm: 0.78rem;
+  --text-base: 0.88rem;
+  --text-lg: 1rem;
+  --text-xl: 1.13rem;
+  --text-2xl: 1.38rem;
+  --text-3xl: 1.7rem;
+  --spacing: 0.225rem;
+}
+[data-theme-scale='lg'] {
+  --text-2xs: 0.77rem;
+  --text-3xs: 0.7rem;
+  --text-xs: 0.84rem;
+  --text-sm: 0.95rem;
+  --text-base: 1.075rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.65rem;
+  --text-3xl: 2rem;
+  --spacing: 0.28rem;
+}
+[data-theme-scale='xl'] {
+  --text-2xs: 0.825rem;
+  --text-3xs: 0.75rem;
+  --text-xs: 0.9rem;
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.45rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.15rem;
+  --spacing: 0.3rem;
 }

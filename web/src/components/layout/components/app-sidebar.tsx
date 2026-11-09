@@ -94,9 +94,7 @@ export function AppSidebar() {
         </div>
       </SidebarContent>
 
-      {/* Mobile-only footer: the interface controls (language, palette,
-          light/dark) live here so the top bar keeps five reachable targets
-          instead of seven cramped ones. */}
+      {/* Mobile keeps language and appearance reachable in the drawer footer. */}
       {isMobile && (
         <div className='mt-auto flex justify-center border-t p-2.5'>
           <InterfaceControls />

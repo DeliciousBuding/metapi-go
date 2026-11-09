@@ -4,15 +4,8 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/inter';
-/* Editorial serif (Lora) backing the `serif` font axis — an explicit user
- * choice; every preset defaults to sans. See `--font-serif` in theme.css
- * for the full Latin + CJK fallback stack and `theme-presets.css` for the
- * cascade that activates it. Loaded globally so font-switching is
- * instantaneous with no FOUT once the variable is fetched. */
-@import '@fontsource-variable/lora';
 
 @import './theme.css';
-@import './theme-presets.css';
 
 /* Shiki dual themes: token colors follow dark theme (pre background stays `bg-background` on the block) */
 @layer components {
@@ -42,9 +35,6 @@
   }
   body {
     @apply bg-background text-foreground has-[div[data-variant='inset']]:bg-sidebar min-h-svh w-full text-sm;
-    /* Font is driven by the theme's font axis via `--font-body`
-     * (defined in theme.css, swapped by `[data-theme-font='...']` blocks
-     * in theme-presets.css). Defaults to the project's humanist sans. */
     font-family: var(--font-body);
   }
 
@@ -434,4 +424,13 @@
 
 @utility page-title-overview {
   @apply text-3xl leading-tight font-semibold tracking-tight text-balance;
+}
+
+/* Keep the console readable on ultrawide displays without a layout setting. */
+@media (min-width: 1920px) {
+  [data-slot='sidebar-inset'] > * {
+    max-width: 1920px;
+    margin-inline: auto;
+    width: 100%;
+  }
 }

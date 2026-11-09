@@ -1,22 +1,5 @@
-// Theme contrast gate.
-//
-// Statically parses the OKLCH tokens from theme.css / theme-presets.css,
-// resolves the cascade (base -> preset block -> semantic surface bridge),
-// converts OKLCH -> OKLab -> linear sRGB -> gamma sRGB, and computes WCAG
-// 2.x contrast ratios. Every tracked foreground/background pair must clear
-// AA 4.5:1 across all 10 presets x {light, dark}; known residuals need a
-// documented exemption (a11y-checklist.md §7).
-//
-// The 2026-09 palette redesign made every tracked value *derived*: hues are
-// role assignments (semantic tones, a 40-degree preset wheel), chroma is a
-// per-role constant, and each constrained lightness is solved against its
-// floor here. This gate is what makes that derivation a contract rather than
-// a claim:
-//   1. solid pairs (CTA / semantic / sidebar accents) — AA 4.5:1
-//   2. soft-badge inks (`<tone>-soft-fg`) on their `/10` (`/20`) fills — AA
-//   3. the retired base-on-soft recipe — quarantined above a loud floor
-//   4. chart-1..5 as HttpStatusBadge text on card — AA 4.5:1, not 3:1
-//   5. focus ring on background/card — WCAG 1.4.11 non-text 3:1
+// Theme contrast gate: the two shipped modes retain AA text contrast,
+// soft-badge contrast, chart-label contrast and 3:1 focus indicators.
 
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -113,13 +96,6 @@ const VAR_RE = /^var\(\s*(--[\w-]+)\s*\)$/
 const MIX_RE =
   /^color-mix\(\s*in oklch,\s*var\(\s*(--[\w-]+)\s*\)\s*([\d.]+)%\s*,\s*var\(\s*(--[\w-]+)\s*\)\s*\)$/
 
-type BlockKind =
-  | 'root'
-  | 'dark'
-  | 'preset'
-  | 'preset-dark'
-  | 'bridge'
-  | 'bridge-dark'
 type TokenMap = Record<string, string>
 
 function parseBlocks(
@@ -150,94 +126,12 @@ function parseBlocks(
   return blocks
 }
 
-function classify(selector: string): {
-  kind: BlockKind | null
-  preset: string | null
-} {
-  const s = selector.split(/\s+/).join(' ')
-  const presetMatch = s.match(/\[data-theme-preset='([\w-]+)'\]/)
-  if (presetMatch && !s.includes(':not(')) {
-    return {
-      kind: s.startsWith('.dark') ? 'preset-dark' : 'preset',
-      preset: presetMatch[1],
-    }
-  }
-  if (s.includes(":not([data-theme-preset='default'])")) {
-    return {
-      kind: s.startsWith('.dark') ? 'bridge-dark' : 'bridge',
-      preset: null,
-    }
-  }
-  if (s === ':root') return { kind: 'root', preset: null }
-  if (s === '.dark') return { kind: 'dark', preset: null }
-  return { kind: null, preset: null }
-}
-
-const PRESETS = [
-  'default',
-  'cobalt',
-  'lagoon',
-  'kelp',
-  'moss',
-  'ochre',
-  'ember',
-  'berry',
-  'plum',
-  'graphite',
-]
-
-// Presets tinted by the semantic surface bridge in theme-presets.css.
-const BRIDGE_PRESETS = new Set([
-  'cobalt',
-  'lagoon',
-  'kelp',
-  'moss',
-  'ochre',
-  'ember',
-  'berry',
-  'plum',
-])
-
-function loadTokenData() {
-  const data: Record<BlockKind, Record<string, TokenMap>> = {
-    root: { '': {} },
-    dark: { '': {} },
-    preset: {},
-    'preset-dark': {},
-    bridge: { '': {} },
-    'bridge-dark': { '': {} },
-  }
-  for (const file of ['src/styles/theme.css', 'src/styles/theme-presets.css']) {
-    for (const { selector, decls } of parseBlocks(read(file))) {
-      const { kind, preset } = classify(selector)
-      if (!kind) continue
-      if (kind === 'preset' || kind === 'preset-dark') {
-        data[kind][preset ?? ''] = { ...data[kind][preset ?? ''], ...decls }
-      } else {
-        data[kind][''] = { ...data[kind][''], ...decls }
-      }
-    }
-  }
-  return data
-}
-
-const DATA = loadTokenData()
-
-/** Effective raw token map for preset x mode, honoring cascade specificity:
- * bridge (0,3,0) > preset block (0,2,0) > theme.css base (0,1,0). */
-function effectiveTokens(preset: string, mode: 'light' | 'dark'): TokenMap {
-  const tokens: TokenMap = {
-    ...(mode === 'dark' ? DATA.dark[''] : DATA.root['']),
-  }
-  const bridgeKeys = new Set<string>()
-  if (BRIDGE_PRESETS.has(preset)) {
-    const bridge = DATA[mode === 'dark' ? 'bridge-dark' : 'bridge']['']
-    Object.assign(tokens, bridge)
-    for (const key of Object.keys(bridge)) bridgeKeys.add(key)
-  }
-  const block = DATA[mode === 'dark' ? 'preset-dark' : 'preset'][preset] ?? {}
-  for (const [key, value] of Object.entries(block)) {
-    if (!bridgeKeys.has(key)) tokens[key] = value
+function effectiveTokens(mode: 'light' | 'dark'): TokenMap {
+  const blocks = parseBlocks(read('src/styles/theme.css'))
+  const selector = mode === 'dark' ? '.dark' : ':root'
+  const tokens = blocks.find((block) => block.selector === selector)?.decls
+  if (!tokens || Object.keys(tokens).length === 0) {
+    throw new Error(`Theme tokens missing for ${mode}`)
   }
   return tokens
 }
@@ -270,37 +164,28 @@ function resolveValue(
   return null
 }
 
-function tokenRgb(
-  preset: string,
-  mode: 'light' | 'dark',
-  token: string
-): Rgb | null {
-  const tokens = effectiveTokens(preset, mode)
+function tokenRgb(mode: 'light' | 'dark', token: string): Rgb | null {
+  const tokens = effectiveTokens(mode)
   const color = resolveValue(tokens[`--${token}`], tokens)
   if (!color) return null
   return oklchToSrgb(color)
 }
 
 function pairRatio(
-  preset: string,
   mode: 'light' | 'dark',
   fg: string,
   bg: string
 ): number | null {
-  const f = tokenRgb(preset, mode, fg)
-  const b = tokenRgb(preset, mode, bg)
+  const f = tokenRgb(mode, fg)
+  const b = tokenRgb(mode, bg)
   if (!f || !b) return null
   return contrastRatio(f, b)
 }
 
 /** Soft badges render text-<tone>-soft-fg on bg-<tone>/10 (destructive uses
  * /20 in dark per badge.tsx/button.tsx) composited over the card surface. */
-function softRatio(
-  preset: string,
-  mode: 'light' | 'dark',
-  tone: string
-): number | null {
-  const tokens = effectiveTokens(preset, mode)
+function softRatio(mode: 'light' | 'dark', tone: string): number | null {
+  const tokens = effectiveTokens(mode)
   const fg = resolveValue(tokens[`--${tone}-soft-fg`], tokens)
   const base = resolveValue(tokens[`--${tone}`], tokens)
   const card = resolveValue(tokens['--card'], tokens)
@@ -313,12 +198,8 @@ function softRatio(
 /** The legacy recipe the status-color batch replaced: text-<tone> (the base color
  * itself) on bg-<tone>/10. Kept under gate so a reintroduction cannot drift
  * below where it ships today without a documented exemption. */
-function baseOnSoftRatio(
-  preset: string,
-  mode: 'light' | 'dark',
-  tone: string
-): number | null {
-  const tokens = effectiveTokens(preset, mode)
+function baseOnSoftRatio(mode: 'light' | 'dark', tone: string): number | null {
+  const tokens = effectiveTokens(mode)
   const base = resolveValue(tokens[`--${tone}`], tokens)
   const card = resolveValue(tokens['--card'], tokens)
   if (!base || !card) return null
@@ -351,42 +232,36 @@ const FOCUS_RING_MIN = 3
 const FOCUS_RING_SURFACES = ['background', 'card']
 
 /** Known residuals outside the 2026-08-23 fix scope (a11y-checklist §7).
- * Key: `${preset}|${mode}|${label}`. */
+ * Key: `${mode}|${label}`. */
 const EXEMPTIONS: Record<string, string> = {}
 
 describe('theme contrast gate (WCAG AA 4.5:1)', () => {
-  it('every tracked pair passes AA across 10 presets x both modes (or is a documented exemption)', () => {
+  it('every tracked pair passes AA in light and dark (or is a documented exemption)', () => {
     const failures: string[] = []
-    for (const preset of PRESETS) {
-      for (const mode of ['light', 'dark'] as const) {
-        for (const [fg, bg] of SOLID_PAIRS) {
-          const label = `${fg} on ${bg}`
-          const ratio = pairRatio(preset, mode, fg, bg)
-          if (ratio === null) {
-            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
-            continue
-          }
-          const key = `${preset}|${mode}|${label}`
-          if (ratio < AA && !(key in EXEMPTIONS)) {
-            failures.push(
-              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
-            )
-          }
+    for (const mode of ['light', 'dark'] as const) {
+      for (const [fg, bg] of SOLID_PAIRS) {
+        const label = `${fg} on ${bg}`
+        const ratio = pairRatio(mode, fg, bg)
+        if (ratio === null) {
+          failures.push(`${mode}: ${label} could not be resolved`)
+          continue
         }
-        for (const tone of SOFT_TONES) {
-          const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
-          const label = `${tone}-soft-fg on ${tone}/${alpha}`
-          const ratio = softRatio(preset, mode, tone)
-          if (ratio === null) {
-            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
-            continue
-          }
-          const key = `${preset}|${mode}|${label}`
-          if (ratio < AA && !(key in EXEMPTIONS)) {
-            failures.push(
-              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
-            )
-          }
+        const key = `${mode}|${label}`
+        if (ratio < AA && !(key in EXEMPTIONS)) {
+          failures.push(`${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`)
+        }
+      }
+      for (const tone of SOFT_TONES) {
+        const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
+        const label = `${tone}-soft-fg on ${tone}/${alpha}`
+        const ratio = softRatio(mode, tone)
+        if (ratio === null) {
+          failures.push(`${mode}: ${label} could not be resolved`)
+          continue
+        }
+        const key = `${mode}|${label}`
+        if (ratio < AA && !(key in EXEMPTIONS)) {
+          failures.push(`${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`)
         }
       }
     }
@@ -399,81 +274,69 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
     // (text-<tone> on bg-<tone>/10) was retired from the shipped UI because
     // it measures sub-AA almost everywhere. Nobody ships it anymore, so
     // per-pair AA here would just be an exemption wall. The floor instead
-    // pins the worst measured residual of the 2026-09 palette (lagoon light
-    // warning on warning/10 = 2.55:1) so any further catastrophic tone
-    // drift fails loudly — and a reintroduction of the recipe in a
+    // keeps the existing quarantine floor so catastrophic tone drift fails loudly — and a reintroduction of the recipe in a
     // component is caught in review against this documented quarantine.
     const QUARANTINE_MIN = 2.5
     const failures: string[] = []
-    for (const preset of PRESETS) {
-      for (const mode of ['light', 'dark'] as const) {
-        for (const tone of SOFT_TONES) {
-          const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
-          const label = `${tone} on ${tone}/${alpha}`
-          const ratio = baseOnSoftRatio(preset, mode, tone)
-          if (ratio === null) {
-            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
-            continue
-          }
-          if (ratio < QUARANTINE_MIN) {
-            failures.push(
-              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${QUARANTINE_MIN})`
-            )
-          }
+    for (const mode of ['light', 'dark'] as const) {
+      for (const tone of SOFT_TONES) {
+        const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
+        const label = `${tone} on ${tone}/${alpha}`
+        const ratio = baseOnSoftRatio(mode, tone)
+        if (ratio === null) {
+          failures.push(`${mode}: ${label} could not be resolved`)
+          continue
+        }
+        if (ratio < QUARANTINE_MIN) {
+          failures.push(
+            `${mode}: ${label} = ${ratio.toFixed(2)} (< ${QUARANTINE_MIN})`
+          )
         }
       }
     }
     expect(failures).toEqual([])
   })
 
-  it('chart colors clear AA text contrast on the card surface across presets and modes', () => {
+  it('chart colors clear AA text contrast on the card surface in light and dark', () => {
     // Chart series colors are also HttpStatusBadge text foregrounds
     // (text-chart-N in status-badge.tsx), so text AA applies, not the 3:1
     // non-text floor. Every chart value is solved against this floor at
     // design time; this test is what keeps the solved claim true.
     const failures: string[] = []
-    for (const preset of PRESETS) {
-      for (const mode of ['light', 'dark'] as const) {
-        const tokens = effectiveTokens(preset, mode)
-        const card = resolveValue(tokens['--card'], tokens)
-        for (const chart of CHART_TOKENS) {
-          const label = `${chart} on card`
-          const color = resolveValue(tokens[`--${chart}`], tokens)
-          if (!color || !card) {
-            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
-            continue
-          }
-          const ratio = contrastRatio(oklchToSrgb(color), oklchToSrgb(card))
-          if (ratio < AA) {
-            failures.push(
-              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
-            )
-          }
+    for (const mode of ['light', 'dark'] as const) {
+      const tokens = effectiveTokens(mode)
+      const card = resolveValue(tokens['--card'], tokens)
+      for (const chart of CHART_TOKENS) {
+        const label = `${chart} on card`
+        const color = resolveValue(tokens[`--${chart}`], tokens)
+        if (!color || !card) {
+          failures.push(`${mode}: ${label} could not be resolved`)
+          continue
+        }
+        const ratio = contrastRatio(oklchToSrgb(color), oklchToSrgb(card))
+        if (ratio < AA) {
+          failures.push(`${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`)
         }
       }
     }
     expect(failures).toEqual([])
   })
 
-  it('focus ring clears 3:1 (WCAG 1.4.11) on background and card across presets and modes', () => {
-    // --focus-ring is defined only in theme.css (no preset overrides), so it
-    // resolves identically for every preset — the loop still pins it
-    // per-preset so a future preset override cannot silently break it.
+  it('focus ring clears 3:1 (WCAG 1.4.11) on background and card in light and dark', () => {
+    // Focus indicators retain the non-text contrast floor in both modes.
     const failures: string[] = []
-    for (const preset of PRESETS) {
-      for (const mode of ['light', 'dark'] as const) {
-        for (const surface of FOCUS_RING_SURFACES) {
-          const label = `focus-ring on ${surface}`
-          const ratio = pairRatio(preset, mode, 'focus-ring', surface)
-          if (ratio === null) {
-            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
-            continue
-          }
-          if (ratio < FOCUS_RING_MIN) {
-            failures.push(
-              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${FOCUS_RING_MIN})`
-            )
-          }
+    for (const mode of ['light', 'dark'] as const) {
+      for (const surface of FOCUS_RING_SURFACES) {
+        const label = `focus-ring on ${surface}`
+        const ratio = pairRatio(mode, 'focus-ring', surface)
+        if (ratio === null) {
+          failures.push(`${mode}: ${label} could not be resolved`)
+          continue
+        }
+        if (ratio < FOCUS_RING_MIN) {
+          failures.push(
+            `${mode}: ${label} = ${ratio.toFixed(2)} (< ${FOCUS_RING_MIN})`
+          )
         }
       }
     }
@@ -482,26 +345,22 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
 
   it('exemptions still reference pairs that exist and stay below 6:1 (no silent scope creep)', () => {
     for (const key of Object.keys(EXEMPTIONS)) {
-      const [preset, mode, label] = key.split('|') as [
-        string,
-        'light' | 'dark',
-        string,
-      ]
+      const [mode, label] = key.split('|') as ['light' | 'dark', string]
       const match = label.match(/^(.+?) on (.+)$/)
       expect(match, `exemption key malformed: ${key}`).not.toBeNull()
       if (!match) continue
       const [, fg, bg] = match
       const ratio = bg.includes('/')
-        ? softRatio(preset, mode, bg.split('/')[0])
-        : pairRatio(preset, mode, fg, bg)
+        ? softRatio(mode, bg.split('/')[0])
+        : pairRatio(mode, fg, bg)
       expect(ratio, `exemption no longer resolves: ${key}`).not.toBeNull()
       if (ratio !== null) expect(ratio).toBeLessThan(6)
     }
   })
 
   it('the 2026-09 redesign values stay pinned', () => {
-    const val = (preset: string, mode: 'light' | 'dark', token: string) => {
-      const tokens = effectiveTokens(preset, mode)
+    const val = (mode: 'light' | 'dark', token: string) => {
+      const tokens = effectiveTokens(mode)
       return resolveValue(tokens[`--${token}`], tokens)
     }
     const close = (actual: Oklch | null, l: number, c: number, h: number) => {
@@ -513,30 +372,18 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
     }
     // Brand primary: indigo 262, lightness solved against AA with its
     // foreground in both modes (white text light, dark ink dark).
-    close(val('default', 'light', 'primary'), 0.565, 0.19, 262)
-    close(val('default', 'dark', 'primary'), 0.71, 0.155, 262)
+    close(val('light', 'primary'), 0.565, 0.19, 262)
+    close(val('dark', 'primary'), 0.71, 0.155, 262)
     // Semantic tones: solved per role, white text light / dark ink dark.
-    close(val('default', 'light', 'destructive'), 0.58, 0.21, 24)
-    close(val('default', 'dark', 'destructive'), 0.58, 0.19, 24)
-    close(val('default', 'light', 'success'), 0.54, 0.14, 152)
-    close(val('default', 'light', 'info'), 0.54, 0.12, 222)
+    close(val('light', 'destructive'), 0.58, 0.21, 24)
+    close(val('dark', 'destructive'), 0.58, 0.19, 24)
+    close(val('light', 'success'), 0.54, 0.14, 152)
+    close(val('light', 'info'), 0.54, 0.12, 222)
     // Soft-badge inks stay independent tokens (solved on the tinted fill).
-    close(val('default', 'light', 'destructive-soft-fg'), 0.495, 0.15, 24)
-    close(val('default', 'dark', 'info-soft-fg'), 0.72, 0.1, 222)
-    // Preset wheel: every chromatic preset dark primary is the lifted
-    // pastel + ink pairing at the preset's wheel hue.
-    close(val('cobalt', 'dark', 'primary'), 0.71, 0.15, 230)
-    close(val('ember', 'dark', 'primary'), 0.71, 0.15, 40)
-    close(val('plum', 'dark', 'primary'), 0.71, 0.15, 314)
+    close(val('light', 'destructive-soft-fg'), 0.495, 0.15, 24)
+    close(val('dark', 'info-soft-fg'), 0.72, 0.1, 222)
     // Sidebar active-item ink: distinct from the muted nav text while still
     // clearing AA on the 12% primary tint.
-    close(val('default', 'light', 'sidebar-accent-foreground'), 0.45, 0.1, 262)
-    // No preset reintroduces a per-mode sidebar-accent-foreground override
-    // in light mode: the bridge owns that slot (dead declarations would be
-    // silently shadowed by its higher specificity).
-    for (const preset of BRIDGE_PRESETS) {
-      const light = DATA['preset'][preset] ?? {}
-      expect(light['--sidebar-accent-foreground']).toBeUndefined()
-    }
+    close(val('light', 'sidebar-accent-foreground'), 0.45, 0.1, 262)
   })
 })

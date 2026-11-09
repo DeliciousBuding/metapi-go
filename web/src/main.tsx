@@ -10,7 +10,6 @@ import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { ReauthProvider } from '@/components/common/reauth-provider'
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import { getCspNonce } from '@/lib/csp-nonce'
 import { queryClient, router } from '@/lib/router'
@@ -46,11 +45,9 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <ThemeCustomizationProvider>
-            <ReauthProvider>
-              <RouterProvider router={router} />
-            </ReauthProvider>
-          </ThemeCustomizationProvider>
+          <ReauthProvider>
+            <RouterProvider router={router} />
+          </ReauthProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>

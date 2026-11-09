@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import {
   afterEach,
@@ -17,7 +18,6 @@ import {
 } from 'vitest'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import i18n from '@/i18n/config'
 
@@ -61,31 +61,31 @@ afterEach(() => cleanup())
 function renderControls() {
   return render(
     <ThemeProvider defaultTheme='light'>
-      <ThemeCustomizationProvider>
-        <InterfaceControls />
-      </ThemeCustomizationProvider>
+      <InterfaceControls />
     </ThemeProvider>
   )
 }
 
 describe('interface controls', () => {
-  it('exposes language, appearance, and color-scheme controls', () => {
+  it('exposes language and one appearance entry', () => {
     renderControls()
 
     expect(screen.getByRole('button', { name: 'Language' })).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Customize appearance' })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Toggle theme' })
-    ).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
-  it('toggles the resolved color scheme instead of the stored system value', async () => {
+  it('changes color scheme through the appearance entry', async () => {
     renderControls()
     await waitFor(() => expect(document.documentElement).toHaveClass('light'))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Customize appearance' })
+    )
+    const popover = await screen.findByRole('dialog', { name: 'Appearance' })
+    fireEvent.click(within(popover).getByRole('radio', { name: 'Dark' }))
 
     await waitFor(() => expect(document.documentElement).toHaveClass('dark'))
     expect(document.documentElement.style.colorScheme).toBe('dark')

@@ -27,6 +27,8 @@
 - 复用 Base UI/shadcn 原语和语义主题 token。视觉约束见
   [设计系统](../docs/internal/design/DESIGN.md)，组件职责见
   [组件地图](../docs/internal/design/components.md)，不建立平行原语或 token 体系。
+  主任务与主操作优先，低频配置按任务展开；装饰性选择由设计系统统一决定，
+  不做成用户选项。保留可访问性与可行动的诊断信息。
 - 使用 React Hook Form + Zod 及现有 `Form`、`FormField`、`FormControl`。
   复合控件把注入的 ID、ARIA 属性传给可访问根节点，保留校验聚焦和 label 关联；
   验证 accessible name、键盘行为和 invalid 状态。

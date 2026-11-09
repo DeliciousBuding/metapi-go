@@ -2,9 +2,9 @@
 
 **Product**: Metapi admin
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
-**Visual language**: GCP cloud console density + frosted glass shell + Apple detail
-**Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-10-19
+**Visual language**: Restrained desktop console, clear task hierarchy, shared Base UI/shadcn components
+**Source of truth**: this document + `web/src/styles/theme.css` + `web/src/lib/theme-scale.ts` + `web/src/components/ui/**`
+**Last updated**: 2026-11-10
 
 ---
 
@@ -14,12 +14,12 @@
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Product voice   | Professional, dense, high-signal ops UI                                                                                                                                                                                                                                                                               |
 | Audience        | Operators managing multi-site API gateways, keys, and routing                                                                                                                                                                                                                                                         |
-| Personality     | Calm GCP control room with Apple-grade materials — not consumer marketing                                                                                                                                                                                                                                             |
+| Personality     | Calm, consistent administration with emphasis on the current task                                                                                                                                                                                                                                             |
 | Density default | Comfortable-dense (admin tables + KPI cards coexist); density axis `data-theme-scale`                                                                                                                                                                                                                                 |
 | Brand color     | **Indigo family** — light primary `oklch(0.565 0.19 262)` (white text), dark primary `oklch(0.71 0.155 262)` (dark ink); every constrained lightness is solved against its WCAG floor (see §2.3; exact values live in `theme.css`, never hard-code hex)                                                                                                                                          |
 | Logo mark       | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
-| Fonts           | **Inter + native CJK**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
-| High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); full remains fluid until 1920px, then caps the content scan width at 1920px; centered clamps to `--max-content-width` (1280px) at ≥1280px. The sidebar and header remain viewport-wide. Utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px) serve individual pages. |
+| Fonts           | **Inter + native CJK**, locally bundled Latin face and platform CJK rendering                                                                                                                                                                                                                            |
+| High-res        | Content stays fluid below 1920px and caps its scan width at 1920px on ultrawide displays. The sidebar and header remain viewport-wide; page-specific widths use the existing container utilities. |
 
 **Primary workspace**: desktop administration. Judge hierarchy, density and
 multi-column composition at 1440–1920px first. Mobile adapts the same tasks
@@ -97,6 +97,21 @@ supply; channels join routes and models; downstream keys are the access surface;
 logs and observability form the diagnosis surface. The grouping changes labels
 and order only — every existing URL, deep link, and drill-in workspace remains
 stable, so bookmarks and cross-page links keep working.
+
+产品主线是接入上游、完成下游请求、判断失败原因并恢复。界面以这段任务链
+安排信息和操作：主要工作占据视觉中心，导航与辅助信息退后，必要的高级配置
+在对应任务中展开。功能、配置项与导入字段必须有当前消费者和明确用途，
+不以竞品的功能数量或源配置完整度决定产品范围。
+
+外观只提供浅色、深色、跟随系统和显示大小。配色、字体、圆角与内容宽度由
+设计系统统一决定；显示大小保留紧凑、默认、舒适和大字，兼顾表格密度与阅读。
+页头与移动侧栏共用单一外观入口，图标反映实际显示模式。旧显示模式和字号
+cookie 保持，已取消的装饰偏好不再应用。
+
+参考原则来自 [Linear 的界面收口](https://linear.app/now/behind-the-latest-design-refresh)
+与 [Geist 的语义颜色](https://vercel.com/geist/colors)：减少无用途的控件与分隔，
+保持主次层级和可读的状态。交互沿用 [Base UI 的键盘与焦点约定](https://base-ui.com/react/overview/accessibility)，
+不引入另一套组件、字体或主题系统。借鉴解决方法，不复制其他产品的功能清单。
 
 **Principles**
 
@@ -211,20 +226,16 @@ deletion retains undo, and dependent deletion reviews the server's current impac
 
 ## 2. Color tokens
 
-All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` (dark); presets override them per `data-theme-preset` in `theme-presets.css`.
+All color values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` (dark). Both modes share the same semantic roles.
 
 ### 2.1 Theme architecture
 
 | Layer | Mechanism |
 | ----- | --------- |
 | Theme mode   | `<html>` carries `class="dark"` or `class="light"` plus a `data-theme` attribute (compat), set by `ThemeProvider` and the FOUC bootstrap in `web/index.html`; persisted in the `vite-ui-theme` cookie (1y) and falling back to `prefers-color-scheme` |
-| Preset       | `<body data-theme-preset>` — 10 shipped presets: default, graphite, cobalt, lagoon, kelp, moss, ochre, ember, berry, plum |
-| Font axis    | `<body data-theme-font>` — `sans` or `serif` (the `default` setting resolves to `sans`, see `public/theme-init.js`); swaps `--font-body` |
-| Radius axis  | `<body data-theme-radius>` — `default`, `none`, `sm`, `md`, `lg`, `xl`; overrides `--radius` |
 | Density axis | `<body data-theme-scale>` — `default`, `sm`, `lg`, `xl`; rescales `--text-*` and `--spacing` |
-| Content axis | `<body data-theme-content-layout>` — `full` or `centered` |
 
-Constants (allowed values, defaults, cookies `theme_preset` / `theme_font` / `theme_radius` / `theme_scale` / `theme_content_layout`): `web/src/lib/theme-customization.ts`.
+Display-size constants and the retained `theme_scale` cookie: `web/src/lib/theme-scale.ts`. `ThemeProvider` owns mode and size; `public/bootstrap.js` and `public/theme-init.js` apply those preferences before mount.
 
 ### 2.2 Core semantic surfaces
 
@@ -253,7 +264,6 @@ Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--backgrou
 | `--neutral`                                            | `oklch(0.556 0 0)`                                           | `oklch(0.7 0.004 262)`                                       | Cool gray secondary                 |
 | `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary                              | derived from background/primary                              | Sidebar canvas, brand, active tones |
 
-Presets replace `--primary` and the derived accent/ring/chart slots per `data-theme-preset` (e.g. ember `oklch(0.575 0.17 40)` with its split-complementary teal secondary); `graphite` carries a full achromatic palette.
 
 ### 2.4 Status semantics
 
@@ -293,12 +303,12 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 | Family           | Mechanism                                                                                                                                                                                                                                                                                                                                           | Notes                                                                                                                                                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Spacing          | Tailwind 4 scale — base `--spacing` (default 0.25rem; `data-theme-scale` overrides 0.225 / 0.28 / 0.3rem)                                                                                                                                                                                                                                           | `gap-*`, `p-*`, `m-*`, `space-y-*`; no custom `--space-*`                                                                                                                                        |
-| Radius           | `--radius: 0.625rem` (10px default) with `--radius-sm/md/lg/xl/2xl/3xl/4xl` derived; `data-theme-radius` overrides `--radius` (none 0 · sm 0.3 · md 0.5 · lg 0.75 · xl 1rem)                                                                                                                                                                                 | Controls/buttons `rounded-lg`; cards/sheets `rounded-xl`+                                                                                                                                        |
+| Radius           | `--radius: 0.625rem` (10px default), with the existing derived radius tokens | Component-owned corners, consistent across both modes |
 | Shadow           | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`)                                                                                                                                                                                                                                                                         | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows                                                                                                                            |
 | Motion           | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + the keyframes actually defined in `styles/index.css` (`tableRowEnter`, `sidebarViewEnter`, `slideDown`/`slideUp`, skeleton `shimmer`)                                                                                                                                                                                               | Calm; every animation guarded by `prefers-reduced-motion`                                                                                                                                        |
-| Type             | `--font-sans` Inter Variable (Latin) + native CJK fallbacks (PingFang / Microsoft YaHei UI / Noto Sans CJK) · `--font-serif` Lora Variable + CJK serif fallbacks (native CJK serif fallback) · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face · `:root[lang\|='zh']` zeroes `--tracking-tight` and the editorial tracking tokens (negative tracking is a Latin display convention; ideographs keep their side bearing)                                                                                                                     | `data-theme-font` swaps the body face; density axis rescales `--text-2xs…3xl` (sub-xs caption tokens registered in theme.css so captions ride the axis instead of freezing at px literals); visible axis tick labels and body text minimum 10px — 9px only allowed for decorative labels with a `title`/`aria-label` fallback |
-| Page title scale | Landing/hub pages: `page-title-overview` (30px default); data/list pages: `page-title` (24px default). Both use semibold, tight leading and balanced wrapping | Exactly one h1 per page; Chinese tracking stays neutral; serif axis retains medium weight; title line-height follows density scaling |
-| Layout | `data-theme-content-layout` remains `full` or `centered`; full caps content at 1920px above ultrawide viewports, centered caps at 1280px from 1280px viewport width; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Header and sidebar remain viewport-wide; only the inset content is constrained |
+| Type             | `--font-sans` Inter Variable + native CJK fallbacks; `--font-mono` Cascadia/SFMono/Consolas; `--font-body` follows the sans stack. Chinese headings keep neutral tracking. | Display size rescales the existing text and spacing tokens; code and numeric roles remain distinct. |
+| Page title scale | Landing/hub pages: `page-title-overview` (30px default); data/list pages: `page-title` (24px default). Both use semibold, tight leading and balanced wrapping | Exactly one h1 per page; Chinese tracking stays neutral; title line-height follows display size |
+| Layout | Content is fluid until ultrawide viewports, then caps at 1920px; existing page container utilities remain available | Header and sidebar stay viewport-wide; layout is responsive, without a user preference |
 
 ### 3.1 Reading hierarchy and controls
 

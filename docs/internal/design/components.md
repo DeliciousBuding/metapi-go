@@ -1,6 +1,6 @@
 # UI component ownership map
 
-**Last updated**: 2026-10-19
+**Last updated**: 2026-11-10
 
 The implementation is the primitive API source of truth. The pre-rewrite `ds-*` library and its gallery no longer exist; use Git history when that implementation history is needed.
 
@@ -11,7 +11,7 @@ The implementation is the primitive API source of truth. The pre-rewrite `ds-*` 
 | Data-table composition            | `web/src/components/data-table/**` (public surface is its `index.ts`; see [`web-package-boundaries.md`](../web-package-boundaries.md) rule 6) |
 | Form plumbing                     | `web/src/components/form/**` (dirty-close guard)                          |
 | Application shell                 | `web/src/components/layout/**`                                            |
-| Semantic tokens                   | `web/src/styles/theme.css` and `theme-presets.css`                        |
+| Semantic tokens                   | `web/src/styles/theme.css`                        |
 | Tailwind entry and global recipes | `web/src/styles/index.css`                                                |
 | Visual and accessibility rules    | [`DESIGN.md`](./DESIGN.md) and [`a11y-checklist.md`](./a11y-checklist.md) |
 

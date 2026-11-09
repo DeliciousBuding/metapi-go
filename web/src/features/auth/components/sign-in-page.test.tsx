@@ -2,7 +2,6 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import '@/i18n/config'
 
@@ -34,9 +33,7 @@ describe('sign-in page interface controls', () => {
   it('uses the same language and theme controls as the authenticated shell', () => {
     render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage />
-        </ThemeCustomizationProvider>
+        <SignInPage />
       </ThemeProvider>
     )
 
@@ -44,17 +41,13 @@ describe('sign-in page interface controls', () => {
     expect(
       screen.getByRole('button', { name: 'Customize appearance' })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Toggle theme' })
-    ).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
   it('keeps the login task without deployment instructions or token-source guidance', () => {
     render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage />
-        </ThemeCustomizationProvider>
+        <SignInPage />
       </ThemeProvider>
     )
 
@@ -70,9 +63,7 @@ describe('sign-in page interface controls', () => {
   it('shows the token-changed notice only when the reason param says so', () => {
     const { unmount } = render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage noticeReason='tokenChanged' />
-        </ThemeCustomizationProvider>
+        <SignInPage noticeReason='tokenChanged' />
       </ThemeProvider>
     )
 
@@ -85,9 +76,7 @@ describe('sign-in page interface controls', () => {
 
     render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage />
-        </ThemeCustomizationProvider>
+        <SignInPage />
       </ThemeProvider>
     )
     expect(

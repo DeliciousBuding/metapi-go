@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- 页头与移动侧栏共用单一外观入口，设置精简为浅色、深色、跟随系统和显示大小；统一配色、字体、圆角及自动内容宽度，保留已保存的模式与字号。移除多轴主题状态、配色覆盖和仅供主题选择使用的衬线字体依赖。
+
 - 视频 provider：可显式声明 `deleteTask` / `remix`，复用原任务程序、授权与累计用量；删除保留原生 204，remix 创建独立任务且写操作不重放。回退前处理含新 hook 的模块及持久任务（#1589）。
 
 - 升级开发和 CI 工具链至 Go 1.27、Bun 1.4、Node 26 LTS 与 golangci-lint v2，统一构建镜像和配置 schema，保留完整检查及既有例外。

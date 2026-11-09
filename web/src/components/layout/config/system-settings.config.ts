@@ -1,7 +1,7 @@
 // metapi-go/layout — the Settings drill-in view: its back target and its
 // navigation groups.
 //
-// Settings is five subareas (basic / proxy-models / downstream / content /
+// Settings is four subareas (basic / proxy-models / content /
 // operations), each rendered as a `NavCollapsible` whose sub-items are that
 // subarea's sections, read from the shared section-registry manifest so a
 // section added by a feature appears in the sidebar without an edit here.

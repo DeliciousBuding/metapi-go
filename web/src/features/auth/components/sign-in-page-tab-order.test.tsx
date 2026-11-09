@@ -2,7 +2,6 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import '@/i18n/config'
 
@@ -52,9 +51,7 @@ describe('sign-in page tab order', () => {
   it('reaches the corner interface controls only after the card content', () => {
     const { container } = render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage />
-        </ThemeCustomizationProvider>
+        <SignInPage />
       </ThemeProvider>
     )
 
@@ -67,16 +64,13 @@ describe('sign-in page tab order', () => {
       'mock submit',
       'Language',
       'Customize appearance',
-      'Toggle theme',
     ])
   })
 
   it('moves directly from the login task to the interface controls', () => {
     render(
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <SignInPage />
-        </ThemeCustomizationProvider>
+        <SignInPage />
       </ThemeProvider>
     )
 

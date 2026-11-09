@@ -4061,7 +4061,6 @@
     "Toggle Sidebar": "Toggle Sidebar",
     "theme": {
       "title": "Appearance",
-      "reset": "Reset",
       "appearance": "Customize appearance",
       "colorScheme": "Color scheme",
       "colorSchemeOptions": {
@@ -4069,47 +4068,13 @@
         "dark": "Dark",
         "system": "System"
       },
-      "colorPreset": "Color preset",
-      "font": "Font",
-      "fontOptions": {
-        "auto": "Auto",
-        "sans": "Sans",
-        "serif": "Serif"
-      },
-      "radius": "Border radius",
-      "radiusOptions": {
-        "auto": "Auto",
-        "none": "None",
-        "sm": "Small",
-        "md": "Medium",
-        "lg": "Large",
-        "xl": "Extra large"
-      },
-      "scale": "Scale",
+      "scale": "Display size",
       "scaleOptions": {
-        "auto": "Auto",
-        "sm": "Small",
-        "lg": "Large",
-        "xl": "Extra large"
-      },
-      "contentLayout": "Content layout",
-      "contentLayoutOptions": {
-        "full": "Full width",
-        "centered": "Centered"
-      },
-      "preset": {
-        "default": "Default",
-        "graphite": "Graphite",
-        "cobalt": "Cobalt",
-        "lagoon": "Lagoon",
-        "kelp": "Kelp",
-        "moss": "Moss",
-        "ochre": "Ochre",
-        "ember": "Ember",
-        "berry": "Berry",
-        "plum": "Plum"
-      },
-      "toggle": "Toggle theme"
+        "auto": "Default",
+        "sm": "Compact",
+        "lg": "Roomy",
+        "xl": "Large"
+      }
     },
     "observability": {
       "title": "Observability",
