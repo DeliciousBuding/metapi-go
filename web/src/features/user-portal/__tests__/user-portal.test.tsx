@@ -11,7 +11,6 @@ import { AxiosError, type AxiosAdapter, type AxiosResponse } from 'axios'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import i18n from '@/i18n/config'
 import { apiClient } from '@/lib/http-client'
@@ -77,9 +76,7 @@ afterEach(() => {
 function mount(children: ReactNode) {
   return render(
     <QueryClientProvider client={client}>
-      <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>{children}</ThemeCustomizationProvider>
-      </ThemeProvider>
+      <ThemeProvider defaultTheme='light'>{children}</ThemeProvider>
     </QueryClientProvider>
   )
 }

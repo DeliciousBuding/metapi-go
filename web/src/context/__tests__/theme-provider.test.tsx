@@ -4,7 +4,13 @@
 // drop those inline styles so overscroll reveals the themed body background.
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react'
 import {
   afterEach,
   beforeAll,
@@ -15,7 +21,8 @@ import {
   vi,
 } from 'vitest'
 
-import { ThemeProvider } from '@/context/theme-provider'
+import { ThemeProvider, useTheme } from '@/context/theme-provider'
+import { THEME_SCALE_COOKIE } from '@/lib/theme-scale'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -35,7 +42,46 @@ beforeAll(() => {
 
 beforeEach(() => {
   document.cookie = 'vite-ui-theme=; Max-Age=0'
+  document.cookie = `${THEME_SCALE_COOKIE}=; Max-Age=0; path=/`
+  document.body.removeAttribute('data-theme-scale')
   document.documentElement.classList.remove('light', 'dark')
+})
+
+describe('ThemeProvider display size', () => {
+  function renderProvider() {
+    return renderHook(() => useTheme(), {
+      wrapper: ({ children }) => <ThemeProvider>{children}</ThemeProvider>,
+    })
+  }
+
+  it('retains the stored size and falls back from an unknown value', () => {
+    document.cookie = `${THEME_SCALE_COOKIE}=lg; path=/`
+    const stored = renderProvider()
+    expect(stored.result.current.scale).toBe('lg')
+    expect(document.body).toHaveAttribute('data-theme-scale', 'lg')
+    stored.unmount()
+
+    document.cookie = `${THEME_SCALE_COOKIE}=unknown; path=/`
+    const fallback = renderProvider()
+    expect(fallback.result.current.scale).toBe('default')
+    expect(document.body).not.toHaveAttribute('data-theme-scale')
+  })
+
+  it('persists size changes and restores the default without changing theme', () => {
+    const { result } = renderProvider()
+    act(() => {
+      result.current.setTheme('dark')
+      result.current.setScale('xl')
+    })
+    expect(document.cookie).toContain(`${THEME_SCALE_COOKIE}=xl`)
+    expect(document.body).toHaveAttribute('data-theme-scale', 'xl')
+    expect(document.documentElement).toHaveClass('dark')
+
+    act(() => result.current.setScale('default'))
+    expect(document.cookie).not.toContain(`${THEME_SCALE_COOKIE}=`)
+    expect(document.body).not.toHaveAttribute('data-theme-scale')
+    expect(document.documentElement).toHaveClass('dark')
+  })
 })
 
 afterEach(() => cleanup())

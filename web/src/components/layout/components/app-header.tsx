@@ -72,9 +72,8 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
       <div className='ms-auto flex shrink-0 items-center gap-1'>
         <SearchTrigger onClick={onSearchClick} />
         <AttentionBell />
-        {/* Mobile gets the language/palette/theme controls at the drawer
-            footer instead: seven 36px icons across a 375px bar was below
-            touch-target guidance and crowded the brand. */}
+        {/* Mobile keeps language and appearance in the drawer footer
+            so the header controls retain their touch targets. */}
         <InterfaceControls className='max-md:hidden' />
         <UserMenu />
       </div>

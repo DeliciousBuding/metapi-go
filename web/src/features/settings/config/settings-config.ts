@@ -1,4 +1,4 @@
-// metapi-go/features/settings/config — 5-subarea manifest + validation helpers.
+// metapi-go/features/settings/config — 4-subarea manifest + validation helpers.
 // Assembles each subarea's typed section-registry adapter into a single
 // string-typed list consumed by route guards + the generic SettingsPage.
 //

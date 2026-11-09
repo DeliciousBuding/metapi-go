@@ -3,7 +3,7 @@
 **Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/internal/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-10-19
+**Last updated**: 2026-11-10
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
 This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to a scoped GitHub issue.
@@ -75,7 +75,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Mobile hamburger / sidebar collapse | `切换侧边栏` (`Toggle Sidebar` key) — one static name for both directions | `web/src/components/ui/sidebar.tsx` (`SidebarTrigger`, mounted by `app-header.tsx`) |
 | Language toggle          | `语言` (`common.language`); menu options are bilingual (`common.languageName.*`) | `web/src/components/layout/components/interface-controls.tsx` |
 | Search trigger           | `搜索…` (`search.trigger`); the `Ctrl+K` hint is a visual `<Kbd>` sibling, not part of the name | `web/src/components/layout/components/app-header.tsx` |
-| Theme menu trigger       | `切换主题` (`theme.toggle`) — static name | `web/src/components/layout/components/interface-controls.tsx` |
+| Appearance trigger       | `自定义外观` (`theme.appearance`); the popover is labeled by its visible title | `web/src/components/theme-customizer.tsx` |
 | User menu trigger        | `用户菜单` (`userMenu.trigger`)        | `web/src/components/layout/components/user-menu.tsx`   |
 | Sidebar item (collapsed) | item label                           | `web/src/components/layout/components/app-sidebar.tsx` |
 | Mobile drawer close      | `关闭` (`common.close`)              | `web/src/components/ui/sheet.tsx`                      |
@@ -107,7 +107,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Ratios recomputed 2026-09-13 for the redesigned metapi palette (WCAG 2.x relative luminance over the shipped `web/src/styles/theme.css` OKLCH values; token map in `DESIGN.md` §2). Every constrained lightness is design-time-solved against its floor and pinned by `web/src/styles/__tests__/contrast-gate.test.ts`, which re-verifies every tracked pair — all 10 presets × both modes — on each run, so the numbers below are documentation, not the enforcement point.
+Ratios recomputed 2026-09-13 for the redesigned metapi palette (WCAG 2.x relative luminance over the shipped `web/src/styles/theme.css` OKLCH values; token map in `DESIGN.md` §2). Every constrained lightness is design-time-solved against its floor and pinned by `web/src/styles/__tests__/contrast-gate.test.ts`, which re-verifies every tracked pair — both shipped modes — on each run, so the numbers below are documentation, not the enforcement point.
 
 ### 4.1 Light theme
 
@@ -118,7 +118,7 @@ Ratios recomputed 2026-09-13 for the redesigned metapi palette (WCAG 2.x relativ
 | `--secondary-foreground` on `--secondary`                             | 12.8:1  | Pass                 | Nested wells                                                                                                                                           |
 | `--primary-foreground` on `--primary`                                 | 4.5:1   | Pass                 | Light-theme CTA — white on the brand indigo; lightness is solved at the AA floor (maximum vibrancy that still passes), and the contrast gate holds it there                                                          |
 | `--destructive-foreground` on `--destructive`                         | 4.6:1   | Pass                 | Errors, deletes — white on solved red                                                                                                                                                                     |
-| Soft-badge text (`*-soft-fg` inks) on `/10` fills                     | ≥ 5.4:1 | Pass                 | 12px soft badges — every `*-soft-fg` is a standalone ink solved against the tint composited over the most-tinted bridge card (measured 5.48–5.76 across all 10 presets) |
+| Soft-badge text (`*-soft-fg` inks) on `/10` fills                     | ≥ 5.4:1 | Pass                 | 12px soft badges — every `*-soft-fg` is a standalone ink solved against the tint composited over the most-tinted bridge card (the shipped light theme) |
 
 ### 4.2 Dark theme
 
@@ -130,7 +130,7 @@ Ratios recomputed 2026-09-13 for the redesigned metapi palette (WCAG 2.x relativ
 | `--secondary-foreground` on `--secondary` | 10.8:1 | Pass                 | Nested wells            |
 | `--primary-foreground` on `--primary`     | 6.8:1  | Pass                 | CTA — dark ink on the lifted pastel primary |
 | `--destructive-foreground` on `--destructive` | 4.5:1 | Pass                | White on solved red; attention-bell critical badge |
-| Soft-badge text (`*-soft-fg` inks) on `/10` fills | ≥ 5.1:1 | Pass           | Dark-mode warning/success reuse the base tone; info/destructive carry solved lifted inks (measured 5.14–6.85 across all 10 presets) |
+| Soft-badge text (`*-soft-fg` inks) on `/10` fills | ≥ 5.1:1 | Pass           | Dark-mode warning/success reuse the base tone; info/destructive carry solved lifted inks (the shipped dark theme) |
 
 ### 4.3 Contrast rules for implementers
 
@@ -222,7 +222,7 @@ Run against both light and dark themes.
 
 1. Login with keyboard only; confirm error text is readable.
 2. Tab through topbar; open search; type query; Esc closes; focus returns to trigger (ideal) or remains usable.
-3. Toggle theme menu; select Dark/Light/System.
+3. Open appearance settings; select Dark/Light/System.
 4. Desktop: collapse sidebar; Tab to icon rail; confirm names via screen reader or accessibility inspector.
 5. Mobile width 375: open nav drawer; Esc closes; navigate to Sites.
 

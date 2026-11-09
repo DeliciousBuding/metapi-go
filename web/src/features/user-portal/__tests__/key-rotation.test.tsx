@@ -10,7 +10,6 @@ import {
 import type { AxiosAdapter } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import i18n from '@/i18n/config'
 import { apiClient } from '@/lib/http-client'
@@ -87,9 +86,7 @@ function mount() {
   return render(
     <QueryClientProvider client={client}>
       <ThemeProvider defaultTheme='light'>
-        <ThemeCustomizationProvider>
-          <PortalKeys userId={1} />
-        </ThemeCustomizationProvider>
+        <PortalKeys userId={1} />
       </ThemeProvider>
     </QueryClientProvider>
   )

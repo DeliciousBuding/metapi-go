@@ -124,37 +124,20 @@ describe('typography design contract', () => {
   it('registers the sub-xs caption tokens and scales them with density', () => {
     // Without the @theme registration the `text-2xs` / `text-3xs` utilities
     // stop generating and every caption silently falls back to the inherited
-    // size; without the preset overrides they freeze at the md density.
+    // size; without the size overrides they freeze at the md density.
     const theme = read('src/styles/theme.css')
     expect(theme).toContain('--text-2xs: 0.6875rem')
     expect(theme).toContain('--text-3xs: 0.625rem')
 
-    const presets = read('src/styles/theme-presets.css')
+    const themeStyles = read('src/styles/theme.css')
     for (const scale of ['sm', 'lg', 'xl']) {
-      const block = presets.match(
+      const block = themeStyles.match(
         new RegExp(`\\[data-theme-scale='${scale}'\\]\\s*\\{([^}]+)\\}`)
       )?.[1]
       expect(block, `density ${scale}`).toBeDefined()
       expect(block).toContain('--text-2xs:')
       expect(block).toContain('--text-3xs:')
     }
-  })
-
-  it('keeps density scaling out of color presets', () => {
-    const presets = read('src/styles/theme-presets.css')
-    const graphite = presets.match(
-      /\[data-theme-preset='graphite'\]\s*\{([\s\S]*?)\n\}/
-    )?.[1]
-
-    expect(graphite).toBeDefined()
-    expect(graphite).not.toMatch(/--text-|--spacing/)
-  })
-
-  it('hydrates persisted visual axes before the app mounts', () => {
-    const script = read('public/theme-init.js')
-
-    expect(script).toContain("readCookie('theme_preset')")
-    expect(script).toContain("readCookie('theme_font')")
   })
 
   it('paints the boot background through the design token with a fallback', () => {

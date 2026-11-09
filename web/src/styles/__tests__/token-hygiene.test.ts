@@ -62,14 +62,6 @@ describe('design-token hygiene', () => {
     expect(theme).not.toContain('overview-accent')
   })
 
-  it('theme presets stop aliasing status colors to chart series', () => {
-    const presets = read('src/styles/theme-presets.css')
-    expect(presets).not.toMatch(/--success: var\(--chart-2\)/)
-    expect(presets).not.toMatch(/--warning: var\(--chart-4\)/)
-    expect(presets).not.toMatch(/--info: var\(--chart-1\)/)
-    expect(presets).not.toContain('overview-accent')
-  })
-
   it('cards do not lift on hover (no-lift contract)', () => {
     const css = read('src/styles/index.css')
     expect(css).not.toMatch(/data-slot='card'.*translateY\(-1px\)/s)
