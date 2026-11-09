@@ -196,10 +196,22 @@ The parser accepts its generated `edges` metadata and default settings, rejects
 ambiguous duplicate JSON keys and invalid source identities, and keeps secrets
 out of the preview. Unknown executable fields remain explicit incompatibilities.
 
+导入采用 MetAPI 的既有路由、凭据生命周期和协议执行器；不复制源服务的完整运行时。
+兼容边界是明确的产品取舍：保留原生路由、成功后的 Key 范围软偏好、Go RE2
+匹配和显式选定的供应商端点。源历史评分、选择时写入的 affinity、自定义
+部署级 trace 抽取、回溯正则和 Antigravity 隐式跨 origin 重试不进入执行合同。
+预览继续报告这些差异；不删除 residual，不以默认算法替换未知 Key 策略，也不解除
+受影响 Key 的 blocked 状态。需要不同路由行为时，应按原生合同显式配置新 Key，
+保持模型、渠道和额度授权；导入的源记录仍保留供迁移复核。
+
 Key/model routing policy was additionally audited against source `d96748f1`.
 Source system `retry_policy` routing defaults are flattened into each imported
 route, then explicit model settings override them; the active Key profile
 overrides the route at request time. `default` and `system_default` inherit.
+模型和系统级的 `adaptive`、`failover`、`circuit-breaker` 及其他显式非 round-robin
+策略按既有编译规则转成原生 `weighted`，并列出
+`model_strategy_approximated:<strategy>:<pattern>`。这是明确报告的近似，不能作为
+源评分等价性的证据；下面的 Key 覆盖限制仍单独生效。
 Source `round-robin` uses gateway `round_robin` rotation and reports
 `source_round_robin_replaced_by_gateway_rotation`: the source's decayed historical
 request scoring is not reproduced. Key `adaptive`, `failover` and
@@ -397,7 +409,10 @@ the current executable import contract:
   `ANTIGRAVITY_CLIENT_SECRET`; missing configuration prevents exchange.
   A channel selects one of the source's three
   official origins (daily by default); runtime never silently tries another
-  origin. Custom source endpoints, missing projects and unrelated origins are
+  origin. This single-origin policy is intentional: failover must be an explicit,
+  authorized route choice with a visible attempt, not a hidden adapter retry.
+  Source fallback remains a reported compatibility limit rather than a promised
+  automatic migration. Custom source endpoints, missing projects and unrelated origins are
   skipped. Native Gemini and configured protocol bridges share the Antigravity
   envelope/schema adapter; no API-key fallback is allowed.
 - GitHub Copilot, xAI subscription, Gemini
