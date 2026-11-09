@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 
@@ -103,10 +104,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 	if isMultipart {
 		mp, err := ParseMultipartFormData(r)
 		if err != nil {
-			if isRequestBodyTooLarge(err) {
-				return nil, &SurfResult{OK: false, Status: http.StatusRequestEntityTooLarge, Error: "request body too large", ErrorType: "invalid_request_error"}
-			}
-			return nil, &SurfResult{OK: false, Status: 400, Error: err.Error(), ErrorType: "invalid_request_error"}
+			return nil, requestBodyFailure(r, err, err.Error())
 		}
 		if mp != nil {
 			for key, values := range mp.Values {
@@ -119,10 +117,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		var err error
 		bodyBytes, err = io.ReadAll(r.Body)
 		if err != nil {
-			if isRequestBodyTooLarge(err) {
-				return nil, &SurfResult{OK: false, Status: http.StatusRequestEntityTooLarge, Error: "request body too large", ErrorType: "invalid_request_error"}
-			}
-			return nil, &SurfResult{OK: false, Status: 400, Error: "failed to read request body", ErrorType: "invalid_request_error"}
+			return nil, requestBodyFailure(r, err, "failed to read request body")
 		}
 		r.Body.Close()
 
@@ -213,6 +208,19 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		Multipart:      isMultipart,
 		MaxRetries:     maxRetries,
 	}, nil
+}
+
+func requestBodyFailure(r *http.Request, err error, message string) *SurfResult {
+	result := &SurfResult{OK: false, Status: http.StatusBadRequest, Error: message, ErrorType: "invalid_request_error"}
+	var timeout net.Error
+	switch {
+	case isRequestBodyTooLarge(err):
+		result.Status, result.Error = http.StatusRequestEntityTooLarge, "request body too large"
+	case errors.As(err, &timeout) && timeout.Timeout():
+		result.Status, result.Error = http.StatusRequestTimeout, "request body read timed out"
+		requestLifecycleFromContext(r.Context()).reject("request_body_timeout")
+	}
+	return result
 }
 
 func isRequestBodyTooLarge(err error) bool {

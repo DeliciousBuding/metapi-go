@@ -187,6 +187,12 @@ Status conventions (OpenAI-aligned):
 | RPM/TPM rate limit | 429 + `Retry-After` | `rate_limit_error` | `over_rpm` / `over_tpm` / `rate_limit_exceeded` / `global_token_rate_exceeded` |
 | Budget exhausted (`maxCost` / `maxRequests`) | 429 | `insufficient_quota` | `insufficient_quota` |
 | Body too large | 413 | `invalid_request_error` | — |
+| Request body read timeout | 408 | `invalid_request_error` | — |
+
+A timeout while reading JSON or multipart input returns
+`request body read timed out`. Its request record has
+`reasonCode=request_body_timeout` and no upstream attempt. This is separate
+from malformed JSON (400) and an upstream generation timeout.
 
 The admin surface (`/api/*`) keeps the flat `{"error", "errorCode"}` body
 documented in [conventions.md](conventions.md); the two contracts never mix
