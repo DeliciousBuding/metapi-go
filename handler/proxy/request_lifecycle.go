@@ -383,9 +383,18 @@ func (w *requestResponseWriter) ObserveProxyCredential(token string) {
 	}
 }
 func (w *requestResponseWriter) ObserveProxyRejection(code string) {
-	w.state.mu.Lock()
-	w.state.rejection = code
-	w.state.mu.Unlock()
+	w.state.reject(code)
+}
+func (s *requestLifecycle) reject(code string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	// The shared JSON writer must not replace a specific admission reason.
+	if code != "invalid_request" || s.rejection == "" {
+		s.rejection = code
+	}
+	s.mu.Unlock()
 }
 func (w *requestResponseWriter) ObserveProxyPanic() {
 	w.state.mu.Lock()

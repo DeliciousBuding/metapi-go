@@ -73,6 +73,10 @@ WS turn 无独立 HTTP 响应时 `httpStatus` 为 null，而不是握手的 101 
 包含 `{totalCount,completedCount,failedCount,cancelledCount,rejectedCount}`；
 `coverageStartedAt` 使用全部保留请求的最早 `startedAt`，不受列表筛选影响。
 
+请求体读取超时记录 HTTP 408、`reasonCode=request_body_timeout`，不会派发上游。
+只有完整解析请求或路径明确给出模型后才记录 `modelRequested`；读取未完成、
+坏 JSON 或不指定模型的 `/v1/models` 请求可保留 null，不从部分请求体猜测模型。
+
 | `terminalStatus` | 含义 |
 | --- | --- |
 | `completed` | 网关观察到正常协议结束，不仅是 HTTP 2xx |
