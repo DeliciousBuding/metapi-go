@@ -29,7 +29,9 @@ func limitedAxonHubHTTPFixture(t *testing.T, upstream string, limits channellimi
 		channel["settings"] = map[string]any{"rateLimit": limits}
 	})
 	db := store.GetDB()
-	manager := channellimit.NewManager()
+	// These assertions compare attempts in one bucket. Natural-minute rollover
+	// is covered independently by the limiter's clock-controlled tests.
+	manager := channellimit.NewManagerWithClock(func() time.Time { return time.Unix(120, 0) })
 	accounts := proxy.NewSiteConcurrencyLimiter()
 	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), config.Get(), nil, nil)
 	router.SetChannelLimits(manager)

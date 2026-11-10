@@ -61,7 +61,13 @@ type Snapshot struct {
 }
 
 func NewManager() *Manager {
-	return &Manager{states: make(map[int64]*state), now: time.Now}
+	return NewManagerWithClock(time.Now)
+}
+
+// NewManagerWithClock uses now for natural-minute accounting. Tests that need
+// exact counters can hold a window steady or advance it explicitly.
+func NewManagerWithClock(now func() time.Time) *Manager {
+	return &Manager{states: make(map[int64]*state), now: now}
 }
 
 func (m *Manager) get(id int64) *state {

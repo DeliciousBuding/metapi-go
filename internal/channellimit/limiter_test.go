@@ -153,9 +153,8 @@ func TestChannelAdmissionGrantCancellationRace(t *testing.T) {
 }
 
 func TestChannelRPMAtomicAndNaturalMinuteRollover(t *testing.T) {
-	manager := NewManager()
 	now := time.Unix(120, 0)
-	manager.now = func() time.Time { return now }
+	manager := NewManagerWithClock(func() time.Time { return now })
 	config := Config{RPM: 3, TPM: 10}
 	var passed atomic.Int64
 	var wait sync.WaitGroup
@@ -196,9 +195,8 @@ func TestChannelRPMAtomicAndNaturalMinuteRollover(t *testing.T) {
 }
 
 func TestChannelLateUsageSurvivesNaturalMinuteRollover(t *testing.T) {
-	manager := NewManager()
 	now := time.Unix(120, 0)
-	manager.now = func() time.Time { return now }
+	manager := NewManagerWithClock(func() time.Time { return now })
 	config := Config{RPM: 10, TPM: 100, MaxConcurrent: 1}
 	permit, err := manager.Acquire(t.Context(), 1, config)
 	if err != nil {
