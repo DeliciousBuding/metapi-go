@@ -49,6 +49,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 依赖：更新 RelayKit 协议转换、pgx 数据库驱动及 JSON/SQLite 修复，保留新增 moego 依赖的 MIT notice；构建链同步更新 Node 安装、registry 登录和 cosign 工具。
+
 - 渠道 provider：四个图片槽可显式声明异步 submit/query/taskResult，分别保存查询模板与认证；单次提交不重放，逐次复核当前权限并保留原始累计用量。URL/base64/data URI 复用无凭据媒体下载，流式门面明确拒绝；回退前替换模块与查询配置（#1589）。
 - 渠道 provider：新增自定义 Key 头与 HS256 JWT 宿主认证声明，密钥不进入 JS，显式 none 与 CDN 保持无凭据。转发材料非法时派发前返回 503，目录返回 400；回退前需替换模块并处理其持久任务（#1589）。
 
