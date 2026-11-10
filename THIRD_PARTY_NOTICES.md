@@ -15,6 +15,13 @@ We also thank New API for its channel presets, frontend and backend features,
 and interface and interaction designs that informed this project. This credit
 does not imply endorsement or affiliation.
 
+## moego
+
+RelayKit uses MoeForge's `moego` JSON and Base64 packages, copyright (c) 2026
+Calcium-Ion, under the MIT license. The copyright and permission notice are
+preserved in [licenses/moego-mit.txt](licenses/moego-mit.txt). Its exact version
+is recorded in `go.mod` and `go.sum`.
+
 ## Existing MIT portions
 
 The copyright notice and MIT permission for earlier Metapi Go code are preserved
