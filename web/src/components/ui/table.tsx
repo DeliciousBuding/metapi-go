@@ -17,7 +17,6 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
     >
       <table
         data-slot='table'
-        data-table-stagger='true'
         className={cn('w-full caption-bottom text-sm tabular-nums', className)}
         {...props}
       />

@@ -56,6 +56,7 @@ export function DataTableHeader<TData>({
             <TableHead
               key={header.id}
               colSpan={header.colSpan}
+              scope={header.colSpan > 1 ? 'colgroup' : 'col'}
               data-column-id={header.column.id}
               aria-sort={getAriaSort(header)}
               className={cn(

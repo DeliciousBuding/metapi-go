@@ -287,7 +287,12 @@ export function AllowlistSection() {
                       <Badge
                         key={model}
                         variant='default'
-                        className='cursor-pointer'
+                        render={<button type='button' />}
+                        className='h-auto min-h-6 cursor-pointer'
+                        aria-label={t(
+                          'settings.downstream.keys.access.removeModel',
+                          { model }
+                        )}
                         onClick={() => removeAllowedModel(model)}
                       >
                         <ModelPill model={model} variant='inline' /> ×
@@ -304,6 +309,11 @@ export function AllowlistSection() {
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             event.preventDefault()
+                            if (
+                              event.nativeEvent.isComposing ||
+                              event.nativeEvent.keyCode === 229
+                            )
+                              return
                             addAllowedModel(pendingModel)
                           }
                         }}

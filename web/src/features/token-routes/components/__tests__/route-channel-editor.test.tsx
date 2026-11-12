@@ -127,6 +127,24 @@ describe('RouteChannelEditor', () => {
     })
   })
 
+  it('keeps a numeric draft focused while Enter confirms IME input', () => {
+    render(<RouteChannelEditor routeId={1} />)
+    const input = within(screen.getAllByRole('listitem')[0]).getAllByRole(
+      'spinbutton'
+    )[0]
+    input.focus()
+    fireEvent.change(input, { target: { value: '12' } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+    expect(input).toHaveFocus()
+    expect(testState.updateMutate).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+    expect(testState.updateMutate.mock.calls[0]?.[0]).toEqual({
+      id: 1,
+      data: { weight: 12 },
+    })
+  })
+
   it('reverts a non-integer draft instead of committing it', () => {
     render(<RouteChannelEditor routeId={1} />)
     const rows = screen.getAllByRole('listitem')

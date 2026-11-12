@@ -1,6 +1,6 @@
 module github.com/deliciousbuding/metapi-go
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/Calcium-Ion/moejs v0.1.0-alpha.7

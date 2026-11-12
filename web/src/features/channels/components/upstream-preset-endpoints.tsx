@@ -139,6 +139,11 @@ export function UpstreamPresetEndpoints(props: {
                 event.target instanceof HTMLInputElement
               ) {
                 event.preventDefault()
+                if (
+                  event.nativeEvent.isComposing ||
+                  event.nativeEvent.keyCode === 229
+                )
+                  return
                 if (event.target.name === 'projectId')
                   void form.handleSubmit(resolve)()
               }

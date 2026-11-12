@@ -166,6 +166,11 @@ export function RatesSection() {
                       defaultValue={account.unitCost ?? 0}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
+                          if (
+                            event.nativeEvent.isComposing ||
+                            event.nativeEvent.keyCode === 229
+                          )
+                            return
                           const value = Number(
                             (event.target as HTMLInputElement).value
                           )
@@ -257,6 +262,11 @@ export function RatesSection() {
                       defaultValue={channel.weight}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
+                          if (
+                            event.nativeEvent.isComposing ||
+                            event.nativeEvent.keyCode === 229
+                          )
+                            return
                           const value = Number(
                             (event.target as HTMLInputElement).value
                           )

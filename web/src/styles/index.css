@@ -236,14 +236,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-slot='table'][data-table-stagger='true'] tbody tr {
-    animation: none !important;
-    opacity: 1;
-    transform: none;
-  }
-}
-
 /*
  * Per-class reduced-motion gate for `.animate-shimmer`. The global
  * reduced-motion safety net at the EOF of this file already collapses
@@ -279,54 +271,6 @@
 
   [data-slot='table'] tr {
     transition: background-color 120ms ease;
-  }
-
-  /* Table row stagger-in animation. Opt-in via `data-table-stagger` so
-     virtualized tables (rows appended during scroll) skip the entry
-     animation and never mount at opacity 0. */
-  [data-slot='table'][data-table-stagger='true'] tbody tr {
-    animation: tableRowEnter 0.2s cubic-bezier(0.33, 1, 0.68, 1) both;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(2) {
-    animation-delay: 25ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(3) {
-    animation-delay: 50ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(4) {
-    animation-delay: 75ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(5) {
-    animation-delay: 100ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(6) {
-    animation-delay: 125ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(7) {
-    animation-delay: 150ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(8) {
-    animation-delay: 175ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(9) {
-    animation-delay: 200ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(10) {
-    animation-delay: 225ms;
-  }
-  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(n + 11) {
-    animation-delay: 250ms;
-  }
-}
-
-@keyframes tableRowEnter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -368,21 +312,15 @@
   font-variant-numeric: tabular-nums;
 }
 
-/*
- * Global reduced-motion safety net for the shared tw-animate-css enter/exit
- * animations (dialog / sheet / alert-dialog / select / tooltip / popover /
- * dropdown-menu / context-menu) and Base UI transitions, which have no
- * dedicated per-class selector above. Collapses every animation + transition
- * to near-instant (and stops infinite spinners after one iteration) so
- * `prefers-reduced-motion: reduce` users see no motion anywhere.
- */
+/* Shared overlay primitives own their motion-reduce behavior. Stop only the
+ * persistent loading effects here; preserve color and focus transitions. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .animate-spin,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
+  }
+  .scroll-smooth {
     scroll-behavior: auto !important;
   }
 }

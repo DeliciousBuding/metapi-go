@@ -36,6 +36,7 @@ describe('ROOT_NAVIGATION', () => {
       '/users',
       '/downstream-keys',
       '/proxy-logs',
+      '/audit-logs',
       '/observability',
       '/settings',
       '/about',

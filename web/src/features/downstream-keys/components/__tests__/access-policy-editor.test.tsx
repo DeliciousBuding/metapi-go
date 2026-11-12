@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
@@ -25,6 +25,30 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 afterEach(cleanup)
+
+describe.each([
+  { isComposing: true, keyCode: 13 },
+  { isComposing: false, keyCode: 229 },
+])('model input composition $isComposing/$keyCode', (composition) => {
+  it('keeps the draft until a separate Enter commits it', () => {
+    const onChange = vi.fn()
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <AccessPolicyEditor value={{}} onChange={onChange} />
+      </QueryClientProvider>
+    )
+    const input = screen.getByRole('textbox', { name: 'Allowed exact models' })
+    fireEvent.change(input, { target: { value: '中文模型' } })
+    fireEvent.keyDown(input, { key: 'Enter', ...composition })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(input).toHaveValue('中文模型')
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+    expect(onChange).toHaveBeenCalledWith({ modelIds: ['中文模型'] })
+  })
+})
 
 it('shows imported routing policy and preserves it during ordinary scope edits', async () => {
   const onChange = vi.fn()

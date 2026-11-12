@@ -16,6 +16,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSplatRouteImport } from './routes/_authenticated/$'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
+import { Route as AuthenticatedAuditLogsRouteImport } from './routes/_authenticated/audit-logs'
 import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedCheckinRouteImport } from './routes/_authenticated/checkin'
 import { Route as AuthenticatedDashboardRouteRouteImport } from './routes/_authenticated/dashboard/route'
@@ -71,6 +72,11 @@ const AuthenticatedAboutRoute = AuthenticatedAboutRouteImport.update({
 const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAuditLogsRoute = AuthenticatedAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChannelsRoute = AuthenticatedChannelsRouteImport.update({
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof AuthenticatedSplatRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
+  '/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
   '/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByTo {
   '/$': typeof AuthenticatedSplatRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
+  '/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
   '/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/$': typeof AuthenticatedSplatRoute
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
+  '/_authenticated/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/_authenticated/channels': typeof AuthenticatedChannelsRoute
   '/_authenticated/checkin': typeof AuthenticatedCheckinRoute
   '/_authenticated/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/about'
     | '/accounts'
+    | '/audit-logs'
     | '/channels'
     | '/checkin'
     | '/downstream-keys'
@@ -326,6 +336,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/about'
     | '/accounts'
+    | '/audit-logs'
     | '/channels'
     | '/checkin'
     | '/downstream-keys'
@@ -356,6 +367,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$'
     | '/_authenticated/about'
     | '/_authenticated/accounts'
+    | '/_authenticated/audit-logs'
     | '/_authenticated/channels'
     | '/_authenticated/checkin'
     | '/_authenticated/downstream-keys'
@@ -434,6 +446,13 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/accounts'
       preLoaderRoute: typeof AuthenticatedAccountsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/audit-logs': {
+      id: '/_authenticated/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/audit-logs'
+      preLoaderRoute: typeof AuthenticatedAuditLogsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/channels': {
@@ -650,6 +669,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSplatRoute: typeof AuthenticatedSplatRoute
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
+  AuthenticatedAuditLogsRoute: typeof AuthenticatedAuditLogsRoute
   AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
   AuthenticatedCheckinRoute: typeof AuthenticatedCheckinRoute
   AuthenticatedDownstreamKeysRoute: typeof AuthenticatedDownstreamKeysRoute
@@ -674,6 +694,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSplatRoute: AuthenticatedSplatRoute,
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
+  AuthenticatedAuditLogsRoute: AuthenticatedAuditLogsRoute,
   AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
   AuthenticatedCheckinRoute: AuthenticatedCheckinRoute,
   AuthenticatedDownstreamKeysRoute: AuthenticatedDownstreamKeysRoute,

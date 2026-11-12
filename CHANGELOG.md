@@ -21,6 +21,9 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- Frontend: preserve IME drafts on Enter and make model removal and table scrolling keyboard accessible.
+- Frontend: remove row entry delays and handle reduced motion in the owning components.
+
 - 页头与移动侧栏共用单一外观入口，设置精简为浅色、深色、跟随系统和显示大小；统一配色、字体、圆角及自动内容宽度，保留已保存的模式与字号。移除多轴主题状态、配色覆盖和仅供主题选择使用的衬线字体依赖。
 
 - 视频 provider：可显式声明 `deleteTask` / `remix`，复用原任务程序、授权与累计用量；删除保留原生 204，remix 创建独立任务且写操作不重放。回退前处理含新 hook 的模块及持久任务（#1589）。
@@ -39,6 +42,9 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 构建运行时：升级 Go 1.27.4，修复 HTTP/1 请求体限制与响应头并发导致的崩溃（GO-2026-6859）。
+- 关于页：许可证显示为仓库声明的 `AGPL-3.0-only`。
+
 - OAuth 派发：HTTP/WS 在凭据解析后重验当前授权，兑换期间撤权、来源/端点或请求配置变化不使用旧准入派发；拒绝不追加上游尝试或重复预算准入（#1589）。
 
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。
@@ -48,6 +54,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 客户端接入：管理员配置与检查共用所选客户端和公共模型，切换后清理旧结果；个人模型页创建 Key 后保留同模型的接入说明，一次性密钥仅留当前对话框（#1568）。
 
 ### 变更
+
+- 使用日志：按模型请求展示结果、用量与费用，协议/接口移入详情；普通 API 访问与管理操作进入审计日志，模型完成率排除普通访问。
 
 - 依赖：更新 RelayKit 协议转换、pgx 数据库驱动及 JSON/SQLite 修复，保留新增 moego 依赖的 MIT notice；构建链同步更新 Node 安装、registry 登录和 cosign 工具。
 

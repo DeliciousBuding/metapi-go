@@ -244,3 +244,113 @@ func TestGatewayRequestPendingOrLostAttemptIsPartial(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayRequestsSeparateUsageAndAccess(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(*testing.T) (*store.DB, chi.Router)
+	}{{"sqlite", setupStatsSQLiteTest}, {"postgres", setupStatsPostgresTest}} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, r := tc.setup(t)
+			now := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
+			for _, input := range []struct {
+				id, path, model string
+			}{
+				{"call", "/v1/responses", "model"},
+				{"denied-call", "/v1/embeddings", "model"},
+				{"directory", "/v1/models", ""},
+				{"file", "/v1/files", "model"},
+				{"video-query", "/v1/videos/{id}", "model"},
+				{"video-remix", "/v1/videos/{id}/remix", "model"},
+				{"count", "/v1/messages/count_tokens", "model"},
+				{"unidentified", "/v1/responses", ""},
+			} {
+				entry := store.GatewayRequest{
+					ID: input.id, Transport: "http", ModelRequested: &input.model,
+					DownstreamPath: &input.path, TerminalStatus: "rejected_policy",
+					StartedAt: now, EndedAt: now,
+				}
+				if input.id == "call" {
+					entry.TerminalStatus, entry.AttemptCount = "completed", 2
+				}
+				if err := store.InsertGatewayRequest(context.Background(), db, entry); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := db.Exec(`INSERT INTO proxy_logs (gateway_request_id,total_tokens,estimated_cost) VALUES ('directory',9999,99)`); err != nil {
+				t.Fatal(err)
+			}
+			for _, input := range []struct {
+				ordinal int
+				cost    float64
+			}{{0, 0.01}, {1, 0.02}} {
+				if _, err := db.Exec(db.Rebind(`INSERT INTO proxy_logs
+					(gateway_request_id,retry_count,prompt_tokens,completion_tokens,total_tokens,estimated_cost)
+					VALUES ('call',?,10,2,12,?)`), input.ordinal, input.cost); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var body struct {
+				Items   []gatewayRequestListItem
+				Total   int
+				Summary gatewayRequestSummary
+			}
+			for _, input := range []struct {
+				query string
+				count int
+			}{{"kind=usage", 3}, {"kind=access", 5}, {"kind=access&search=models", 1}, {"kind=usage&search=directory", 0}} {
+				out := doGet(t, r, "/api/stats/requests?"+input.query)
+				if err := json.Unmarshal(out.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				if out.Code != 200 || body.Total != input.count || body.Summary.TotalCount != int64(input.count) {
+					t.Fatalf("scope %s: %s", input.query, out.Body.String())
+				}
+			}
+			out := doGet(t, r, "/api/stats/requests?kind=usage&search=call")
+			if err := json.Unmarshal(out.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range body.Items {
+				if item.ID != "call" {
+					continue
+				}
+				if item.PromptTokens == nil || *item.PromptTokens != 20 ||
+					item.TotalTokens == nil || *item.TotalTokens != 24 ||
+					item.EstimatedCost == nil || *item.EstimatedCost < 0.029 || *item.EstimatedCost > 0.031 || item.UsagePartial {
+					t.Fatalf("retry usage not preserved: %+v", item)
+				}
+			}
+			if _, err := db.Exec("UPDATE proxy_logs SET total_tokens=NULL, estimated_cost=NULL WHERE gateway_request_id='call' AND retry_count=0"); err != nil {
+				t.Fatal(err)
+			}
+			out = doGet(t, r, "/api/stats/requests?kind=usage&search=call&status=completed")
+			if err := json.Unmarshal(out.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if len(body.Items) != 1 || !body.Items[0].UsagePartial || *body.Items[0].TotalTokens != 12 {
+				t.Fatalf("unknown usage silently became zero: %s", out.Body.String())
+			}
+			out = doGet(t, r, "/api/stats/overview?period=24h")
+			var overview struct {
+				Summary gatewayRequestSummary `json:"gatewayRequestSummary"`
+				Usage   struct {
+					TotalTokens int64   `json:"totalTokensAll"`
+					Cost        float64 `json:"totalCost"`
+				} `json:"summary"`
+			}
+			if err := json.Unmarshal(out.Body.Bytes(), &overview); err != nil {
+				t.Fatal(err)
+			}
+			if overview.Summary.TotalCount != 3 || overview.Summary.CompletedCount != 1 {
+				t.Fatalf("ordinary API access polluted model metrics: %s", out.Body.String())
+			}
+			if overview.Usage.Cost > 0.03 || overview.Usage.TotalTokens >= 9999 {
+				t.Fatalf("API access polluted usage totals: %s", out.Body.String())
+			}
+			if doGet(t, r, "/api/stats/requests?kind=invalid").Code != 400 {
+				t.Fatal("unknown scope accepted")
+			}
+		})
+	}
+}

@@ -146,12 +146,12 @@ describe('request list navigation and read states', () => {
       '/proxy-logs?downstreamKeyId=7&from=2026-10-16T00%3A00&to=2026-10-17T00%3A00&pageSize=50&requestStatus=output_interrupted&q=synthetic',
       true
     )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'About these records' })
+    )
     const attempts = await screen.findByRole('link', {
       name: 'Attempt records',
     })
-    expect(
-      screen.getByRole('link', { name: 'Request outcomes' })
-    ).toHaveAttribute('aria-current', 'page')
     fireEvent.click(attempts)
     await waitFor(() => expect(api.getProxyLogsQuery).toHaveBeenCalled())
     expect(router.state.location.search).toMatchObject({
@@ -163,10 +163,9 @@ describe('request list navigation and read states', () => {
       requestStatus: 'all',
     })
     expect(router.state.location.search.q).toBeUndefined()
-    expect(
-      screen.getByRole('link', { name: 'Attempt records' })
-    ).toHaveAttribute('aria-current', 'page')
-    fireEvent.click(screen.getByRole('link', { name: 'Request outcomes' }))
+    fireEvent.click(
+      await screen.findByRole('link', { name: 'Back to usage logs' })
+    )
     await waitFor(() =>
       expect(router.state.location.search.view).toBe('requests')
     )
@@ -175,11 +174,9 @@ describe('request list navigation and read states', () => {
       pageSize: 50,
     })
     router.history.back()
-    await waitFor(() =>
-      expect(
-        screen.getByRole('link', { name: 'Attempt records' })
-      ).toHaveAttribute('aria-current', 'page')
-    )
+    expect(
+      await screen.findByRole('link', { name: 'Back to usage logs' })
+    ).toBeInTheDocument()
   })
 
   it('keeps legacy attempt deep links honest and clears their filters when switching to requests', async () => {
@@ -187,10 +184,9 @@ describe('request list navigation and read states', () => {
       '/proxy-logs?siteId=3&status=failed&latencyMin=2000&downstreamKeyId=7',
       true
     )
-    expect(
-      await screen.findByRole('link', { name: 'Attempt records' })
-    ).toHaveAttribute('aria-current', 'page')
-    fireEvent.click(screen.getByRole('link', { name: 'Request outcomes' }))
+    fireEvent.click(
+      await screen.findByRole('link', { name: 'Back to usage logs' })
+    )
     await waitFor(() => expect(api.getGatewayRequests).toHaveBeenCalled())
     expect(router.state.location.search).not.toHaveProperty('siteId')
     expect(router.state.location.search).not.toHaveProperty('latencyMin')
@@ -234,6 +230,39 @@ describe('request list navigation and read states', () => {
     ).toBeInTheDocument()
     expect(localStorage.getItem('metapi-go:proxy-logs:auto-refresh')).toBe(
       'false'
+    )
+  })
+
+  it('shows model usage without repeating the protocol or endpoint in list rows', async () => {
+    vi.mocked(api.getGatewayRequests).mockResolvedValueOnce({
+      items: [
+        gatewayRequestFixture({
+          promptTokens: 20,
+          completionTokens: 5,
+          estimatedCost: 0.03,
+          usagePartial: true,
+        }),
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      summary: {
+        totalCount: 1,
+        completedCount: 1,
+        failedCount: 0,
+        cancelledCount: 0,
+        rejectedCount: 0,
+      },
+      coverageStartedAt: null,
+    })
+    renderPage()
+    expect(await screen.findByText('synthetic-model')).toBeInTheDocument()
+    expect(screen.queryByText('/v1/responses')).not.toBeInTheDocument()
+    expect(
+      screen.getByLabelText(/Usage or cost records are incomplete/)
+    ).toBeInTheDocument()
+    expect(api.getGatewayRequests).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'usage' })
     )
   })
 
@@ -284,7 +313,7 @@ describe('request list navigation and read states', () => {
       await screen.findByText(/Could not load requests/)
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('No recorded requests in this view')
+      screen.queryByText('No model calls in this view')
     ).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Retry/ }))
     expect(await screen.findByText('Output interrupted')).toBeInTheDocument()

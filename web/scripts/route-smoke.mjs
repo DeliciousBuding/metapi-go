@@ -40,6 +40,8 @@ export const DESKTOP_ROUTES = [
   '/token-routes',
   '/users',
   '/proxy-logs',
+  '/audit-logs',
+  '/audit-logs?category=access',
   '/observability',
   '/price-compare',
   '/site-announcements',
@@ -90,7 +92,7 @@ const LEGACY_REDIRECT_ROUTES = [
   ],
   ['/settings/system-info', '/settings/operations/program-logs'],
   ['/settings/system-info/program-logs', '/settings/operations/program-logs'],
-  ['/settings/system-info/audit-logs', '/settings/operations/audit-logs'],
+  ['/settings/system-info/audit-logs', '/audit-logs'],
   ['/settings/system-info/update-center', '/settings/operations/update-center'],
   ['/settings/system-info/database', '/settings/operations/database'],
   [
