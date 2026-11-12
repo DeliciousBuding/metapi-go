@@ -39,6 +39,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 关于页：许可证显示为仓库声明的 `AGPL-3.0-only`。
+
 - OAuth 派发：HTTP/WS 在凭据解析后重验当前授权，兑换期间撤权、来源/端点或请求配置变化不使用旧准入派发；拒绝不追加上游尝试或重复预算准入（#1589）。
 
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。
