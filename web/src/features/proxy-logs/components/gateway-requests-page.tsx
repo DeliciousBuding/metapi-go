@@ -1,7 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Eye, RefreshCw, ScrollText, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DateRangePresets } from '@/components/common/date-range-presets'
@@ -27,7 +27,12 @@ import {
 import { toBcp47 } from '@/i18n/languages'
 import type { GatewayRequest, GatewayRequestStatus } from '@/lib/api'
 import { gatewayRequestStatusSchema } from '@/lib/api/gateway-requests'
-import { formatDateTime, formatInt, formatLatency } from '@/lib/format'
+import {
+  formatCurrency,
+  formatDateTime,
+  formatInt,
+  formatLatency,
+} from '@/lib/format'
 import { asStringParam } from '@/lib/helpers/searchParams'
 
 import { useGatewayRequests } from '../lib/gateway-requests'
@@ -43,6 +48,7 @@ import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import { ProxyLogsPage } from './proxy-logs-page'
 import { RequestOutcome } from './request-outcome'
 import { SummaryStat, SummaryStrip } from './summary-strip'
+import { UsageCell } from './usage-cell'
 
 type RequestFilters = {
   status: string
@@ -77,7 +83,8 @@ export function readGatewayRequestsSearch(
 
 export function buildGatewayRequestsHref(
   next: UrlTableStateUpdate<RequestFilters>,
-  currentSearch?: string
+  currentSearch?: string,
+  basePath = '/proxy-logs'
 ): string {
   const current = readGatewayRequestsSearch(
     currentSearch ?? window.location.search
@@ -96,7 +103,8 @@ export function buildGatewayRequestsHref(
   for (const key of ['downstreamKeyId', 'from', 'to', 'requestId'] as const) {
     if (merged.filters[key]) params.set(key, merged.filters[key])
   }
-  return `/proxy-logs${params.size ? `?${params}` : ''}`
+  if (basePath === '/audit-logs') params.set('category', 'access')
+  return `${basePath}${params.size ? `?${params}` : ''}`
 }
 
 export function ProxyLogsWorkspace() {
@@ -113,13 +121,21 @@ export function ProxyLogsWorkspace() {
   return attempts ? <ProxyLogsPage /> : <GatewayRequestsPage />
 }
 
-export function GatewayRequestsPage() {
+export function GatewayRequestsPage({
+  kind = 'usage',
+  navigation,
+}: {
+  kind?: 'usage' | 'access'
+  navigation?: ReactNode
+} = {}) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language)
+  const basePath = kind === 'access' ? '/audit-logs' : '/proxy-logs'
   const state = useUrlTableState<RequestFilters>({
-    basePath: '/proxy-logs',
+    basePath,
     read: readGatewayRequestsSearch,
-    buildHref: buildGatewayRequestsHref,
+    buildHref: (next, search) =>
+      buildGatewayRequestsHref(next, search, basePath),
     toColumnFilters: () => [],
     fromColumnFilters: () => ({}),
     resetPageIndexOnFilterChange: true,
@@ -128,6 +144,7 @@ export function GatewayRequestsPage() {
   const { intervalMs, setIntervalMs } = useProxyLogsAutoRefresh()
   const params = useMemo(
     () => ({
+      kind,
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
       status:
@@ -142,6 +159,7 @@ export function GatewayRequestsPage() {
       to: filters.to || undefined,
     }),
     [
+      kind,
       pagination,
       filters.status,
       filters.downstreamKeyId,
@@ -168,41 +186,44 @@ export function GatewayRequestsPage() {
       {
         id: 'model',
         accessorKey: 'modelRequested',
-        size: 260,
-        header: t('requestLogs.model'),
+        size: 190,
+        header: t(
+          kind === 'access' ? 'requestLogs.interface' : 'requestLogs.model'
+        ),
         meta: {
-          label: t('requestLogs.model'),
+          label: t(
+            kind === 'access' ? 'requestLogs.interface' : 'requestLogs.model'
+          ),
           mobileTitle: true,
           mobileOrder: 0,
         },
         cell: ({ row }) => (
-          <div className='flex min-w-0 flex-col items-start gap-1'>
-            {row.original.modelRequested ? (
+          <div className='flex min-w-0 items-center'>
+            {kind === 'access' ? (
+              <span className='truncate font-mono text-xs'>
+                {row.original.downstreamPath ?? t('requestLogs.unknown')}
+              </span>
+            ) : row.original.modelRequested ? (
               <ModelPill model={row.original.modelRequested} />
             ) : (
               <span>{t('requestLogs.unknownModel')}</span>
             )}
-            <span
-              className='text-muted-foreground truncate text-xs'
-              title={row.original.downstreamPath ?? undefined}
-            >
-              {row.original.downstreamPath ?? t('requestLogs.unknown')}
-              {row.original.transport === 'websocket' ? ' · WS' : ''}
-            </span>
           </div>
         ),
       },
       {
         id: 'result',
         accessorKey: 'terminalStatus',
-        size: 195,
+        size: 170,
         header: t('requestLogs.result'),
         meta: {
           label: t('requestLogs.result'),
           mobileFullWidth: true,
           mobileOrder: 1,
         },
-        cell: ({ row }) => <RequestOutcome request={row.original} />,
+        cell: ({ row }) => (
+          <RequestOutcome request={row.original} showTransport={false} />
+        ),
       },
       {
         id: 'latencyMs',
@@ -211,20 +232,65 @@ export function GatewayRequestsPage() {
         header: t('requestLogs.duration'),
         meta: { label: t('requestLogs.duration'), mobileOrder: 2 },
         cell: ({ row }) => (
-          <span className='tabular-nums'>
-            {formatLatency(row.original.latencyMs)}
+          <span className='text-xs tabular-nums'>
+            {formatLatency(row.original.latencyMs, {
+              autoSeconds: true,
+              spaced: true,
+              secondsDigits: 2,
+            })}
           </span>
         ),
       },
+      ...(kind === 'usage'
+        ? [
+            {
+              id: 'usage',
+              size: 145,
+              header: t('proxyLogs.columns.usage'),
+              meta: { label: t('proxyLogs.columns.usage'), mobileOrder: 4 },
+              cell: ({ row }: { row: { original: GatewayRequest } }) => (
+                <div className='flex items-center gap-1'>
+                  <UsageCell log={row.original} />
+                  {row.original.usagePartial && (
+                    <span
+                      className='text-muted-foreground text-xs'
+                      title={t('requestLogs.partialUsage')}
+                      aria-label={t('requestLogs.partialUsage')}
+                    >
+                      *
+                    </span>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: 'cost',
+              size: 110,
+              header: t('requestLogs.estimatedCost'),
+              meta: { label: t('requestLogs.estimatedCost'), mobileOrder: 5 },
+              cell: ({ row }: { row: { original: GatewayRequest } }) => (
+                <span className='text-xs tabular-nums'>
+                  {row.original.estimatedCost == null
+                    ? '—'
+                    : formatCurrency(row.original.estimatedCost, {
+                        fractionDigits: 6,
+                      })}
+                </span>
+              ),
+            },
+          ]
+        : []),
       {
-        id: 'attemptCount',
-        accessorKey: 'attemptCount',
-        size: 100,
-        header: t('requestLogs.attempts'),
-        meta: { label: t('requestLogs.attempts'), mobileOrder: 4 },
+        id: 'key',
+        size: 135,
+        header: t('requestLogs.key'),
+        meta: { label: t('requestLogs.key'), mobileOrder: 6 },
         cell: ({ row }) => (
-          <span className='tabular-nums'>
-            {formatInt(row.original.attemptCount)}
+          <span className='truncate text-xs'>
+            {row.original.downstreamKeyName ||
+              (row.original.downstreamApiKeyId
+                ? `#${row.original.downstreamApiKeyId}`
+                : '—')}
           </span>
         ),
       },
@@ -247,7 +313,7 @@ export function GatewayRequestsPage() {
         ),
       },
     ],
-    [t, locale, updateUrlState]
+    [t, locale, updateUrlState, kind]
   )
   const { table } = useDataTable({
     data: query.data?.items ?? [],
@@ -273,7 +339,7 @@ export function GatewayRequestsPage() {
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
-        title={t('requestLogs.title')}
+        title={t(kind === 'access' ? 'auditLogs.title' : 'requestLogs.title')}
         actions={
           <>
             <ProxyLogsAutoRefreshToggle
@@ -292,7 +358,7 @@ export function GatewayRequestsPage() {
           </>
         }
       >
-        <LogViewNavigation view='requests' />
+        {navigation ?? <LogViewNavigation view='requests' />}
       </PageHeader>
       {summary && (
         <SummaryStrip>
@@ -314,9 +380,17 @@ export function GatewayRequestsPage() {
           {query.data && (
             <span className='text-muted-foreground text-2xs ms-auto'>
               {query.data.coverageStartedAt
-                ? t('requestLogs.coverage', {
-                    time: formatDateTime(query.data.coverageStartedAt, locale),
-                  })
+                ? t(
+                    kind === 'access'
+                      ? 'auditLogs.coverage'
+                      : 'requestLogs.coverage',
+                    {
+                      time: formatDateTime(
+                        query.data.coverageStartedAt,
+                        locale
+                      ),
+                    }
+                  )
                 : t('requestLogs.noCoverage')}
             </span>
           )}
@@ -331,15 +405,23 @@ export function GatewayRequestsPage() {
         onErrorRetry={() => void query.refetch()}
         isErrorRetrying={query.isFetching}
         emptyIcon={<ScrollText className='size-6' />}
-        emptyTitle={t('requestLogs.emptyTitle')}
-        emptyDescription={t('requestLogs.emptyDescription')}
+        emptyTitle={t(
+          kind === 'access' ? 'auditLogs.emptyAccess' : 'requestLogs.emptyTitle'
+        )}
+        emptyDescription={t(
+          kind === 'access'
+            ? 'auditLogs.accessDescription'
+            : 'requestLogs.emptyDescription'
+        )}
         emptyAction={
-          <Link
-            to='/token-routes'
-            className='text-primary text-sm hover:underline'
-          >
-            {t('proxyLogs.page.emptyAction')}
-          </Link>
+          kind === 'usage' ? (
+            <Link
+              to='/token-routes'
+              className='text-primary text-sm hover:underline'
+            >
+              {t('proxyLogs.page.emptyAction')}
+            </Link>
+          ) : undefined
         }
         renderRow={(row, helpers) => (
           <DataTableRow
@@ -360,7 +442,11 @@ export function GatewayRequestsPage() {
           />
         )}
         toolbarProps={{
-          searchPlaceholder: t('requestLogs.searchPlaceholder'),
+          searchPlaceholder: t(
+            kind === 'access'
+              ? 'auditLogs.searchPlaceholder'
+              : 'requestLogs.searchPlaceholder'
+          ),
           searchDebounceMs: 400,
           additionalSearch: (
             <>

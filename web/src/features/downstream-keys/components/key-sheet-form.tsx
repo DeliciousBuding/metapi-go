@@ -189,6 +189,11 @@ function ModelPolicyEditor({
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
+              if (
+                event.nativeEvent.isComposing ||
+                event.nativeEvent.keyCode === 229
+              )
+                return
               addRule(pendingRule)
             }
           }}

@@ -114,6 +114,26 @@ function renderSection() {
 }
 
 describe('AllowlistSection background rebuild tracking', () => {
+  it('keeps IME candidates as a draft and exposes removal as a button', async () => {
+    renderSection()
+    const input = await screen.findByRole('textbox', {
+      name: 'Global allowed models',
+    })
+    fireEvent.change(input, { target: { value: '中文模型' } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    expect(input).toHaveValue('中文模型')
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+    expect(input).toHaveValue('中文模型')
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+    expect(input).toHaveValue('')
+    const remove = screen.getByRole('button', { name: 'Remove model 中文模型' })
+    expect(remove.tagName).toBe('BUTTON')
+    fireEvent.click(remove)
+    expect(
+      screen.queryByRole('button', { name: 'Remove model 中文模型' })
+    ).not.toBeInTheDocument()
+  })
+
   it('stores the acknowledged task instead of treating a queue response as completed routing', async () => {
     renderSection()
     fireEvent.click(await screen.findByRole('switch'))

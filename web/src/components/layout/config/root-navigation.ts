@@ -27,6 +27,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  ClipboardList,
   Waypoints,
   Users,
 } from 'lucide-react'
@@ -135,6 +136,11 @@ export const ROOT_NAVIGATION: SidebarData = {
           title: 'sidebar.items.proxyLogs',
           url: '/proxy-logs',
           icon: ScrollText,
+        },
+        {
+          title: 'auditLogs.title',
+          url: '/audit-logs',
+          icon: ClipboardList,
         },
         {
           title: 'sidebar.items.observability',

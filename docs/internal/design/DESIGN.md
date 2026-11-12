@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: Restrained desktop console, clear task hierarchy, shared Base UI/shadcn components
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/lib/theme-scale.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-11-10
+**Last updated**: 2026-11-13
 
 ---
 
@@ -35,8 +35,8 @@ counts and maintenance are secondary. Metric details use compact divided cells
 rather than nested padded cards. Increase information density by removing repeated spacing,
 not by shrinking body text.
 
-Proxy logs show attempt timing, input/output token counts, estimated USD cost,
-and stream mode in the default view. API keys are not labeled as token usage.
+Usage logs show one model call per row with its result, timing, input/output token counts and estimated USD cost. Protocol and stream mode stay in the details. API keys are not labeled as token usage.
+Ordinary API access and administrator mutations belong to the audit workspace; usage summaries count model calls only.
 Account, client, key and retry columns remain optional; saved column preferences
 are preserved. Missing usage, cost and mode stay unknown rather than becoming
 zero or non-stream. Billing details present billable input, output, cache read
@@ -73,7 +73,10 @@ time and unknown context labels. The route workspace on /token-routes keeps one 
 
 Proxy-log details offer the reverse handoff: the structured `downstreamPath`, requested model, and optional downstream key populate a current-diagnosis deep link. Without a recorded key it is an administrator preview. Unknown or unsupported interfaces hide the shortcut; error text never supplies the protocol. The check describes current configuration, not the historical decision.
 
-`/proxy-logs` 默认展示网关请求结果：时间、模型/接口、终态、总耗时和尝试数。
+`/proxy-logs` 默认为使用日志：时间、模型、终态、耗时、输入/输出 Token、费用与下游 Key。
+协议和接口只在详情展示；重试合计保留全部已记录用量，未知和不完整显式区分。
+`/audit-logs` 为审计工作区，分别查看管理操作与目录、文件/任务等 API 访问。
+普通访问不进入模型调用列表或完成率；旧审计设置链接跳转到此唯一入口。
 HTTP 状态与终态分开，200 后输出中断不能显示为完成；WS 记录以 turn 为单位，
 不拿握手状态表示完成。一个 URL-owned 详情抽屉展示内部 ID、实际响应信息、
 首输出与响应头 TTFB、按序尝试和当前路由诊断。零派发不构造尝试；缺失关联、
@@ -128,6 +131,16 @@ cookie 保持，已取消的装饰偏好不再应用。
 ---
 
 ### Shared page and task composition
+
+Query owns server data; URL table state owns navigable search, filters and pagination.
+Desktop tables and phone cards consume the same columns and request data rather
+than keeping parallel state. Sticky table scroll regions are named and keyboard
+reachable; column headers retain explicit scope. Lists render in their final
+state without per-row entry delays. Shared overlay primitives own reduced-motion
+behavior, while loading effects stop by class; color and focus transitions remain.
+Text-input Enter actions ignore IME conversion confirmations, including the
+Safari keyCode 229 case. Actions use native buttons, including removable model chips.
+
 
 The shared primitives also own how a task is presented; pages should not
 rebuild these arrangements with local spacing and raw data editors:

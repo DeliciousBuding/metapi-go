@@ -110,8 +110,11 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           <div
             ref={fadeRef}
             data-scroll-fade
+            role='region'
+            aria-label={caption}
+            tabIndex={0}
             className={cn(
-              'min-h-0 flex-1 overflow-auto',
+              'min-h-0 flex-1 overflow-auto focus-visible:outline-focus-ring focus-visible:outline-2 focus-visible:-outline-offset-2',
               STICKY_HEADER_BACKGROUND
             )}
           >
@@ -120,7 +123,6 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
                 sticky header inside it has nothing to stick to. */}
             <table
               data-slot='table'
-              data-table-stagger='true'
               className={TABLE_CLASS}
               style={sizing.style}
             >

@@ -159,7 +159,7 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var total int
-	if err := h.db.Get(&total, "SELECT COUNT(*) FROM admin_audit_logs WHERE "+strings.Join(where, " AND "), args...); err != nil {
+	if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM admin_audit_logs WHERE "+strings.Join(where, " AND ")), args...); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to count audit logs"})
 		return
 	}

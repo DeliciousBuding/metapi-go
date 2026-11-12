@@ -4,7 +4,13 @@ import { useTranslation } from 'react-i18next'
 import type { GatewayRequest } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-export function RequestOutcome({ request }: { request: GatewayRequest }) {
+export function RequestOutcome({
+  request,
+  showTransport = true,
+}: {
+  request: GatewayRequest
+  showTransport?: boolean
+}) {
   const { t } = useTranslation()
   const status = request.terminalStatus
   let Icon = TriangleAlert
@@ -13,7 +19,9 @@ export function RequestOutcome({ request }: { request: GatewayRequest }) {
     request.httpStatus === null
       ? t('requestLogs.noStatus')
       : `HTTP ${request.httpStatus}`
-  if (request.transport === 'websocket') response = t('requestLogs.wsTurn')
+  if (request.transport === 'websocket') {
+    response = showTransport ? t('requestLogs.wsTurn') : ''
+  }
   if (status === 'completed') {
     Icon = CheckCircle2
     tone = 'text-success'
@@ -35,9 +43,11 @@ export function RequestOutcome({ request }: { request: GatewayRequest }) {
         <Icon className='size-3.5 shrink-0' aria-hidden='true' />
         {t(`requestLogs.status.${status}`)}
       </span>
-      <span className='text-muted-foreground text-xs tabular-nums'>
-        {response}
-      </span>
+      {response && (
+        <span className='text-muted-foreground text-xs tabular-nums'>
+          {response}
+        </span>
+      )}
     </div>
   )
 }

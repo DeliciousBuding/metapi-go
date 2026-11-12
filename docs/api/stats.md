@@ -22,7 +22,7 @@ proxy-log drill-downs.
 `requestPoints` 按各组末次尝试的写入时间分桶。
 上述 `requestSummary` / `requestPoints` 仅保留旧版「末次尝试」口径兼容，
 不是网关终态。新界面应使用 `gatewayRequestSummary` / `gatewayRequestPoints`：
-从真实请求终态表统计，同样使用 `period` 与 `window`，按 `startedAt` 分桶，
+从已识别模型的调用终态统计，目录、文件/任务查询和未识别模型的拒绝访问不进入调用分母；同样使用 `period` 与 `window`，按 `startedAt` 分桶，
 包括已观测到的零次派发请求，不从历史尝试推断或补造结果。
 `gatewayRequestSummary` 为 `{totalCount,completedCount,failedCount,cancelledCount,rejectedCount,coverageStartedAt}`；
 `gatewayRequestPoints` 为 `[{date,requests,completedCount,failedCount,cancelledCount,rejectedCount}]`。
@@ -56,8 +56,8 @@ dashboard's failed-metric status. The UI keeps unanswered counts unknown.
 查询网关观测到的终态。HTTP 请求与 WebSocket turn 各自一条记录，
 不把 WebSocket 握手当作模型 turn，也不承诺客户端已确认收妥。
 
-**Query params**: `limit`（1–100，默认 50）、`offset`（非负，默认 0）、
-`status`（下表中的精确终态）、`search`（请求模型、内部 ID、外部请求 ID、原因码的
+**Query params**: `kind`（`usage` 模型调用、`access` 其他 API 访问、`all` 全部；默认全部）、`limit`（1–100，默认 50）、`offset`（非负，默认 0）、
+`status`（下表中的精确终态）、`search`（请求模型、内部 ID、外部请求 ID、原因码、接口路径的
 不区分大小写字面子串）、`downstreamKeyId`（正整数）、`from` / `to`
 （含边界 RFC3339，过滤 `startedAt`，支持小数秒及时间偏移）。非法值返回 400。
 管理页面在浏览器端将本地时间输入与快捷范围转换为 UTC RFC3339。
@@ -71,7 +71,10 @@ WS turn 无独立 HTTP 响应时 `httpStatus` 为 null，而不是握手的 101 
 `firstByteLatencyMs` 为响应头时间，`firstOutputLatencyMs` 为模型输出事件时间；
 两者不能互相代填。`summary` 与列表、`total` 使用全部相同过滤条件，
 包含 `{totalCount,completedCount,failedCount,cancelledCount,rejectedCount}`；
-`coverageStartedAt` 使用全部保留请求的最早 `startedAt`，不受列表筛选影响。
+`coverageStartedAt` 使用相同过滤范围中最早的 `startedAt`。
+列表额外返回 `downstreamKeyName`、`promptTokens`、`completionTokens`、`totalTokens`、
+`estimatedCost` 与 `usagePartial`。用量和费用为同一内部请求的全部已记录尝试合计，
+不重复计算请求，不丢弃失败尝试；全未知仍为 null，缺失尝试或测量时标记不完整。
 
 请求体读取超时记录 HTTP 408、`reasonCode=request_body_timeout`，不会派发上游。
 只有完整解析请求或路径明确给出模型后才记录 `modelRequested`；读取未完成、

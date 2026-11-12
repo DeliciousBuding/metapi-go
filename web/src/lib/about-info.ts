@@ -47,6 +47,6 @@ export const ABOUT_INFO: AboutInfo = {
     'Meta-layer management and unified proxy for AI API aggregation platforms',
   homepage: 'https://github.com/DeliciousBuding/metapi-go#readme',
   repository: 'https://github.com/DeliciousBuding/metapi-go',
-  license: 'MIT',
+  license: 'AGPL-3.0-only',
   author: 'DeliciousBuding',
 }

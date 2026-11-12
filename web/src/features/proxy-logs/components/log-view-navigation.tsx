@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { GitBranch, Info, ListChecks } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -8,7 +8,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
 
 import { proxyLogsSearchSchema } from '../lib/proxy-logs-schema'
 
@@ -30,35 +29,15 @@ export function LogViewNavigation({ view }: { view: 'requests' | 'attempts' }) {
   }
   return (
     <div className='flex flex-wrap items-center gap-1 pt-1'>
-      <nav
-        aria-label={t('requestLogs.viewsLabel')}
-        className='bg-muted inline-flex shrink-0 items-center rounded-lg p-0.5'
-      >
-        {(['requests', 'attempts'] as const).map((target) => {
-          const Icon = target === 'requests' ? ListChecks : GitBranch
-          return (
-            <Link
-              key={target}
-              to='/proxy-logs'
-              search={{ ...shared, view: target }}
-              className={cn(
-                buttonVariants({ size: 'sm', variant: 'ghost' }),
-                view === target
-                  ? 'bg-background shadow-sm'
-                  : 'text-muted-foreground'
-              )}
-              aria-current={view === target ? 'page' : undefined}
-            >
-              <Icon className='size-3.5' aria-hidden='true' />
-              {t(
-                target === 'requests'
-                  ? 'requestLogs.requestView'
-                  : 'requestLogs.history'
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+      {view === 'attempts' && (
+        <Link
+          to='/proxy-logs'
+          search={{ ...shared, view: 'requests' }}
+          className={buttonVariants({ size: 'sm', variant: 'ghost' })}
+        >
+          {t('requestLogs.backToRequests')}
+        </Link>
+      )}
       <Popover>
         <PopoverTrigger
           render={
@@ -75,10 +54,21 @@ export function LogViewNavigation({ view }: { view: 'requests' | 'attempts' }) {
           className='max-w-[calc(100vw-2rem)]'
           aria-label={t('requestLogs.viewHelp')}
         >
-          {t(
-            view === 'attempts'
-              ? 'requestLogs.historyHint'
-              : 'requestLogs.description'
+          <p>
+            {t(
+              view === 'attempts'
+                ? 'requestLogs.historyHint'
+                : 'requestLogs.description'
+            )}
+          </p>
+          {view === 'requests' && (
+            <Link
+              to='/proxy-logs'
+              search={{ ...shared, view: 'attempts' }}
+              className='text-primary mt-2 inline-block text-sm hover:underline'
+            >
+              {t('requestLogs.history')}
+            </Link>
           )}
         </PopoverContent>
       </Popover>

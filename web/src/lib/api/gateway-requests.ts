@@ -28,6 +28,12 @@ const gatewayRequestSchema = z.object({
   latencyMs: z.number().nonnegative(),
   startedAt: z.string().min(1),
   endedAt: z.string().min(1),
+  downstreamKeyName: z.string().nullable().optional(),
+  promptTokens: z.number().nonnegative().nullable().optional(),
+  completionTokens: z.number().nonnegative().nullable().optional(),
+  totalTokens: z.number().nonnegative().nullable().optional(),
+  estimatedCost: z.number().nonnegative().nullable().optional(),
+  usagePartial: z.boolean().optional(),
   attemptCount: z.number().int().nonnegative(),
 })
 
@@ -107,6 +113,7 @@ export type GatewayRequest = z.infer<typeof gatewayRequestSchema>
 export type GatewayRequestDetail = z.infer<typeof gatewayRequestDetailSchema>
 export type GatewayRequestStatus = z.infer<typeof gatewayRequestStatusSchema>
 export type GatewayRequestsQuery = {
+  kind?: 'usage' | 'access'
   limit?: number
   offset?: number
   status?: GatewayRequestStatus

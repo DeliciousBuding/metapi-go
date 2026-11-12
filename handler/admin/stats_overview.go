@@ -36,6 +36,11 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 		condition += " AND pl.created_at >= ?"
 		args = append(args, window["from"])
 	}
+	// Known directory/object access does not contribute model usage or
+	// attempts. Unlinked historical model logs retain their original coverage.
+	condition += ` AND (COALESCE(pl.gateway_request_id,'') = '' OR EXISTS
+		(SELECT 1 FROM gateway_requests gr WHERE gr.id = pl.gateway_request_id
+		 AND ` + gatewayModelInvocationSQL + `))`
 	bucket := dayBucketSQLExpr(h.db, "pl.created_at")
 	if period == "24h" {
 		bucket = hourBucketSQLExpr(h.db, "pl.created_at")

@@ -71,9 +71,9 @@ describe('operator request metrics', () => {
     expect(
       screen.getByText(/1 failed · 1 cancelled · 1 rejected/)
     ).toBeInTheDocument()
-    expect(
-      screen.getByText(/Request records available since/)
-    ).toHaveTextContent(formatDateTime('2026-10-16T00:00:00Z', 'en'))
+    expect(screen.getByText(/Model call records since/)).toHaveTextContent(
+      formatDateTime('2026-10-16T00:00:00Z', 'en')
+    )
     expect(screen.queryByText(/2026-10-16T00:00:00Z/)).not.toBeInTheDocument()
     expect(
       screen.getAllByText(/Completion is based on protocol outcomes/)
