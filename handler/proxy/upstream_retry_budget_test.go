@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -137,6 +138,66 @@ func TestFirstFailureSurvivesLaterExhaustion(t *testing.T) {
 	var attempts int
 	if err := db.Get(&attempts, `SELECT COUNT(*) FROM proxy_logs WHERE gateway_request_id=?`, gateway.ID); err != nil || attempts != 2 {
 		t.Fatalf("attempt rows=%d error=%v", attempts, err)
+	}
+}
+
+func TestFirstByteTimeoutRearmsForCrossProtocolFallback(t *testing.T) {
+	prevCfg, prevRT := config.GetSafe(), config.RuntimeSafe()
+	config.Set(&config.Config{ProxyMaxChannelAttempts: 1})
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.ProxyFirstByteTimeoutSec = 1
+		r.DisableCrossProtocolFallback = false
+	})
+	t.Cleanup(func() { config.Set(prevCfg); config.SetRuntime(prevRT) })
+
+	release := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/messages" {
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+			return
+		}
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		// This response arrives after the first endpoint exhausted its window.
+		// Reusing that deadline would clamp this wait to 1ms instead of allowing
+		// the authorized protocol fallback a fresh first-byte budget.
+		time.Sleep(700 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"chat","object":"chat.completion","model":"test-model","choices":[{"message":{"role":"assistant","content":"fallback"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}`)
+	}))
+	t.Cleanup(func() {
+		// An unread request body can prevent the test server from observing
+		// the peer's cancellation. Release the handler before closing it.
+		close(release)
+		upstream.Close()
+	})
+	router := &upstreamTestRouter{selected: routing.SelectedChannel{
+		Channel: store.RouteChannel{ID: 1, Enabled: true}, Account: store.Account{ID: 1, Status: "active"},
+		Site: store.Site{ID: 1, URL: upstream.URL, Platform: "new-api", Status: "active"}, TokenValue: "fixture-token", ActualModel: "test-model",
+	}}
+	var logs []proxy.ProxyLogEntry
+	var gateway store.GatewayRequest
+	SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(5 * time.Second), LogProxy: func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
+	req := makeProxyReq(http.MethodPost, "/v1/messages", `{"model":"test-model","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`)
+	state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
+	rec := httptest.NewRecorder()
+	HandleClaudeMessages(&requestResponseWriter{ResponseWriter: rec, state: state}, req)
+	state.finish(req.Context())
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "fallback") {
+		t.Fatalf("protocol fallback did not receive a fresh header budget: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if gateway.TerminalStatus != "completed" || gateway.AttemptCount != 2 || gateway.ReasonCode == nil || *gateway.ReasonCode != "upstream_first_byte_timeout" {
+		t.Fatalf("fallback lifecycle mismatch: %+v", gateway)
+	}
+	if len(logs) != 2 || logs[0].TotalTokens != nil || logs[1].TotalTokens == nil || *logs[1].TotalTokens != 6 {
+		t.Fatalf("fallback usage mismatch: %#v", logs)
 	}
 }
 
