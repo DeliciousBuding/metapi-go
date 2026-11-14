@@ -127,7 +127,6 @@ func CanRetryChannelSelection(retryCount int, maxRetries int, forcedChannelID *i
 func SelectProxyChannelForAttempt(
 	ctx context.Context,
 	router TokenRouterInterface,
-	coord *ProxyChannelCoordinator,
 	input ChannelSelectionInput,
 ) (*routing.SelectedChannel, error) {
 	// Tester IDs are positive; trusted replay hints can identify negative direct items.

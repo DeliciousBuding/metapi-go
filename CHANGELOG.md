@@ -56,6 +56,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 代理设置：移除没有 session 租约或队列执行机制的并发/等待编辑项，保留 API、环境变量与已存值兼容。模型测试场明确为“渠道诊断”，保留原地址、对比工具与深链接，并区分管理审计和普通调用账本。
+
 - 使用日志：按模型请求展示结果、用量与费用，协议/接口移入详情；普通 API 访问与管理操作进入审计日志，模型完成率排除普通访问。
 
 - 依赖：更新 RelayKit 协议转换、pgx 数据库驱动及 JSON/SQLite 修复，保留新增 moego 依赖的 MIT notice；构建链同步更新 Node 安装、registry 登录和 cosign 工具。

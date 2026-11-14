@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,45 +20,24 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
-func TestWithObservedFirstByteReturnsTransportErrors(t *testing.T) {
+func TestDoWithObservedFirstByteReturnsTransportErrors(t *testing.T) {
 	wantErr := errors.New("connection refused")
 	executor := &RuntimeExecutor{client: &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 			return nil, wantErr
 		}),
 	}}
-
-	result, _, err := executor.WithObservedFirstByte(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: "http://example.invalid/v1/chat/completions",
-	}, 1000)
-
-	if err == nil {
-		t.Fatalf("WithObservedFirstByte returned nil error and result=%+v, want transport error", result)
-	}
-	if result != nil && result.Status == 0 {
-		t.Fatalf("transport error was classified as first-byte timeout: %+v", result)
-	}
-}
-
-func TestWithObservedFirstByteReturnsTimeoutMarkerOnDeadline(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(50 * time.Millisecond)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer upstream.Close()
-
-	executor := NewRuntimeExecutor(time.Second)
-	result, _, err := executor.WithObservedFirstByte(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: upstream.URL,
-	}, 5)
-
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.invalid/v1/chat/completions", nil)
 	if err != nil {
-		t.Fatalf("WithObservedFirstByte returned error for first-byte timeout: %v", err)
+		t.Fatal(err)
 	}
-	if result == nil || result.Status != 0 {
-		t.Fatalf("result = %+v, want first-byte timeout marker", result)
+	resp, err := executor.DoWithObservedFirstByte(req.Context(), req, 1000)
+	if resp != nil {
+		resp.Body.Close()
+		t.Fatal("transport failure returned a response")
+	}
+	if !errors.Is(err, wantErr) || IsObservedFirstByteTimeoutError(err) {
+		t.Fatalf("error = %v, want original transport error, not a header timeout", err)
 	}
 }
 
@@ -137,63 +117,44 @@ func TestDoWithObservedFirstByteDoesNotCancelBodyAfterHeaders(t *testing.T) {
 	}
 }
 
-func TestDispatchRejectsOversizedBufferedResponse(t *testing.T) {
-	// The buffered byte limit is now read from the config singleton (set once
-	// at startup via config.Load), not os.Getenv per request, so load a config
-	// with the limit and install it as the global singleton for this test.
-	prev := config.GetSafe()
-	prevRt := config.RuntimeSafe()
+func TestRuntimeExecutorBufferedResponseLimit(t *testing.T) {
+	prev, prevRt := config.GetSafe(), config.RuntimeSafe()
 	t.Cleanup(func() { config.Set(prev); config.SetRuntime(prevRt) })
 	cfg, rt := config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"})
 	config.Set(cfg)
 	config.SetRuntime(rt)
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, "123456789")
-	}))
-	t.Cleanup(upstream.Close)
-
-	executor := NewRuntimeExecutor(time.Second)
-	result, err := executor.Dispatch(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: upstream.URL,
-	})
-
-	if err == nil {
-		t.Fatalf("Dispatch returned result=%+v, want oversized response error", result)
-	}
-	if !strings.Contains(err.Error(), "response body exceeded") {
-		t.Fatalf("error = %v, want response body exceeded", err)
-	}
-}
-
-func TestWithObservedFirstByteRejectsOversizedBufferedResponse(t *testing.T) {
-	// The buffered byte limit is now read from the config singleton (set once
-	// at startup via config.Load), not os.Getenv per request, so load a config
-	// with the limit and install it as the global singleton for this test.
-	prev := config.GetSafe()
-	prevRt := config.RuntimeSafe()
-	t.Cleanup(func() { config.Set(prev); config.SetRuntime(prevRt) })
-	cfg, rt := config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"})
-	config.Set(cfg)
-	config.SetRuntime(rt)
-
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, "123456789")
-	}))
-	t.Cleanup(upstream.Close)
-
-	executor := NewRuntimeExecutor(time.Second)
-	result, _, err := executor.WithObservedFirstByte(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: upstream.URL,
-	}, 1000)
-
-	if err == nil {
-		t.Fatalf("WithObservedFirstByte returned result=%+v, want oversized response error", result)
-	}
-	if !strings.Contains(err.Error(), "response body exceeded") {
-		t.Fatalf("error = %v, want response body exceeded", err)
+	for _, stream := range []bool{false, true} {
+		for _, size := range []int{8, 9} {
+			t.Run(fmt.Sprintf("stream=%t/size=%d", stream, size), func(t *testing.T) {
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, _ = io.WriteString(w, strings.Repeat("x", size))
+				}))
+				t.Cleanup(upstream.Close)
+				executor := NewRuntimeExecutor(time.Second)
+				req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, upstream.URL, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				dispatch := executor.DoWithObservedFirstByte
+				if stream {
+					dispatch = executor.DoStreamWithObservedFirstByte
+				}
+				resp, err := dispatch(req.Context(), req, 1000)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+				body, err := ReadBufferedResponseBody(resp.Body)
+				if size == 8 {
+					if err != nil || string(body) != strings.Repeat("x", size) {
+						t.Fatalf("body = %q, error = %v", body, err)
+					}
+				} else if err == nil || !strings.Contains(err.Error(), "response body exceeded") {
+					t.Fatalf("error = %v, want response limit rejection", err)
+				}
+			})
+		}
 	}
 }
 
@@ -213,12 +174,16 @@ func TestRuntimeExecutorRejectsCrossOriginRedirect(t *testing.T) {
 	t.Cleanup(source.Close)
 
 	executor := NewRuntimeExecutor(time.Second)
-	result, err := executor.Dispatch(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: source.URL + "/start",
-	})
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, source.URL+"/start", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := executor.DoWithObservedFirstByte(req.Context(), req, 1000)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
-		t.Fatalf("Dispatch allowed cross-origin redirect: result=%+v", result)
+		t.Fatal("executor allowed cross-origin redirect")
 	}
 	if !strings.Contains(err.Error(), "cross-origin") {
 		t.Fatalf("error = %v, want cross-origin redirect rejection", err)
@@ -242,18 +207,24 @@ func TestRuntimeExecutorAllowsSameHostRedirect(t *testing.T) {
 	t.Cleanup(upstream.Close)
 
 	executor := NewRuntimeExecutor(time.Second)
-	result, err := executor.Dispatch(context.Background(), ExecutorDispatchInput{
-		Method:    http.MethodGet,
-		TargetURL: upstream.URL + "/start",
-	})
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, upstream.URL+"/start", nil)
 	if err != nil {
-		t.Fatalf("same-host redirect Dispatch: %v", err)
+		t.Fatal(err)
 	}
-	if result.Status != http.StatusOK {
-		t.Fatalf("status = %d, want 200", result.Status)
+	resp, err := executor.DoWithObservedFirstByte(req.Context(), req, 1000)
+	if err != nil {
+		t.Fatalf("same-host redirect: %v", err)
 	}
-	if string(result.Body) != "same-host-ok" {
-		t.Fatalf("body = %q, want same-host-ok", result.Body)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, err := ReadBufferedResponseBody(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "same-host-ok" {
+		t.Fatalf("body = %q, want same-host-ok", body)
 	}
 }
 

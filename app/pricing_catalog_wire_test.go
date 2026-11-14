@@ -9,7 +9,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -28,7 +27,6 @@ func TestConfigureProxyUpstreamWiresPricingCatalogResolver(t *testing.T) {
 	cfg.PricingCatalogAllowPrivate = true // the catalog fixture runs on loopback
 	t.Cleanup(func() {
 		proxyhandler.SetUpstreamConfig(nil)
-		scheduler.SetActiveChannelIDsProvider(nil)
 		ShutdownPricingCatalog()
 		pricingCatalogMu.Lock()
 		pricingCatalogManager = nil

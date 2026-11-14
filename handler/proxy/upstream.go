@@ -36,12 +36,10 @@ import (
 
 // UpstreamConfig holds the dependencies needed for upstream forwarding.
 type UpstreamConfig struct {
-	Router      proxy.TokenRouterInterface
-	Coordinator *proxy.ProxyChannelCoordinator
-	Executor    *proxy.RuntimeExecutor
+	Router   proxy.TokenRouterInterface
+	Executor *proxy.RuntimeExecutor
 	// SiteLimiter caps concurrent dispatches per site (sites.max_concurrency).
 	// When nil, proxy.DefaultSiteConcurrencyLimiter is used.
-	// Orthogonal to Coordinator channel leases.
 	SiteLimiter *proxy.SiteConcurrencyLimiter
 	// DirectAccountLimiter caps concurrent dispatches per direct upstream
 	// account (upstream_credentials.id), since direct channels have no site
@@ -219,7 +217,6 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		selected, err := proxy.SelectProxyChannelForAttempt(
 			r.Context(),
 			cfg.Router,
-			cfg.Coordinator,
 			proxy.ChannelSelectionInput{
 				RequestedModel:    ctx.RequestedModel,
 				DownstreamPolicy:  downstreamPolicy,

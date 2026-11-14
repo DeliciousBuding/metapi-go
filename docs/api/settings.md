@@ -17,6 +17,13 @@ Get all runtime settings as a flat JSON object. Sensitive values (tokens, passwo
 
 Update runtime settings. Partial update -- only send fields you want to change. Schedule updates atomically write both the legacy cron key and the corresponding v1 semantic mirror.
 
+`proxySessionChannelConcurrencyLimit`（默认 `2`）与
+`proxySessionChannelQueueWaitMs`（默认 `1500`）保留 GET/PUT 与持久化兼容，
+但当前没有 session 租约或等待队列。前者为正数时只保留 `least_busy` 的历史
+session-channel 排序信号，后者没有执行消费者；普通设置表单不再提供这两个
+编辑项。未提交字段不会被其他设置更新覆盖，重启仍读回已存值。实际限流范围见
+[配置说明](../configuration.md#实际生效的并发上限)。
+
 **Upstream account health-monitoring kill switches** (#1027): `checkinEnabled` / `balanceRefreshEnabled` (boolean, default `true`) globally stop the two always-on jobs that contact upstream accounts -- automatic check-in and scheduled balance refresh. Changes persist to the `checkin_enabled` / `balance_refresh_enabled` settings and hot-apply to the running schedulers without a restart. Env equivalents: `CHECKIN_ENABLED` / `BALANCE_REFRESH_ENABLED` (read at startup). The per-account check-in switch (`checkinEnabled` on account rows) and `modelAvailabilityProbeEnabled` (Proxy & Models -> Proxy Transport) remain independent controls. Non-boolean values are rejected with `400`.
 
 **Automatic model routes**: `autoCreateModelRoutes` (boolean, default `false`) enables creation of missing exact-model routes after model synchronization or route rebuild. It persists as `auto_create_model_routes`, takes effect on the next rebuild and survives restarts; this is a runtime setting, not a new environment variable. Set it in **Settings → Operations → Scheduling**. Existing route patterns (including disabled routes), manual bindings and downstream grants are preserved. Turning it off stops new route creation; existing automatic channels still synchronize. See [route rebuild](routes.md#post-apiroutesrebuild) for task and result semantics.

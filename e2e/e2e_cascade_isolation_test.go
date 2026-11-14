@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/proxy"
 )
 
 // TestCascadeIsolation_MultiChannel5xxStorm_ChannelScopedExclude is an HTTP-path
@@ -55,8 +54,7 @@ func TestCascadeIsolation_MultiChannel5xxStorm_ChannelScopedExclude(t *testing.T
 	config.Set(cfg)
 	config.SetRuntime(makeTestRuntime())
 	t.Cleanup(func() { config.Set(makeTestConfig()); config.SetRuntime(makeTestRuntime()) })
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"storm"}]}`))
@@ -167,8 +165,7 @@ func TestCascadeIsolation_5xxThenHealthySiblingSucceeds(t *testing.T) {
 	config.Set(cfg)
 	config.SetRuntime(makeTestRuntime())
 	t.Cleanup(func() { config.Set(makeTestConfig()); config.SetRuntime(makeTestRuntime()) })
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))

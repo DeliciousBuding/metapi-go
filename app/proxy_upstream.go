@@ -14,7 +14,6 @@ import (
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
@@ -31,11 +30,8 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	if db == nil {
 		proxyhandler.SetUpstreamConfig(nil)
 		setTokenRouteDecisionRuntime(nil, nil)
-		// Clear channel-recovery active-ID hook on failed/cleared reconfigure.
-		scheduler.SetActiveChannelIDsProvider(nil)
 		return fmt.Errorf("proxy upstream: database is not initialized")
 	}
-	coord := proxy.NewProxyChannelCoordinator()
 	// Overall HTTP client timeout is a safety ceiling for full request lifetime.
 	// Observed first-byte timeout is separate: PROXY_FIRST_BYTE_TIMEOUT_SEC
 	// (seconds) is converted to milliseconds via proxy.FirstByteTimeoutMs and
@@ -50,12 +46,11 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	auth.ConfigureSharedAdmissionFromRedisURL(cfg.RedisURL)
 
 	routingStore := service.NewProxyRoutingStore(db)
-	router := routing.NewTokenRouter(routingStore, cfg, pricingCatalogResolver(cfg, db), proxyLoadProvider{coord: coord})
+	router := routing.NewTokenRouter(routingStore, cfg, pricingCatalogResolver(cfg, db), proxyLoadProvider{})
 	decisionService := routing.NewRouteDecisionService(router, routingStore)
 	setTokenRouteDecisionRuntime(router, decisionService)
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
 		Router:         router,
-		Coordinator:    coord,
 		Executor:       proxy.NewRuntimeExecutor(requestTimeout),
 		ChannelPlugins: channelplugins.New(db.DB),
 		ResolveDirectCredential: func(ctx context.Context, id int64, proxyURL *string, force bool) (*oauth.DirectCredentialResult, error) {
@@ -78,15 +73,6 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 		cfg.ProxyLogBatchSize,
 		cfg.ProxyLogFlushIntervalMs,
 	)
-	// Channel recovery active candidates follow coordinator leases.
-	// Normalize nil→empty so an empty lease set does not look "unset".
-	scheduler.SetActiveChannelIDsProvider(func() []int64 {
-		ids := coord.GetActiveChannelIDs()
-		if ids == nil {
-			return []int64{}
-		}
-		return ids
-	})
 	// Remember router for ModelProbeScheduler health recording.
 	// Wire global scheduler if already started (reconfigure / test paths).
 	rememberProbeRouter(cfg, router)
@@ -116,21 +102,19 @@ func TokenRouteDecisionRuntime() (*routing.TokenRouter, *routing.RouteDecisionSe
 	return tokenRouteDecisionRouter, tokenRouteDecisionService
 }
 
-type proxyLoadProvider struct {
-	coord *proxy.ProxyChannelCoordinator
-}
+// proxyLoadProvider preserves the legacy session-channel ranking signal.
+// There are no live session leases: counts remain zero. Keep the configured
+// limit because least_busy with a positive limit ranks these channels at zero,
+// whereas a missing snapshot falls back to historical request counts.
+type proxyLoadProvider struct{}
 
-func (p proxyLoadProvider) GetChannelLoadSnapshot(params routing.ChannelLoadParams) routing.ChannelLoadSnapshot {
-	if p.coord == nil {
+func (proxyLoadProvider) GetChannelLoadSnapshot(params routing.ChannelLoadParams) routing.ChannelLoadSnapshot {
+	if !proxy.IsSessionScopedChannel(params.AccountExtraConfig, params.AccountOAuthProvider) {
 		return routing.ChannelLoadSnapshot{}
 	}
-	snap := p.coord.GetChannelLoadSnapshot(params.ChannelID, params.AccountExtraConfig, params.AccountOAuthProvider)
 	return routing.ChannelLoadSnapshot{
-		SessionScoped:    snap.SessionScoped,
-		ConcurrencyLimit: snap.ConcurrencyLimit,
-		ActiveLeaseCount: snap.ActiveLeaseCount,
-		WaitingCount:     snap.WaitingCount,
-		Saturated:        snap.Saturated,
+		SessionScoped:    true,
+		ConcurrencyLimit: max(0, int(config.Runtime().ProxySessionChannelConcurrencyLimit)),
 	}
 }
 

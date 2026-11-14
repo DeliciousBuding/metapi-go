@@ -3,9 +3,6 @@ package proxy
 import "sync"
 
 // SiteConcurrencyLimiter caps concurrent upstream dispatches per scope.
-// It is orthogonal to ProxyChannelCoordinator channel leases: a request may
-// hold both a site slot and a channel lease independently.
-//
 // The scope key is a site ID for regular channels and an upstream credential
 // ID for direct channels (see DefaultDirectAccountConcurrencyLimiter); the two
 // populations use separate limiter instances so their ID spaces never collide.

@@ -268,6 +268,9 @@ export function TestForm({
           </div>
           {actions}
         </header>
+        <p className='text-muted-foreground shrink-0 px-4 pb-3 text-xs leading-relaxed md:px-6'>
+          {t('modelTester.page.description')}
+        </p>
         <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
           <SheetContent className='gap-0 sm:max-w-md'>
             <SheetHeader>

@@ -10,7 +10,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -45,7 +44,6 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 	cfg := testProxyConfig(t)
 	t.Cleanup(func() {
 		proxyhandler.SetUpstreamConfig(nil)
-		scheduler.SetActiveChannelIDsProvider(nil)
 		_ = store.CloseDatabase()
 	})
 	config.Set(cfg)

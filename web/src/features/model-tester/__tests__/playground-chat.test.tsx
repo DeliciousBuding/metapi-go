@@ -110,6 +110,27 @@ async function openChat(selectChannel = true) {
 }
 
 describe('chat playground', () => {
+  it('explains the diagnosis boundary before and after a response', async () => {
+    network.testChatSync.mockResolvedValue(success('diagnostic response'))
+    const prompt = await openChat()
+    expect(
+      screen.getByRole('heading', { name: 'Channel diagnostics' })
+    ).toBeInTheDocument()
+    const boundary = /Probes appear in audit logs, not the normal usage ledger/
+    expect(screen.getByText(boundary)).toBeVisible()
+    fireEvent.change(prompt, { target: { value: 'probe this channel' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('diagnostic response', { exact: true })
+    expect(screen.getByText(boundary)).toBeVisible()
+    await i18n.changeLanguage('zhCN')
+    expect(
+      await screen.findByRole('heading', { name: '渠道诊断' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/测试记入审计日志，不计入普通调用账本/)
+    ).toBeVisible()
+  })
+
   it('uses a suggestion as an editable draft and opens settings for a missing channel', async () => {
     const prompt = await openChat(false)
     expect(

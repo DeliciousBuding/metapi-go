@@ -969,8 +969,8 @@
         "disableFailed": "禁用失败渠道"
       },
       "page": {
-        "title": "模型测试场",
-        "description": "与模型对话，查看每轮响应，也可以对比不同渠道。"
+        "title": "渠道诊断",
+        "description": "验证渠道响应、延迟与错误。测试记入审计日志，不计入普通调用账本；端到端验收请使用下游 Key 调用 /v1。"
       },
       "template": {
         "label": "模板",
@@ -2018,8 +2018,8 @@
           "title": "代理与传输",
           "description": "系统代理、负载规则、上游并发与探测。",
           "testProxy": "测试",
-          "codexUpstreamGroup": "Codex 上游并发",
-          "codexUpstreamGroupHint": "Codex 上游的会话级控制：WebSocket/Compact 行为、每会话通道并发上限与队列等待时间。",
+          "codexUpstreamGroup": "Codex 上游传输",
+          "codexUpstreamGroupHint": "控制 Codex 请求如何连接上游。并发与速率限制在站点或渠道配置，不在此处设置。",
           "fields": {
             "systemProxyUrl": "系统代理 URL",
             "systemProxyUrlHint": "可选出站代理（http:// 或 socks5://）。留空则禁用。",
@@ -2030,8 +2030,6 @@
             "payloadRules": "负载规则（JSON）",
             "payloadRulesHint": "按模型重写请求负载的 JSON 对象（键为模型名，值为要覆盖的字段）。",
             "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
-            "proxySessionChannelConcurrencyLimit": "会话通道并发",
-            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）",
             "modelAvailabilityProbeEnabled": "启用模型可用性探测",
             "modelAvailabilityProbeEnabledHint": "定期探测上游模型可用性，并将不可达模型标记为不可用。"
           },
@@ -4199,7 +4197,7 @@
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型清单",
-        "modelTester": "模型测试场",
+        "modelTester": "渠道诊断",
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",

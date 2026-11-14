@@ -145,8 +145,8 @@ target is trusted and the escape hatch is genuinely needed.
 | `PROXY_ERROR_KEYWORDS` | empty | Extra keywords marking upstream responses as errors. |
 | `DISABLE_CROSS_PROTOCOL_FALLBACK` | empty | Disable implemented cross-protocol fallback (Messages → Chat for supported text/function-tool requests); native routing remains enabled. |
 | `PROXY_STICKY_SESSION_TTL_MS` | `1800000` | Sticky binding TTL. |
-| `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | `2` | Concurrent streams per session-channel lease. |
-| `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS` | `1500` | Queue wait for a busy session channel. |
+| `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | `2` | 遗留兼容值；没有会话租约限流。正数只保留 session-scoped 渠道在 `least_busy` 中的历史零负载排序信号。 |
+| `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS` | `1500` | 遗留兼容值；没有会话等待队列，修改不影响请求执行。 |
 | `PROXY_CONNECT_TIMEOUT_SEC` | `2` | TCP dial (connect) timeout for outbound upstream requests. |
 | `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC` | `10` | TLS handshake timeout. |
 | `PROXY_RESPONSE_HEADER_TIMEOUT_SEC` | `30` | Buffered/management transport response-header timeout. SSE instead uses `PROXY_FIRST_BYTE_TIMEOUT_SEC` and its 90s default, without a competing shorter transport timer. |
@@ -162,13 +162,18 @@ These `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
 blank, invalid, zero or negative values fall back to the listed default, so a
 typo can never disable a timeout entirely.
 
-### 并发上限的三种范围
+### 实际生效的并发上限
 
 | 机制 | 范围与键 | 生效方式 |
 |:-----|:---------|:---------|
 | `sites.max_concurrency`（数据库字段） | 单个站点的所有 regular 渠道 | 管理 API 修改后即时生效 |
 | `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY` | 本进程全局，按 `upstream_credentials.id` 计数，跨模型/grant/协议共享 | 启动时读取，重启生效；`0`/未配置 = 不限流 |
-| `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | 仅 session-scoped 渠道的会话租约 | runtime settings 热更新；当前 lease 机制为 deferred，不参与 direct 账号限流 |
+
+渠道级并发/RPM 与 TPM 观测由渠道的 `rateLimit` 配置和
+`internal/channellimit` 执行，见[渠道管理 API](api/routes.md)。
+`PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` 与 `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS`
+不属于实际限流机制，已从普通设置表单移除。环境变量、runtime API 字段和已存值
+继续读写兼容；修改其他设置不会重置它们。不要用它们判断容量或等待时长。
 
 Direct 渠道没有 `sites` 行，因此 `sites.max_concurrency` 不适用；上面的环境变量
 是它们的等价隔离项。它只统计**同一进程内、同一 credential ID** 正在进行的
