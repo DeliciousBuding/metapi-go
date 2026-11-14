@@ -144,7 +144,9 @@ type RuntimeSettings struct {
 	ProxyFirstByteTimeoutSec int
 	// Proxy: Token Router (2 fields)
 	TokenRouterFailureCooldownMaxSec int
-	// Proxy: Session (4 fields)
+	// Proxy: Session compatibility (2 fields)
+	// Legacy compatibility fields. There are no session leases or wait queue;
+	// the positive limit only preserves the historical least_busy ranking signal.
 	ProxySessionChannelConcurrencyLimit int
 	ProxySessionChannelQueueWaitMs      int
 	// Proxy: Misc (6 fields)

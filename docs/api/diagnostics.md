@@ -181,6 +181,13 @@ Developer/QA test harness surfaces. The legacy TS-era `/api/test/read|write|upda
 聊天测试使用指定渠道的凭据、站点代理与取消机制，完成后返回同步响应。
 须提供 `channelId`、`siteId` 或 `forcedChannelId`；缺少时返回 `501`。
 
+管理界面入口为“渠道诊断”，保留 `/model-tester` 地址和模型深链接。
+它用于指定渠道的响应、延迟、错误与横向对比，不是普通下游调用入口。
+测试操作进入管理审计，但不产生普通代理的 request/attempt 用量账本；
+上游仍可能按请求收费。不持久保存对话，不据此证明下游 Key 授权、配额、
+正常选路、重试或计费已端到端通过。要验证这些行为，使用下游 Key 调用原生
+`/v1` 入口并核对[使用日志](diagnostics.md)中的请求与尝试。
+
 ```json
 {
   "channelId": 12,

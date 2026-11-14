@@ -969,8 +969,8 @@
         "disableFailed": "Disable failed channels"
       },
       "page": {
-        "title": "Model Playground",
-        "description": "Chat with a model, inspect each reply and compare channels."
+        "title": "Channel diagnostics",
+        "description": "Probe a channel’s response, latency and errors. Probes appear in audit logs, not the normal usage ledger. For end-to-end checks, call /v1 with a downstream Key."
       },
       "template": {
         "label": "Template",
@@ -2018,8 +2018,8 @@
           "title": "Proxy & Transport",
           "description": "System proxy, payload rules, upstream concurrency, and probe.",
           "testProxy": "Test",
-          "codexUpstreamGroup": "Codex upstream concurrency",
-          "codexUpstreamGroupHint": "Session-level controls for Codex upstreams: WebSocket/Compact behavior, per-session channel concurrency cap, and queue wait time.",
+          "codexUpstreamGroup": "Codex upstream transport",
+          "codexUpstreamGroupHint": "Controls how Codex requests reach the upstream. Concurrency and rate limits are configured on sites or channels, not here.",
           "fields": {
             "systemProxyUrl": "System proxy URL",
             "systemProxyUrlHint": "Optional outbound proxy (http:// or socks5://). Leave empty to disable.",
@@ -2030,8 +2030,6 @@
             "payloadRules": "Payload rules (JSON)",
             "payloadRulesHint": "Per-model payload rewrite rules as a JSON object (model name as key, override fields as value).",
             "codexUpstreamWebsocketEnabled": "Use WebSocket with Codex upstream",
-            "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
-            "proxySessionChannelQueueWaitMs": "Queue wait (ms)",
             "modelAvailabilityProbeEnabled": "Enable model availability probe",
             "modelAvailabilityProbeEnabledHint": "Periodically probe upstream model availability and mark unreachable models."
           },
@@ -4199,7 +4197,7 @@
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
         "models": "Model List",
-        "modelTester": "Model Playground",
+        "modelTester": "Channel diagnostics",
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",

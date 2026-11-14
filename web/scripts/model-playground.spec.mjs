@@ -23,6 +23,69 @@ const configurations = [
   ['en', 'light', 1440],
 ]
 
+for (const [locale, width] of [
+  ['zh-CN', 1440],
+  ['zh-CN', 375],
+  ['en', 1440],
+]) {
+  test(`supported proxy settings ${locale} ${width}px`, async ({
+    context,
+    page,
+  }) => {
+    const zh = locale === 'zh-CN'
+    const requests = []
+    let saved = {
+      systemProxyUrl: '',
+      proxySessionChannelConcurrencyLimit: 7,
+      proxySessionChannelQueueWaitMs: 2600,
+      codexUpstreamWebsocketEnabled: false,
+    }
+    await page.setViewportSize({ width, height: width === 375 ? 667 : 1000 })
+    await loginSession(context, { baseUrl, token })
+    await context.addInitScript(
+      (locale) => localStorage.setItem('i18nextLng', locale),
+      locale
+    )
+    await page.route('**/api/settings/runtime', async (route) => {
+      if (route.request().method() === 'PUT') {
+        const patch = route.request().postDataJSON()
+        requests.push(patch)
+        saved = { ...saved, ...patch }
+      }
+      await route.fulfill({ json: saved })
+    })
+    await page.goto(`${baseUrl}/settings/proxy-models/proxy-transport`, {
+      waitUntil: 'networkidle',
+    })
+    await expect(
+      page.getByRole('spinbutton', {
+        name: zh ? '会话通道并发' : 'Session channel concurrency',
+      })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('spinbutton', {
+        name: zh ? '队列等待（毫秒）' : 'Queue wait (ms)',
+      })
+    ).toHaveCount(0)
+    const websocket = page.getByRole('checkbox', { name: /WebSocket/ })
+    await websocket.click()
+    await page
+      .getByRole('button', { name: zh ? '保存' : 'Save', exact: true })
+      .click()
+    await expect
+      .poll(() => requests)
+      .toEqual([{ codexUpstreamWebsocketEnabled: true }])
+    await expect(websocket).toBeChecked()
+    expect(saved.proxySessionChannelConcurrencyLimit).toBe(7)
+    expect(saved.proxySessionChannelQueueWaitMs).toBe(2600)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1
+      )
+    ).toBe(true)
+  })
+}
+
 for (const [locale, theme, width] of configurations) {
   test(`chat playground ${locale} ${theme} ${width}px`, async ({
     context,
@@ -84,6 +147,17 @@ for (const [locale, theme, width] of configurations) {
     await page.goto(`${baseUrl}/model-tester?model=${model}`, {
       waitUntil: 'networkidle',
     })
+    const boundary = page.getByText(
+      zh
+        ? /测试记入审计日志，不计入普通调用账本/
+        : /Probes appear in audit logs, not the normal usage ledger/
+    )
+    await expect(
+      page.getByRole('heading', {
+        name: zh ? '渠道诊断' : 'Channel diagnostics',
+      })
+    ).toBeAttached()
+    await expect(boundary).toBeVisible()
     const settings = page.getByRole('button', {
       name: zh ? '对话设置' : 'Chat settings',
       exact: true,
@@ -122,6 +196,7 @@ for (const [locale, theme, width] of configurations) {
     await expect(
       log.getByText('回复：你好，简单介绍一下你能做什么。', { exact: true })
     ).toBeVisible()
+    await expect(boundary).toBeVisible()
     await page.screenshot({
       path: testInfo.outputPath('normal-conversation.png'),
       animations: 'disabled',

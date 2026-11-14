@@ -35,7 +35,6 @@ import {
 } from '../../../lib/collect-changed-fields'
 import {
   asBoolean,
-  asNumber,
   asString,
   joinListField,
   splitListField,
@@ -75,8 +74,6 @@ const proxyTransportSchema = z.object({
   proxyEmptyContentFailEnabled: z.boolean(),
   payloadRules: payloadRulesSchema,
   codexUpstreamWebsocketEnabled: z.boolean(),
-  proxySessionChannelConcurrencyLimit: z.coerce.number().int().min(0),
-  proxySessionChannelQueueWaitMs: z.coerce.number().int().min(0),
   modelAvailabilityProbeEnabled: z.boolean(),
 })
 
@@ -88,8 +85,6 @@ const DEFAULT_VALUES: ProxyTransportFormValues = {
   proxyEmptyContentFailEnabled: false,
   payloadRules: '',
   codexUpstreamWebsocketEnabled: false,
-  proxySessionChannelConcurrencyLimit: 2,
-  proxySessionChannelQueueWaitMs: 1500,
   modelAvailabilityProbeEnabled: false,
 }
 
@@ -116,10 +111,6 @@ function deriveServerValues(
     codexUpstreamWebsocketEnabled: asBoolean(
       data.codexUpstreamWebsocketEnabled
     ),
-    proxySessionChannelConcurrencyLimit:
-      asNumber(data.proxySessionChannelConcurrencyLimit) ?? 2,
-    proxySessionChannelQueueWaitMs:
-      asNumber(data.proxySessionChannelQueueWaitMs) ?? 1500,
     modelAvailabilityProbeEnabled: asBoolean(
       data.modelAvailabilityProbeEnabled
     ),
@@ -145,14 +136,6 @@ function proxyTransportToPayload(changed: Partial<ProxyTransportFormValues>) {
   if (changed.codexUpstreamWebsocketEnabled !== undefined) {
     payload.codexUpstreamWebsocketEnabled =
       changed.codexUpstreamWebsocketEnabled
-  }
-  if (changed.proxySessionChannelConcurrencyLimit !== undefined) {
-    payload.proxySessionChannelConcurrencyLimit =
-      changed.proxySessionChannelConcurrencyLimit
-  }
-  if (changed.proxySessionChannelQueueWaitMs !== undefined) {
-    payload.proxySessionChannelQueueWaitMs =
-      changed.proxySessionChannelQueueWaitMs
   }
   if (changed.modelAvailabilityProbeEnabled !== undefined) {
     payload.modelAvailabilityProbeEnabled =
@@ -430,53 +413,6 @@ export function ProxyTransportSection() {
                 </FormItem>
               )}
             />
-            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-              <FormField
-                control={form.control}
-                name='proxySessionChannelConcurrencyLimit'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t(
-                        'settings.proxyModels.proxyTransport.fields.proxySessionChannelConcurrencyLimit'
-                      )}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        type='number'
-                        min={0}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='proxySessionChannelQueueWaitMs'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t(
-                        'settings.proxyModels.proxyTransport.fields.proxySessionChannelQueueWaitMs'
-                      )}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        type='number'
-                        min={0}
-                        step={100}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
           </div>
 
           <FormField
