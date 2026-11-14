@@ -91,8 +91,14 @@ func canonicalRequestPath(path string) *string {
 	case path == "/responses/compact":
 		path = "/v1/responses/compact"
 		return &path
-	case path == "/v1/models", path == "/v1/files":
+	case path == "/v1/models", path == "/v1beta/models", path == "/v1/files":
 		return &path
+	case strings.HasPrefix(path, "/gemini/") && strings.HasSuffix(path, "/models"):
+		version := strings.TrimSuffix(strings.TrimPrefix(path, "/gemini/"), "/models")
+		if version != "" && !strings.Contains(version, "/") {
+			normalized := "/gemini/{version}/models"
+			return &normalized
+		}
 	case strings.HasPrefix(path, "/v1/files/"):
 		path = "/v1/files/{id}" + requestResourceSuffix(path)
 		return &path
