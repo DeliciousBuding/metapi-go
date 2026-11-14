@@ -108,3 +108,14 @@ func TestDownstreamPathFailureHTTP(t *testing.T) {
 		t.Fatalf("failed dispatch lost ingress: status=%d log=%+v", out.Code, row)
 	}
 }
+
+func TestProxyLogDownstreamPathVideoRemix(t *testing.T) {
+	if got := proxyLogDownstreamPath(&Ctx{DownstreamPath: "/v1/videos/vid-123/remix?foo=bar"}); got == nil || *got != "/v1/videos/{id}/remix" {
+		t.Fatalf("video remix downstream path = %v, want /v1/videos/{id}/remix", got)
+	}
+	for _, raw := range []string{"/v1/videos/vid-123", "/v1/videos/vid-123/content", "/v1/videos//remix", "/v1/videos/a/b/remix"} {
+		if got := proxyLogDownstreamPath(&Ctx{DownstreamPath: raw}); got != nil {
+			t.Fatalf("proxyLogDownstreamPath(%q) = %q, want nil", raw, *got)
+		}
+	}
+}

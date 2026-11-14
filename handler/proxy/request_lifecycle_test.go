@@ -159,6 +159,20 @@ func TestGatewayLifecycleAuthRejectionAndScope(t *testing.T) {
 	if path := canonicalRequestPath("/responses/compact"); path == nil || *path != "/v1/responses/compact" {
 		t.Fatalf("compact alias missing: %v", path)
 	}
+	if path := canonicalRequestPath("/v1beta/models"); path == nil || *path != "/v1beta/models" {
+		t.Fatalf("v1beta models path missing: %v", path)
+	}
+	if path := canonicalRequestPath("/gemini/v1beta/models?key=secret"); path == nil || *path != "/gemini/{version}/models" {
+		t.Fatalf("gemini versioned models path = %v, want /gemini/{version}/models", path)
+	}
+	for _, bad := range []string{"/gemini//models", "/gemini/v1/a/models"} {
+		if path := canonicalRequestPath(bad); path != nil {
+			t.Fatalf("invalid gemini models path %q recorded as %q", bad, *path)
+		}
+	}
+	if path := canonicalRequestPath("/v1/videos/vid-secret/remix"); path == nil || *path != "/v1/videos/{id}/remix" {
+		t.Fatalf("video remix path = %v, want /v1/videos/{id}/remix", path)
+	}
 }
 
 func TestGatewayLifecycleCredentialNeverExternalID(t *testing.T) {
