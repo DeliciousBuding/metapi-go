@@ -254,8 +254,6 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 	ctx := context.Background()
 	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
 
-	coord := NewProxyChannelCoordinator()
-
 	t.Run("tester forced channel - first attempt", func(t *testing.T) {
 		forcedID := int64(42)
 		router := &mockRouter{
@@ -268,7 +266,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 			},
 		}
 
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: defaultPolicy,
 			RetryCount:       0,
@@ -288,7 +286,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 	t.Run("tester forced channel - retryCount > 0 returns nil immediately", func(t *testing.T) {
 		forcedID := int64(42)
 		router := &mockRouter{}
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: defaultPolicy,
 			RetryCount:       1,
@@ -309,7 +307,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 				return &ch, nil
 			},
 		}
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: defaultPolicy,
 			RetryCount:       0,
@@ -335,7 +333,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 				return &ch, nil
 			},
 		}
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:    "gpt-4",
 			DownstreamPolicy:  defaultPolicy,
 			RetryCount:        1,
@@ -359,7 +357,6 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 func TestSelectProxyChannelForAttempt_RetrySelectionOnEmpty(t *testing.T) {
 	setupCfg()
 	ctx := context.Background()
-	coord := NewProxyChannelCoordinator()
 
 	t.Run("first attempt retries selection once when empty", func(t *testing.T) {
 		count := 0
@@ -374,7 +371,7 @@ func TestSelectProxyChannelForAttempt_RetrySelectionOnEmpty(t *testing.T) {
 			},
 		}
 
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: routing.EmptyDownstreamRoutingPolicy,
 			RetryCount:       0,
@@ -402,7 +399,7 @@ func TestSelectProxyChannelForAttempt_RetrySelectionOnEmpty(t *testing.T) {
 			},
 		}
 
-		selected, _ := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, _ := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: routing.EmptyDownstreamRoutingPolicy,
 			RetryCount:       1,
@@ -421,7 +418,6 @@ func TestSelectProxyChannelForAttempt_ErrorPropagation(t *testing.T) {
 	setupCfg()
 	ctx := context.Background()
 	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
-	coord := NewProxyChannelCoordinator()
 
 	t.Run("nil selection with no available channels", func(t *testing.T) {
 		router := &mockRouter{
@@ -430,7 +426,7 @@ func TestSelectProxyChannelForAttempt_ErrorPropagation(t *testing.T) {
 			},
 		}
 
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: defaultPolicy,
 			RetryCount:       0,

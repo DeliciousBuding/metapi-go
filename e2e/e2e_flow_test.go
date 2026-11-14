@@ -14,7 +14,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
-	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -115,13 +114,9 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4o"))
 
-	// 1e. Proxy channel coordinator.
-	coord := proxy.NewProxyChannelCoordinator()
-
 	// 1f. Wire upstream config for proxy dispatch.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coord,
+		Router: mockR,
 	})
 
 	// 1g. Build chi router with admin and proxy route groups.
@@ -380,10 +375,8 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 		t.Fatal("store.GetDB() returned nil")
 	}
 
-	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      newMockRouter(),
-		Coordinator: coord,
+		Router: newMockRouter(),
 	})
 
 	r := chi.NewRouter()
@@ -509,10 +502,8 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4o"))
 
-	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coord,
+		Router: mockR,
 	})
 
 	r := chi.NewRouter()

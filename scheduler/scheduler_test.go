@@ -744,57 +744,6 @@ func TestNewChannelRecoveryScheduler(t *testing.T) {
 	}
 }
 
-func TestChannelRecovery_MergeCandidates(t *testing.T) {
-	s := NewChannelRecoveryScheduler(testConfig())
-
-	t.Run("cooling takes priority over same channel", func(t *testing.T) {
-		cooling := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
-		}
-		active := []recoveryCandidate{
-			{source: "active", channelID: 1, modelName: "gpt-4"},
-		}
-		merged := s.mergeCandidates(cooling, active)
-		if len(merged) != 1 {
-			t.Fatalf("expected 1 merged, got %d", len(merged))
-		}
-		if merged[0].source != "cooldown" {
-			t.Errorf("expected cooldown to win, got %s", merged[0].source)
-		}
-	})
-
-	t.Run("active added when not in cooling", func(t *testing.T) {
-		cooling := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
-		}
-		active := []recoveryCandidate{
-			{source: "active", channelID: 2, modelName: "claude-3"},
-		}
-		merged := s.mergeCandidates(cooling, active)
-		if len(merged) != 2 {
-			t.Errorf("expected 2 merged (different channels), got %d", len(merged))
-		}
-	})
-
-	t.Run("empty inputs", func(t *testing.T) {
-		merged := s.mergeCandidates(nil, nil)
-		if len(merged) != 0 {
-			t.Errorf("expected 0 merged, got %d", len(merged))
-		}
-	})
-
-	t.Run("only cooling", func(t *testing.T) {
-		cooling := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
-			{source: "cooldown", channelID: 2, modelName: "claude-3"},
-		}
-		merged := s.mergeCandidates(cooling, nil)
-		if len(merged) != 2 {
-			t.Errorf("expected 2 merged, got %d", len(merged))
-		}
-	})
-}
-
 func TestChannelRecovery_FilterDue(t *testing.T) {
 	s := NewChannelRecoveryScheduler(testConfig())
 	nowMs := time.Now().UnixMilli()
@@ -808,7 +757,7 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 
 	t.Run("never probed is due", func(t *testing.T) {
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
+			{channelID: 1, modelName: "gpt-4"},
 		}
 		due := s.filterDue(candidates, nowMs)
 		if len(due) != 1 {
@@ -822,7 +771,7 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
+			{channelID: 1, modelName: "gpt-4"},
 		}
 		due := s.filterDue(candidates, nowMs)
 		if len(due) != 0 {
@@ -840,29 +789,11 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
+			{channelID: 1, modelName: "gpt-4"},
 		}
 		due := s.filterDue(candidates, nowMs)
 		if len(due) != 0 {
 			t.Errorf("expected 0 due (cooldown within recheck), got %d", len(due))
-		}
-
-		s.mu.Lock()
-		delete(s.lastStartedAtByKey, "1:gpt-4")
-		s.mu.Unlock()
-	})
-
-	t.Run("active within recheck suppressed", func(t *testing.T) {
-		s.mu.Lock()
-		s.lastStartedAtByKey["1:gpt-4"] = nowMs - 60_000 // 1m ago, less than 5m recheck
-		s.mu.Unlock()
-
-		candidates := []recoveryCandidate{
-			{source: "active", channelID: 1, modelName: "gpt-4"},
-		}
-		due := s.filterDue(candidates, nowMs)
-		if len(due) != 0 {
-			t.Errorf("expected 0 due (active within recheck), got %d", len(due))
 		}
 
 		s.mu.Lock()
@@ -876,7 +807,7 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "gpt-4"},
+			{channelID: 1, modelName: "gpt-4"},
 		}
 		due := s.filterDue(candidates, nowMs)
 		if len(due) != 1 {
@@ -888,23 +819,6 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 		s.mu.Unlock()
 	})
 
-	t.Run("active past recheck is due", func(t *testing.T) {
-		s.mu.Lock()
-		s.lastStartedAtByKey["1:gpt-4"] = nowMs - (10 * 60_000) // 10m ago, more than 5m recheck
-		s.mu.Unlock()
-
-		candidates := []recoveryCandidate{
-			{source: "active", channelID: 1, modelName: "gpt-4"},
-		}
-		due := s.filterDue(candidates, nowMs)
-		if len(due) != 1 {
-			t.Errorf("expected 1 due (active past recheck), got %d", len(due))
-		}
-
-		s.mu.Lock()
-		delete(s.lastStartedAtByKey, "1:gpt-4")
-		s.mu.Unlock()
-	})
 }
 
 func TestChannelRecovery_Prioritize(t *testing.T) {
@@ -916,9 +830,9 @@ func TestChannelRecovery_Prioritize(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "m1"},
-			{source: "cooldown", channelID: 2, modelName: "m2"},
-			{source: "cooldown", channelID: 3, modelName: "m3"},
+			{channelID: 1, modelName: "m1"},
+			{channelID: 2, modelName: "m2"},
+			{channelID: 3, modelName: "m3"},
 		}
 		s.prioritize(candidates)
 
@@ -944,8 +858,8 @@ func TestChannelRecovery_Prioritize(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 1, modelName: "a"},
-			{source: "cooldown", channelID: 2, modelName: "b"},
+			{channelID: 1, modelName: "a"},
+			{channelID: 2, modelName: "b"},
 		}
 		s.prioritize(candidates)
 
@@ -966,8 +880,8 @@ func TestChannelRecovery_Prioritize(t *testing.T) {
 		s.mu.Unlock()
 
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 5, modelName: "x"},
-			{source: "cooldown", channelID: 3, modelName: "y"},
+			{channelID: 5, modelName: "x"},
+			{channelID: 3, modelName: "y"},
 		}
 		s.prioritize(candidates)
 
@@ -983,7 +897,7 @@ func TestChannelRecovery_Prioritize(t *testing.T) {
 
 	t.Run("stable for single candidate", func(t *testing.T) {
 		candidates := []recoveryCandidate{
-			{source: "cooldown", channelID: 42, modelName: "sole"},
+			{channelID: 42, modelName: "sole"},
 		}
 		s.prioritize(candidates)
 		if len(candidates) != 1 || candidates[0].channelID != 42 {

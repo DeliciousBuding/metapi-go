@@ -292,14 +292,13 @@ func makeTestRuntime() *config.RuntimeSettings {
 
 // setupE2ERouter creates a chi router wired with the proxy handler and mock routing.
 // Must be called AFTER config.Set() for the global config.
-func setupE2ERouter(mockR *mockRouter, coordinator *proxy.ProxyChannelCoordinator, middleware func(http.Handler) http.Handler) chi.Router {
+func setupE2ERouter(mockR *mockRouter, middleware func(http.Handler) http.Handler) chi.Router {
 	r := chi.NewRouter()
 
 	// Set upstream config
 	wired := &proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coordinator,
-		Executor:    proxy.NewRuntimeExecutor(30 * time.Second),
+		Router:   mockR,
+		Executor: proxy.NewRuntimeExecutor(30 * time.Second),
 	}
 	proxyhandler.SetUpstreamConfig(wired)
 
@@ -367,8 +366,7 @@ func TestBasicChatCompletions(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	// Make request
 	req := httptest.NewRequest("POST", "/chat/completions",
@@ -429,8 +427,7 @@ func TestChannelRetry(t *testing.T) {
 	mockR.pushChannel(makeChannel(1, "http://127.0.0.1:1", "gpt-3.5"))
 	mockR.pushChannel(makeChannel(2, goodUpstream.URL, "gpt-3.5"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-3.5","messages":[{"role":"user","content":"hi"}]}`))
@@ -539,10 +536,8 @@ func TestDownstreamAuth(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
 	wired := &proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coord,
+		Router: mockR,
 	}
 	proxyhandler.SetUpstreamConfig(wired)
 
@@ -667,8 +662,7 @@ func TestModelMatching(t *testing.T) {
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 	mockR.addChannel(makeChannel(2, mockUpstream.URL, "claude-3-opus"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	// Requesting "gpt-4" → first channel (model "gpt-4").
 	req := httptest.NewRequest("POST", "/chat/completions",
@@ -705,10 +699,8 @@ func TestModelNotAllowed(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-
 	// Managed key with only "gpt-3.5" allowed → "gpt-4" should be rejected.
-	r := setupE2ERouter(mockR, coord, injectAuthManaged("sk-managed", []string{"gpt-3.5"}))
+	r := setupE2ERouter(mockR, injectAuthManaged("sk-managed", []string{"gpt-3.5"}))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
@@ -745,8 +737,7 @@ func TestErrorPropagation(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
@@ -804,8 +795,7 @@ func TestStreamingSSE(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":true}`))
@@ -899,8 +889,7 @@ func TestRateLimit(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4")
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	// Send concurrent requests.
 	concurrency := 5
@@ -951,8 +940,7 @@ func TestStreamingSSEError(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":true}`))
@@ -1000,8 +988,7 @@ func TestNonStreamingWithStreamFalse(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	// stream: false should return non-streaming response.
 	req := httptest.NewRequest("POST", "/chat/completions",
@@ -1032,8 +1019,7 @@ func TestNonStreamingWithStreamFalse(t *testing.T) {
 
 func TestModelMissing(t *testing.T) {
 	mockR := newMockRouter()
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"messages":[{"role":"user","content":"hi"}]}`))
@@ -1076,8 +1062,7 @@ func TestSSEHeadersOnStream(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4"))
 
-	coord := proxy.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
 		strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":true}`))

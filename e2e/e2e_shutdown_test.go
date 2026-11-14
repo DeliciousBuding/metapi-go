@@ -17,7 +17,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
-	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -148,13 +147,9 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
-	// 1e. Proxy channel coordinator.
-	coord := proxy.NewProxyChannelCoordinator()
-
 	// 1f. Wire upstream config.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coord,
+		Router: mockR,
 	})
 
 	// 1g. Build chi router — mirrors production router.New structure.
@@ -492,10 +487,8 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
-	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      mockR,
-		Coordinator: coord,
+		Router: mockR,
 	})
 
 	r := chi.NewRouter()

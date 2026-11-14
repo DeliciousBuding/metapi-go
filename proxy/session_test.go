@@ -3,30 +3,8 @@ package proxy
 import (
 	"testing"
 
-	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 )
-
-func newTestCoordinator() *ProxyChannelCoordinator {
-	cfg, rt := config.Load(map[string]string{
-		"PORT": "8080",
-		"PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT": "2",
-	})
-	config.Set(cfg)
-	config.SetRuntime(rt)
-	return NewProxyChannelCoordinator()
-}
-
-func sessionScopedConfig() (*string, *string) {
-	ec := `{"credentialMode":"session"}`
-	op := "claude"
-	return &ec, &op
-}
-
-func nonSessionScopedConfig() (*string, *string) {
-	ec := `{"credentialMode":"apikey"}`
-	return &ec, nil
-}
 
 func TestIsSessionScopedChannel(t *testing.T) {
 	t.Run("session credential mode", func(t *testing.T) {
@@ -78,54 +56,6 @@ func TestIsSessionScopedChannel(t *testing.T) {
 			t.Error("expected session-scoped when oauth provider present even with nil extraConfig")
 		}
 	})
-}
-
-func TestChannelLoadSnapshot(t *testing.T) {
-	coord := newTestCoordinator()
-	ec, op := sessionScopedConfig()
-
-	snap := coord.GetChannelLoadSnapshot(800, ec, op)
-	if !snap.SessionScoped {
-		t.Error("expected session-scoped in snapshot")
-	}
-	if snap.ConcurrencyLimit != 2 {
-		t.Errorf("expected limit=2, got %d", snap.ConcurrencyLimit)
-	}
-	if snap.ActiveLeaseCount != 0 {
-		t.Errorf("expected 0 active (leases deferred), got %d", snap.ActiveLeaseCount)
-	}
-	if snap.WaitingCount != 0 {
-		t.Errorf("expected 0 waiting (leases deferred), got %d", snap.WaitingCount)
-	}
-	if snap.Saturated {
-		t.Error("expected not saturated")
-	}
-
-	nonEC, nonOP := nonSessionScopedConfig()
-	nonSnap := coord.GetChannelLoadSnapshot(800, nonEC, nonOP)
-	if nonSnap.SessionScoped {
-		t.Error("expected NOT session-scoped in snapshot")
-	}
-	if nonSnap.ConcurrencyLimit != 0 {
-		t.Errorf("expected limit=0 for non-session-scoped channel, got %d", nonSnap.ConcurrencyLimit)
-	}
-}
-
-func TestGetActiveChannelIDs(t *testing.T) {
-	coord := newTestCoordinator()
-	ids := coord.GetActiveChannelIDs()
-	if len(ids) != 0 {
-		t.Errorf("expected 0 active channels (leases deferred), got %d", len(ids))
-	}
-}
-
-func TestCoordinatorReset(t *testing.T) {
-	coord := newTestCoordinator()
-	coord.Reset()
-	ids := coord.GetActiveChannelIDs()
-	if len(ids) != 0 {
-		t.Errorf("expected 0 active after reset")
-	}
 }
 
 func TestCredentialModeIntegration(t *testing.T) {

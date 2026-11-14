@@ -11,7 +11,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
-	proxypkg "github.com/deliciousbuding/metapi-go/proxy"
 	routerpkg "github.com/deliciousbuding/metapi-go/router"
 	"github.com/go-chi/chi/v5"
 )
@@ -31,8 +30,7 @@ func TestProxyConcurrentRequests(t *testing.T) {
 		mockR.addChannel(makeChannel(i, mockUpstream.URL, "gpt-4"))
 	}
 
-	coord := proxypkg.NewProxyChannelCoordinator()
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	r := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 5)
@@ -139,8 +137,7 @@ func TestProxyRequestBodyLimitRejectsBeforeUpstream(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4")
 
-	coord := proxypkg.NewProxyChannelCoordinator()
-	proxyRoutes := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
+	proxyRoutes := setupE2ERouter(mockR, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	r := chi.NewRouter()
 	r.Use(routerpkg.BodyLimit(96))

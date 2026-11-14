@@ -10,13 +10,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// Error-surfacing tests.
-//
-// Observed defect: channel_recovery.loadActiveCandidates returned nil on a
-// query error without any log (its sibling loadCoolingCandidates logs), so a
-// broken candidate query was invisible in production. The fix must surface
-// the error via structured logging consistent with the package style.
-
 // captureHandler is a minimal slog.Handler that records record messages so
 // tests can assert structured log emission without parsing text output.
 type captureHandler struct {
@@ -64,37 +57,6 @@ func installCaptureLog(t *testing.T) *captureHandler {
 	slog.SetDefault(slog.New(h))
 	t.Cleanup(func() { slog.SetDefault(prev) })
 	return h
-}
-
-// TestChannelRecoveryLoadActiveCandidatesLogsQueryError forces the fallback
-// SQL query to fail (closed DB) and asserts the error is surfaced via
-// structured logging. Before the fix the error was swallowed silently.
-func TestChannelRecoveryLoadActiveCandidatesLogsQueryError(t *testing.T) {
-	// Force the SQL fallback path (no coordinator provider registered).
-	SetActiveChannelIDsProvider(nil)
-	t.Cleanup(func() { SetActiveChannelIDsProvider(nil) })
-
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	// Close immediately: every subsequent Query fails with
-	// "sql: database is closed", which is exactly the error shape a broken
-	// runtime DB produces in production.
-	if err := db.Close(); err != nil {
-		t.Fatalf("close sqlite: %v", err)
-	}
-
-	h := installCaptureLog(t)
-
-	s := NewChannelRecoveryScheduler(testConfig())
-	if got := s.loadActiveCandidates(db); got != nil {
-		t.Fatalf("expected nil candidates from a closed DB, got %v", got)
-	}
-
-	if !h.contains("failed to load active candidates") {
-		t.Fatalf("query error was swallowed: no structured log emitted; captured messages: %v", h.all())
-	}
 }
 
 // TestChannelRecoveryLoadCoolingCandidatesLogsQueryError pins the existing
