@@ -45,6 +45,7 @@ type requestLifecycle struct {
 	hijacked           bool
 	gatewayFailure     string
 	noRouteReason      string
+	firstFailure       string
 	attempts           int
 	requestContext     context.Context
 	knownFailure       bool
@@ -229,6 +230,9 @@ func (s *requestLifecycle) terminal(ctx context.Context) (string, string) {
 		return "output_interrupted", "protocol_interrupted"
 	}
 	if s.protocolCompleted && !s.protocolFailed && !s.writeFailed && s.outcome == shared.OutcomeSuccess {
+		if s.firstFailure != "" {
+			return "completed", s.firstFailure
+		}
 		return "completed", "normal_completion"
 	}
 	if errors.Is(ctx.Err(), context.Canceled) && !s.knownFailure && s.rejection == "" {
@@ -247,6 +251,9 @@ func (s *requestLifecycle) terminal(ctx context.Context) (string, string) {
 		return "upstream_failed", "protocol_interrupted"
 	}
 	if s.outcome == shared.OutcomeSuccess {
+		if s.firstFailure != "" {
+			return "completed", s.firstFailure
+		}
 		return "completed", "normal_completion"
 	}
 	if s.outcome == shared.OutcomeUnavailable && !s.attempted {
@@ -257,11 +264,17 @@ func (s *requestLifecycle) terminal(ctx context.Context) (string, string) {
 	}
 	if s.outcome == shared.OutcomeClientError {
 		if s.attempted {
+			if s.firstFailure != "" {
+				return "upstream_failed", s.firstFailure
+			}
 			return "upstream_failed", "upstream_rejected"
 		}
 		return "rejected_policy", "invalid_request"
 	}
 	if s.outcome != "" {
+		if s.firstFailure != "" {
+			return "upstream_failed", s.firstFailure
+		}
 		return "upstream_failed", s.outcome
 	}
 	if s.entry.HTTPStatus != nil {
@@ -422,6 +435,24 @@ func beginGatewayAttempt(ctx context.Context) context.Context {
 	return context.WithValue(ctx, gatewayAttemptKey{}, ordinal)
 }
 
+func upstreamFailureReason(status int) string {
+	switch status {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "upstream_auth_rejected"
+	case http.StatusRequestTimeout:
+		return "upstream_first_byte_timeout"
+	case http.StatusTooManyRequests:
+		return "upstream_rate_limited"
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
+		return "upstream_request_rejected"
+	default:
+		if status >= 500 {
+			return "upstream_server_error"
+		}
+		return "upstream_transport_failed"
+	}
+}
+
 func (s *requestLifecycle) recordAttempt(ctx context.Context, entry *proxy.ProxyLogEntry) {
 	if s == nil {
 		return
@@ -429,6 +460,11 @@ func (s *requestLifecycle) recordAttempt(ctx context.Context, entry *proxy.Proxy
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry.GatewayRequestID = s.entry.ID
+	if entry.Status == "failed" && s.firstFailure == "" {
+		// Retain the first actionable upstream outcome without copying raw error
+		// bodies or transport URLs into the request-level reason field.
+		s.firstFailure = upstreamFailureReason(entry.HTTPStatus)
+	}
 	ordinal, hasOrdinal := ctx.Value(gatewayAttemptKey{}).(int)
 	if !hasOrdinal {
 		ordinal = s.attempts

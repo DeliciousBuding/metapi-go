@@ -140,7 +140,7 @@ target is trusted and the escape hatch is genuinely needed.
 | `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY` | `0` | Direct 渠道按 upstream credential ID 的进程内并发上限；`0`/未配置 = 不限流。见下方“并发上限的三种范围”。 |
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Non-streaming upstream response buffer cap (20 MiB); over → 502. |
 | `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. Protocol conversion also caps original upstream bytes, including discarded frames. |
-| `PROXY_FIRST_BYTE_TIMEOUT_SEC` | `0` | Upstream response-header deadline in seconds. For SSE, `0` uses a finite 90s default; positive values replace it. The timer stops at headers and never caps an active stream. |
+| `PROXY_FIRST_BYTE_TIMEOUT_SEC` | `0` | Upstream response-header deadline in seconds. For SSE, `0` uses a finite 90s default; positive values replace it. The timer stops at headers and never caps an active stream. A positive value also stops another stalled retry after the current wait expires; an immediate error response leaves a fallback's header window available. |
 | `PROXY_EMPTY_CONTENT_FAIL` | empty | Treat empty upstream content as failure. |
 | `PROXY_ERROR_KEYWORDS` | empty | Extra keywords marking upstream responses as errors. |
 | `DISABLE_CROSS_PROTOCOL_FALLBACK` | empty | Disable implemented cross-protocol fallback (Messages → Chat for supported text/function-tool requests); native routing remains enabled. |

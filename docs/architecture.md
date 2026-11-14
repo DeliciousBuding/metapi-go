@@ -349,6 +349,9 @@ A request then moves through stages that each have exactly one owner:
 WebSocket turn 由一个 owner 写入 `gateway_requests`。WS 升级只建立连接，不以 101 表示 turn 完成。
 `proxy_logs.gateway_request_id` 关联尝试，外部追踪 ID 可重复；历史不回填终态。
 请求保存观测到的尝试次数，详情与异步落库行数不一致时标记不完整，不能把丢失记录当作零派发。
+失败请求的请求级 `reason_code` 保留首个上游失败的安全分类，如 `upstream_auth_rejected` 或
+`upstream_first_byte_timeout`；后续恢复成功时也保留该恢复前原因。原始错误正文仍只在对应
+attempt 中，不复制到请求摘要。最终 HTTP 结果与首个原因分别呈现，避免最后的泛化失败覆盖首因。
 写入失败仅输出带内部 ID 的 WARN；取消后的记录使用有界、与客户端取消解耦的写入 context。
 请求与尝试共用既有留存策略，不引入正文存储、外部队列或新的调度服务。
 两者也复用 `PROXY_LOG_ASYNC` 控制的有界批写队列、刷新周期和停机排空 owner；

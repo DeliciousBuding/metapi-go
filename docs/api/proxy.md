@@ -304,6 +304,14 @@ never be shorter than the request side: a buffered response that takes 61–90s
 upstream is delivered instead of being cut mid-write. Admin routes keep the
 strict 60s `WriteTimeout`.
 
+With a positive `PROXY_FIRST_BYTE_TIMEOUT_SEC`, a conversation request does
+not start another full header wait after a stalled attempt exhausts its window.
+Receiving an error response such as 401 is already an answer and leaves a
+healthy fallback's window available. The observed upstream failure is preserved
+instead of being replaced by a generic 503. This budget does not cap a body,
+asynchronous media polling/download, or an active SSE stream. Leaving the
+setting at `0` retains the historical per-attempt behavior.
+
 Streaming responses are not bounded by total elapsed time at all. Upstream
 liveness is enforced per chunk by the idle guard, while the downstream side
 re-arms a bounded write deadline around each write+flush and clears it between
