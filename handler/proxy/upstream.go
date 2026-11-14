@@ -148,6 +148,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	}
 
 	excludeChannelIDs := make([]int64, 0)
+	ctx.retryBudget = &upstreamRetryBudget{}
 	maxRetries := ctx.MaxRetries
 	downstreamPolicy := RoutingPolicyFromAuth(ctx.Policy)
 	requestStream := ctx.IsStream
@@ -211,6 +212,9 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	directLimit := int64(directAccountConcurrencyLimit())
 
 	for attempt <= maxRetries {
+		if attempt > 0 && ctx.retryBudgetExpired() {
+			break
+		}
 		// Step 6: Channel selection
 		selected, err := proxy.SelectProxyChannelForAttempt(
 			r.Context(),
@@ -395,6 +399,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			return
 		}
 		if nextPending != nil {
+			nextPending.recordFirstFailure(ctx)
 			pendingFailure = nextPending
 		}
 		if selected.AffinityPreferred && selected.Direct != nil {
@@ -418,6 +423,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			}
 			continue
 		}
+		if r.Context().Err() != nil {
+			w.WriteHeader(499)
+			observeProxyTerminal(ctx, shared.OutcomeClientError, ctx.IsStream, time.Since(startedAt))
+			return
+		}
 		attempt++
 	}
 
@@ -426,6 +436,13 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		reason = pendingFailure.reason()
 	} else if isDirectAdmissionReason(lastSaturationReason) {
 		reason = lastSaturationReason
+	}
+	if pendingFailure != nil {
+		pendingFailure.recordFirstFailure(ctx)
+		reportProxyAllFailedTerminal(ctx, reason)
+		pendingFailure.write(w, requestID, ctx.RequestedModel)
+		observeProxyTerminal(ctx, pendingFailure.outcomeStatus(), ctx.IsStream, time.Since(startedAt))
+		return
 	}
 	reportProxyAllFailedTerminal(ctx, reason)
 	writeJSONErrorWithRequest(w, 503, "All channels exhausted", "server_error", requestID)
@@ -530,6 +547,9 @@ func dispatchSelectedUpstream(
 		firstByteTimeoutMs = proxy.FirstByteTimeoutMs(rt.ProxyFirstByteTimeoutSec)
 		disableCrossProtocolFallback = rt.DisableCrossProtocolFallback
 	}
+	configuredFirstByteTimeoutMs := firstByteTimeoutMs
+	ctx.startRetryBudget(time.Duration(configuredFirstByteTimeoutMs) * time.Millisecond)
+	firstByteTimeoutMs = ctx.remaining(configuredFirstByteTimeoutMs)
 
 	if ctx.messagesBridgeReplayRequired && disableCrossProtocolFallback {
 		writeMessagesReplayFailure(w, ctx, requestID)
@@ -709,13 +729,18 @@ func dispatchSelectedUpstream(
 			lastPending = pending
 		}
 		if cont {
-			// Soft protocol/timeout miss: try next candidate without channel poison.
+			// Transport errors keep sharing the remaining header budget; HTTP
+			// answers and timeout-authorized protocol fallbacks clear the prior
+			// deadline first so the fallback endpoint gets a real header wait.
+			ctx.startRetryBudget(time.Duration(configuredFirstByteTimeoutMs) * time.Millisecond)
+			firstByteTimeoutMs = ctx.remaining(configuredFirstByteTimeoutMs)
 			continue
 		}
 		// Channel-level retry or terminal pending for outer loop.
 		return false, lastPending
 	}
 	if lastPending != nil {
+		lastPending.recordFirstFailure(ctx)
 		return false, lastPending
 	}
 	if retry < maxRetries {
@@ -876,6 +901,7 @@ func dispatchEndpointAttemptWithContinue(
 		}
 	}
 	startedAt := time.Now()
+	firstByteTimeoutMs = ctx.remaining(firstByteTimeoutMs)
 
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, bytesReader(bodyBytes))
 	if err != nil {
@@ -1037,6 +1063,7 @@ func dispatchEndpointAttemptWithContinue(
 	latencyMs := time.Since(startedAt).Milliseconds()
 	var firstByteLatencyMs *int64
 	if err == nil && resp != nil {
+		ctx.armRetryBudget()
 		firstByteLatencyMs = int64Ptr(latencyMs)
 		if first := directMediaFirstByteLatencyMs(resp); first != nil {
 			firstByteLatencyMs = first
@@ -1051,6 +1078,9 @@ func dispatchEndpointAttemptWithContinue(
 			observeProxyTerminal(ctx, shared.OutcomeClientError, effectiveStream, time.Since(startedAt))
 			return true, nil, false
 		}
+		if ctx.expiredBeforeHeaders(err, firstByteTimeoutMs) {
+			err = proxy.ErrObservedFirstByteTimeout
+		}
 		if proxy.IsObservedFirstByteTimeoutError(err) {
 			slog.Debug("upstream first-byte timeout",
 				"url", upstreamURL,
@@ -1062,6 +1092,7 @@ func dispatchEndpointAttemptWithContinue(
 				"retry", retry,
 			)
 			if shouldContinueEndpointFallback(http.StatusRequestTimeout, err.Error(), isLastEndpoint, disableCrossProtocolFallback, endpointFailureFirstByteTimeout) {
+				ctx.armRetryBudget()
 				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusRequestTimeout, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(err.Error()))
 				return false, nil, true
 			}
@@ -1701,7 +1732,6 @@ func (p *pendingUpstreamFailure) outcomeStatus() string {
 	return shared.StatusFromHTTP(p.jsonStatus)
 }
 
-// reason describes the last upstream failure for proxy all-failed alerting.
 func (p *pendingUpstreamFailure) reason() string {
 	if p == nil {
 		return "upstream request failed"
@@ -1713,6 +1743,21 @@ func (p *pendingUpstreamFailure) reason() string {
 		return p.jsonMessage
 	}
 	return "upstream request failed"
+}
+
+func (p *pendingUpstreamFailure) recordFirstFailure(ctx *Ctx) {
+	if p == nil || ctx == nil || ctx.lifecycle == nil {
+		return
+	}
+	status := p.jsonStatus
+	if p.resp != nil {
+		status = p.resp.StatusCode
+	}
+	ctx.lifecycle.mu.Lock()
+	defer ctx.lifecycle.mu.Unlock()
+	if ctx.lifecycle.firstFailure == "" {
+		ctx.lifecycle.firstFailure = upstreamFailureReason(status)
+	}
 }
 
 func (p *pendingUpstreamFailure) write(w http.ResponseWriter, requestID, model string) {
@@ -1765,6 +1810,10 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 // chunk by the relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC); the
 // stream header phase is owned by the shared header budget, without a shorter
 // transport timer racing it. Buffered dispatch retains its transport/total bounds.
+// sendUpstreamRequest keeps response-header waiting separate from the body:
+// the caller's remaining retry window is resolved before this dispatch, while
+// a healthy stream keeps its own idle and byte limits after headers arrive.
+// Media polling/downloads and asynchronous task lifetimes are not capped here.
 func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *platform.ProxyConfig, firstByteTimeoutMs int64, isStream bool) (*http.Response, error) {
 	hasProxyCfg := proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS)
 	if hasProxyCfg && req.URL != nil && service.IsForbiddenSiteTargetURL(req.URL.String()) {

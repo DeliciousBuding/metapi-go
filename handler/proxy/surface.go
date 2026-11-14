@@ -47,7 +47,8 @@ type SurfResult struct {
 
 // Ctx holds all context needed for a proxy request.
 type Ctx struct {
-	lifecycle *requestLifecycle
+	lifecycle   *requestLifecycle
+	retryBudget *upstreamRetryBudget
 	// Retain the ingress request descriptors for post-exchange authorization;
 	// rebuilding them would change conditions, trace affinity or stream intent.
 	dispatchPolicy         *routing.DownstreamRoutingPolicy
