@@ -24,15 +24,16 @@ const module = "github.com/deliciousbuding/metapi-go"
 var packageDir = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$`)
 
 type plan struct {
-	Mode     string          `json:"mode"`
-	Reason   []string        `json:"reason"`
-	Packages []string        `json:"packages"`
-	WebFiles []string        `json:"webFiles"`
-	Backend  bool            `json:"backend"`
-	Frontend bool            `json:"frontend"`
-	Browser  bool            `json:"browser"`
-	Full     bool            `json:"full"`
-	Jobs     map[string]bool `json:"jobs"`
+	Mode         string          `json:"mode"`
+	Reason       []string        `json:"reason"`
+	Packages     []string        `json:"packages"`
+	LintPackages []string        `json:"lintPackages"`
+	WebFiles     []string        `json:"webFiles"`
+	Backend      bool            `json:"backend"`
+	Frontend     bool            `json:"frontend"`
+	Browser      bool            `json:"browser"`
+	Full         bool            `json:"full"`
+	Jobs         map[string]bool `json:"jobs"`
 }
 
 func git(args ...string) ([]byte, error) {
@@ -199,6 +200,12 @@ func makePlan(base, head, mode string, working bool) (plan, error) {
 }
 
 func (p *plan) finish() {
+	// golangci-lint takes local directory patterns, unlike go test/vet's
+	// import paths. Keep the selected package set identical for both consumers.
+	p.LintPackages = make([]string, 0, len(p.Packages))
+	for _, pkg := range p.Packages {
+		p.LintPackages = append(p.LintPackages, "./"+strings.TrimPrefix(pkg, module+"/"))
+	}
 	p.Jobs = map[string]bool{
 		"lint": p.Backend, "vet": p.Backend, "vulncheck": p.Full,
 		"mod-verify": p.Full, "secret-scan": p.Mode != "release", "docs-hygiene": p.Mode != "release",

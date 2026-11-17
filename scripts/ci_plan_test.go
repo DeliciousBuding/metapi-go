@@ -11,13 +11,14 @@ import (
 )
 
 type verificationPlan struct {
-	Mode     string          `json:"mode"`
-	Full     bool            `json:"full"`
-	Backend  bool            `json:"backend"`
-	Frontend bool            `json:"frontend"`
-	Browser  bool            `json:"browser"`
-	Packages []string        `json:"packages"`
-	Jobs     map[string]bool `json:"jobs"`
+	Mode         string          `json:"mode"`
+	Full         bool            `json:"full"`
+	Backend      bool            `json:"backend"`
+	Frontend     bool            `json:"frontend"`
+	Browser      bool            `json:"browser"`
+	Packages     []string        `json:"packages"`
+	LintPackages []string        `json:"lintPackages"`
+	Jobs         map[string]bool `json:"jobs"`
 }
 
 func TestCIPlanRealCLI(t *testing.T) {
@@ -99,6 +100,14 @@ func TestCIPlanRealCLI(t *testing.T) {
 				}
 				if tc.backend && !p.Jobs["test-pg"] {
 					t.Fatalf("lost affected PostgreSQL: %s", out)
+				}
+				if len(p.LintPackages) != len(p.Packages) {
+					t.Fatalf("lint scope differs from test scope: %s", out)
+				}
+				for i, pkg := range p.Packages {
+					if p.LintPackages[i] != "./"+strings.TrimPrefix(pkg, strings.TrimSuffix(shardModule, "/")+"/") {
+						t.Fatalf("lint path not local: %s", out)
+					}
 				}
 				if tc.want != nil {
 					var want []string
@@ -205,6 +214,7 @@ func TestVerificationWorkflowScopeWiring(t *testing.T) {
 		"PLAN_JSON: ${{ needs.scope.outputs.plan }}", "NEEDS_JSON: ${{ toJSON(needs) }}",
 		"if: needs.scope.outputs.full == 'true'", "PR end-to-end elapsed:", "elapsed > 300",
 		"node scripts/test-related.mjs", "FULL: ${{ needs.scope.outputs.full }}",
+		"args: --timeout=3m ${{ join(fromJSON(needs.scope.outputs.lintPackages), ' ') }}",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("workflow missing %q", want)
@@ -212,5 +222,59 @@ func TestVerificationWorkflowScopeWiring(t *testing.T) {
 	}
 	if strings.Contains(text, "paths-ignore:") || strings.Contains(text, "continue-on-error: true") {
 		t.Fatal("workflow must not silently bypass required scope")
+	}
+}
+
+func TestPlannedLintPackagesRealTool(t *testing.T) {
+	tool, err := exec.LookPath("golangci-lint")
+	if err != nil {
+		t.Skip("optional local golangci-lint; CI installs the pinned tool")
+	}
+	root := filepath.Dir(mustWorkingDir(t))
+	bin := filepath.Join(t.TempDir(), "ci-plan")
+	build := exec.Command("go", "build", "-o", bin, "scripts/ci-plan.go")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v %s", err, out)
+	}
+	repo := t.TempDir()
+	runGit(t, repo, "init", "-b", "master")
+	configureTestRepo(t, repo)
+	version, err := exec.Command("go", "env", "GOVERSION").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(repo, "go.mod"), []byte("module "+strings.TrimSuffix(shardModule, "/")+"\n\ngo "+strings.TrimPrefix(strings.TrimSpace(string(version)), "go")+"\n"))
+	mustWrite(t, filepath.Join(repo, ".golangci.yml"), []byte("version: \"2\"\nlinters:\n  default: none\n  enable: [govet]\n"))
+	mustMkdir(t, filepath.Join(repo, "fixture"))
+	mustWrite(t, filepath.Join(repo, "fixture", "fixture.go"), []byte("package fixture\nfunc Value() int { return 1 }\n"))
+	runGit(t, repo, "add", ".")
+	runGit(t, repo, "commit", "-m", "fixture")
+	cmd := exec.Command(bin, "-mode", "full")
+	cmd.Dir = repo
+	cmd.Env = gitTestEnv(t)
+	data, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p verificationPlan
+	if err := json.Unmarshal(data, &p); err != nil {
+		t.Fatal(err)
+	}
+	run := func(packages []string) ([]byte, error) {
+		cmd := exec.Command(tool, append([]string{"run", "--timeout=1m"}, packages...)...)
+		cmd.Dir = repo
+		cmd.Env = gitTestEnv(t)
+		return cmd.CombinedOutput()
+	}
+	if out, err := run(p.Packages); err == nil {
+		t.Fatalf("old import-path args unexpectedly accepted: %s", out)
+	}
+	if out, err := run(p.LintPackages); err != nil {
+		t.Fatalf("planned local lint args rejected: %v %s", err, out)
+	}
+	mustWrite(t, filepath.Join(repo, "fixture", "fixture.go"), []byte("package fixture\nfunc Value() int { return undefined }\n"))
+	if out, err := run(p.LintPackages); err == nil {
+		t.Fatalf("broken source passed planned lint: %s", out)
 	}
 }

@@ -51,6 +51,7 @@ jobs:
       browser: ${{ steps.plan.outputs.browser }}
       full: ${{ steps.plan.outputs.full }}
       packages: ${{ steps.plan.outputs.packages }}
+      lintPackages: ${{ steps.plan.outputs.lintPackages }}
       webFiles: ${{ steps.plan.outputs.webFiles }}
       shards: ${{ steps.plan.outputs.shards }}
       total: ${{ steps.plan.outputs.total }}
@@ -80,7 +81,7 @@ jobs:
           fi
           plan=$(go run scripts/ci-plan.go -mode "$mode" "${args[@]}")
           echo "plan=$plan" >> "$GITHUB_OUTPUT"
-          for key in backend frontend browser full packages webFiles; do
+          for key in backend frontend browser full packages lintPackages webFiles; do
             echo "$key=$(jq -c ".$key" <<< "$plan")" >> "$GITHUB_OUTPUT"
           done
           if [[ $(jq -r .full <<< "$plan") == true ]]; then
@@ -153,7 +154,7 @@ jobs:
           version: v2.15.0
           install-mode: none
           verify: false
-          args: --timeout=3m ${{ join(fromJSON(needs.scope.outputs.packages), ' ') }}
+          args: --timeout=3m ${{ join(fromJSON(needs.scope.outputs.lintPackages), ' ') }}
 
   vet:
     if: ${{ needs.scope.outputs.backend == 'true' }}
