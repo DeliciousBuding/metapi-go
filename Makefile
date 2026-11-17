@@ -73,7 +73,7 @@ coverage:
 
 # Full local gate, followed by release-specific static checks and binaries.
 verify:
-	bash .githooks/pre-push-project </dev/null
+	bash .githooks/pre-push-project --full </dev/null
 	$(MAKE) mod-verify lint vuln build migrate-build
 
 # Compatibility alias: verify already includes the full race suite.

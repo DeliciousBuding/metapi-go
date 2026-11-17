@@ -1,5 +1,5 @@
 #!/bin/bash
-# Metapi-Go project pre-push gate — run full local CI before pushing.
+# Metapi-Go pre-push: prove the affected change; --full runs all local tests.
 # Managed installs: the global hook-kit chains .githooks/pre-push-project.
 # Standalone installs: .githooks/pre-push is a thin compatibility wrapper.
 # Skip with: git push --no-verify (emergency only).
@@ -15,6 +15,12 @@ if [ -z "${BASH_VERSION:-}" ]; then
 	exec bash "$0" "$@"
 fi
 set -euo pipefail
+
+if [[ "${1:-}" != --full && "${METAPI_VERIFY_FULL:-0}" != 1 ]]; then
+	exec bash ./scripts/verify-change.sh "$@"
+fi
+if [[ "${1:-}" == --full ]]; then shift; fi
+if [[ $# != 0 ]]; then echo 'pre-push: unexpected arguments' >&2; exit 2; fi
 
 # Bound Go build/vet workers too; go's default -p follows GOMAXPROCS.
 export GOMAXPROCS="${GOMAXPROCS:-2}"

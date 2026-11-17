@@ -83,6 +83,11 @@ func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWrite(t, filepath.Join(repo, "scripts", "release.sh"), script)
+	helper, err := os.ReadFile("require-main-validation.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(repo, "scripts", "require-main-validation.sh"), helper)
 	mustWrite(t, filepath.Join(repo, "CHANGELOG.md"), []byte("# Changelog\n\n## [v9.9.9]\n"))
 	mustWrite(t, filepath.Join(repo, "web", "package.json"), []byte("{\"version\":\"9.9.9\"}\n"))
 	runGit(t, repo, "add", ".")
@@ -90,9 +95,11 @@ func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
 	runGit(t, repo, "remote", "add", "origin", origin)
 	runGit(t, repo, "push", "origin", "master")
 	runGit(t, repo, "switch", "-c", "chore/release")
+	stub := filepath.Join(t.TempDir(), "gh.sh")
+	mustWrite(t, stub, []byte(`gh() { if [[ "$4" == */jobs ]]; then printf '{"jobs":[{"name":"docker-build","conclusion":"success"}]}'; else printf '{"workflow_runs":[{"id":123,"head_sha":"%s","head_branch":"master","event":"push","conclusion":"success"}]}' "$(git rev-parse HEAD)"; fi; }`))
 	cmd := exec.Command("bash", "scripts/release.sh", "9.9.9", "--dry-run")
 	cmd.Dir = repo
-	cmd.Env = gitTestEnv(t)
+	cmd.Env = append(gitTestEnv(t), "BASH_ENV="+stub, "GITHUB_REPOSITORY=fixture/repo")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("release checkout at origin/master rejected: %v\n%s", err, output)
 	}

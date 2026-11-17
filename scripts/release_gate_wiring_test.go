@@ -37,7 +37,7 @@ func TestReleaseGateWiring(t *testing.T) {
 		t.Error("web-dist must build and publish the real SPA bundle")
 	}
 	for _, consumer := range []string{"a11y", "test-sqlite-shard", "test-pg-shard", "test-pg-process"} {
-		if !strings.Contains(jobs[consumer], "    needs: web-dist\n") || !strings.Contains(jobs[consumer], "name: web-dist") {
+		if !strings.Contains(jobs[consumer], "    needs: [scope, web-dist]\n") || !strings.Contains(jobs[consumer], "name: web-dist") {
 			t.Errorf("%s must consume the built bundle without waiting for frontend checks", consumer)
 		}
 	}
@@ -58,13 +58,14 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(build, "    if: ${{ always() }}\n") {
 		t.Error("docker-build must run even when a prerequisite failed or skipped")
 	}
-	guard := "NEEDS_RESULTS: ${{ toJSON(needs.*.result) }}"
-	assertion := `jq -e 'length > 0 and all(.[]; . == "success")'`
+	guard := "NEEDS_JSON: ${{ toJSON(needs) }}"
+	assertion := "run: go run scripts/ci-plan.go -verify-needs"
 	guardAt := strings.Index(build, guard)
 	assertionAt := strings.Index(build, assertion)
 	checkoutAt := strings.Index(build, "uses: actions/checkout@")
-	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || guardAt >= checkoutAt || assertionAt >= checkoutAt {
-		t.Error("docker-build must fail closed on every need result before checkout/build")
+	buildAt := strings.Index(build, "name: Build Docker image")
+	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || buildAt < assertionAt {
+		t.Error("docker-build must fail closed on planned prerequisites before image build")
 	}
 	for _, dep := range []string{"runtime-smoke-matrix", "frontend", "web-dist"} {
 		job, ok := jobs[dep]
@@ -75,8 +76,8 @@ func TestReleaseGateWiring(t *testing.T) {
 		if !strings.Contains(match[1], "      - "+dep+"\n") {
 			t.Errorf("docker-build does not require %s; its failure would not block a merge or release", dep)
 		}
-		if regexp.MustCompile(`(?m)^    (?:if|continue-on-error):`).MatchString(job) {
-			t.Errorf("%s has a job-level condition or allowed failure; it must gate every workflow trigger", dep)
+		if !strings.Contains(job, "needs.scope.outputs.") || regexp.MustCompile(`(?m)^    continue-on-error:`).MatchString(job) {
+			t.Errorf("%s must use an explicit scope condition without allowed failure", dep)
 		}
 	}
 	// The publication path is prepare → native per-architecture builds →

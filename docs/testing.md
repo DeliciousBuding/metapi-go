@@ -170,9 +170,47 @@ go test ./internal/sqlitetest -run '^$' -bench '^BenchmarkOpen$' -benchmem
 `go test -json` 可定位慢用例，CPU profile 用于区分初始化与业务计算的 CPU 成本。
 性能结果同时记录源码提交与未提交差异；失败运行可用于诊断耗时，但不作为通过结果。
 
+## 四类验证与影响面计划
+
+1. **规则**：PR 的格式、lint、类型、凭据及 docs 契约检查；本地先反馈，CI 可信复核。
+2. **变更行为**：PR 与本地共用 `scripts/ci-plan.go`。Go 修改覆盖所属包和传递的反向
+   生产/测试导入者，扫描包含全部 OS 与 build tag 变体；前端 feature 修改使用
+   Vitest 模块图的相关测试、所属 feature 全套及读取文件的契约测试，不做文件名猜测。
+   共享代码、样式、路由、public 资源、删除或空相关图回退全套；类型/lint/格式/边界
+   和 Node 脚本测试保持完整。Vitest 的相关图支持静态可解析导入，变量动态导入不在
+   支持范围；范围依据见 [Vitest related](https://vitest.dev/guide/cli#vitest-related)。
+   Go 影响面在 PR 上同时跑 SQLite race 和 PostgreSQL integration。
+3. **主线整体**：master push 运行完整套件，包括全量双方言、浏览器、跨服务与跨平台
+   运行验证；主线失败时优先恢复，暂停发布。被取消的运行不算验证通过。
+4. **发布候选**：`scripts/require-main-validation.sh` 核对精确 SHA 的 master push
+   workflow 的全量汇总成功记录；本地 release helper 与 tag CI 均调用该入口。
+   后续开发镜像上传失败不否定源码验证；tag 不重复测试套件，
+   但保留原生多架构构建、镜像回拉/版本/签名及发布二进制冒烟。真实供应商与下游客户端
+   仍属候选验收，不从确定性 CI 推断；维护者批准和 draft Release 流程不变。
+
+计划记录所选包、原因和预期 job。依赖、工具链、CI/脚本、SQL/非代码夹具与未知路径
+回退全量；删除的 Go owner 无法解析时也回退全量。无法读取 Git、解析源码或扫描为空
+直接失败。无可归因变更使用完整范围，不把空集合当作已验证。所有文档检查运行完整
+`go test ./docs`，不只执行 hygiene 子集。
+
+保留原 12 个 required check 名称以兼容现有保护；`docker-build` 现在也是汇总门禁：
+对照计划严格确认每个 prerequisite 的 success/skipped，拒绝失败、取消、缺失、
+额外 job 或意外跳过。普通 PR 不构建容器；主线和高风险全量例外仍构建并冒烟容器。
+不使用 workflow 级 `paths-ignore`，纯文档 PR 仍有实际规则与汇总检查。
+
+PR 的预算目标为 300 秒，汇总 job 记录耗时并在超预算时发出 warning；这不是已达成的
+P95 保证，也不以超时杀死合法测试。记录从 Actions run 创建时间到汇总 job 最后一步，
+包含排队、工具准备及高风险例外的容器构建；分析耗时同时比较总 runner-minutes，
+不能把加并行当作降低总成本。普通 UI PR 保留完整 accessibility 与路由冒烟；
+跨页面 Playwright 视觉回归仅在主线/高风险全量执行，不是每个 feature 的前置等待。
+
+自托管产品不统一控制用户流量。候选在可控实例/通道先验证，关注转发成功率、首字
+延迟、流中断、路由与用量核算；扩大使用范围与发布由维护者决定。持久化迁移单独
+验证升级/恢复能力，不能只靠功能开关回退。
+
 ## 本地 race 检查
 
-`bash .githooks/pre-push-project` 先执行 `scripts/pre-push-preflight.sh`：精确 Go
+完整入口 `bash .githooks/pre-push-project --full` 先执行 `scripts/pre-push-preflight.sh`：精确 Go
 版本、staged/unstaged diff、全部 tracked Go 文件的 pinned gofmt，以及前端
 `check:static`。格式和静态问题先失败，避免等全量测试后才由 CI 发现；空扫描、
 工具链不一致或读取失败都不能通过。随后构建生成 `web/dist`，再并行运行
@@ -202,7 +240,7 @@ OS/架构和 C 工具链；Windows 原生若因 ThreadSanitizer 无法分配 sha
 或由 CI 复核。日常定向测试不要求 WSL。
 资源竞争可能拖慢测试，超时时先区分环境负载和代码问题，不跳过失败检查。
 
-CI 的 SQLite race shards 独立配置，不使用这个本地超时。
+全量模式下，CI 的 SQLite race shards 独立配置，不使用这个本地超时。
 `scripts/ci-test-shards.go` 将完整 `go list ./...` 清单按实测重包权重降序分配到
 当前最轻的 shard；同权重/负载以包名/shard 编号确定次序。权重来源见同目录
 `ci-test-shards.weights.tsv`，只是调度提示，不是选测白名单：未知/新增包默认
@@ -213,7 +251,7 @@ CI 的 SQLite race shards 独立配置，不使用这个本地超时。
 权重总和不是墙钟预测；测试并发、编译和 runner 资源都会影响实际耗时。
 CI 的 Bun cache 仅保存下载包，key 绑定 OS/架构/Bun 版本/lockfile；每个消费者
 仍执行冻结锁文件安装，不复用可变 node_modules 或测试通过结果。
-PostgreSQL 也按完整 `go list` 清单分成四个 runner；每个 runner 使用自己的
+全量模式下，PostgreSQL 也按完整 `go list` 清单分成四个 runner；每个 runner 使用自己的
 PostgreSQL service/database，所以跨 runner 不共享表或迁移状态，而单个 runner
 内的选中包仍以 `-p 1` 串行运行。进程级 PostgreSQL E2E 是独立并行作业；稳定的
 `test-pg` 检查只在四个分片和该进程验收全部通过后成功。分片使用独立的实测
@@ -221,6 +259,8 @@ PostgreSQL service/database，所以跨 runner 不共享表或迁移状态，而
 共享同一数据库的包不能提高 `-p`；并行只发生在隔离的 runner/数据库之间。
 `internal/pgtest.Reset` 只清空当前 schema 的业务表并保留迁移记录；
 跨 schema 外键会使清理失败，不连带清空其他 schema。
+普通 PR 使用单个非空影响面分片，不把全量权重表误用为选测白名单；PG 进程 E2E
+留在全量模式，PG 汇总检查按计划确认它通过或被明确跳过。
 本地 race 入口检测到 `PG_TEST_DSN` 时默认 `-p 1`，并拒绝更高的包并发设置。
 
 ## 门禁与 lint

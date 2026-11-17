@@ -1,6 +1,6 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-11-10
+**最后更新**：2026-11-18
 
 > 本文定义 metapi-go 的工作项、分支、PR 和发布流程。开放工作以 GitHub Issue 为准；本文只写稳定的决策规则，不复制实时路线图。
 
@@ -55,15 +55,15 @@ classic branch protection 和适用于 master 的 rulesets；文档声明或 CI 
 | 规则 | 值 |
 |:-----|:---|
 | 要求 PR | ✅ 禁止直接 push，任何改动必须经 PR 合入 |
-| 必选状态检查 | CI 全部 12 个 job（lint / vet / vulncheck / mod-verify / secret-scan / docs-hygiene / frontend / a11y / test-sqlite / test-pg / build / docker-build） |
+| 必选状态检查 | 保留 12 个兼容名称（lint / vet / vulncheck / mod-verify / secret-scan / docs-hygiene / frontend / a11y / test-sqlite / test-pg / build / docker-build）；按影响面计划执行，docker-build 汇总严格核对成功与预期跳过 |
 | 强制管理员 | ✅ 管理员同样受保护；hotfix 仍走 PR / CI，不通过关闭保护绕过 |
 | 要求 approve | ❌ 不强制（个人项目，自己合并自己的 PR） |
 | 合并方式 | **Squash only**（仓库级设置：关闭 merge commit 与 rebase merge） |
 | 线性历史 | 由 Squash-only 保证 |
 | 要求分支最新（strict） | ❌ 不要求；保留 12 项必检 + squash 线性历史，无冲突的并行 PR 可各自检查全绿后合入，无需机械串行 rebase 重跑全量 CI |
 
-> 注意：必选状态检查与 CI 的 `paths-ignore` 互斥——任何 PR 都会触发全量 CI（含纯文档 PR），否则必选检查会永久 pending 卡住合并。
-> 注意：关闭 strict 后，合并时仍以「12 项必检全绿」为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠。
+> 所有 PR 均触发 workflow，不用 workflow 级 `paths-ignore`。scope 生成计划，非适用 job 可以跳过，但始终执行的 docker-build 汇总必须确认跳过符合计划；不能只凭 GitHub 接受 skipped 就放行。
+> 关闭 strict 后，合并以影响面检查及汇总门禁成功为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠；组合问题由 master 全量验证发现并优先修复。
 > lint job 由 workflow 校验固定版本的 schema 和负例，再运行源码 lint；action 设置 `verify: false` 以复用这次校验。
 
 ## 4. PR 流程
@@ -72,7 +72,7 @@ classic branch protection 和适用于 master 的 rulesets；文档声明或 CI 
 2. 按 Conventional Commits 提交，`git push -u origin fix/xxx`，在 PR 中说明已运行和未运行的检查。
    - 本地 hook 的启用方式、完整检查命令和工具链要求见[贡献规范](../../CONTRIBUTING.md#本地验证)。PR 中记录本地结果和未运行项；已启用的检查失败时先修复，紧急例外见 §7。
 3. 开 PR（`gh pr create`，模板自动填充），base = master
-4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
+4. PR 规则与影响面检查通过、docker-build 汇总成功后 Squash merge；共享配置/依赖/门禁及未知影响范围回退全量，受影响 Go 行为包含 PG 验证。master push 执行完整集成套件；主线红灯优先修复并暂停发布。
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
 6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理；若远端分支残留——如合并时本地有未提交改动——手动 `git push origin --delete <branch>`）。分支检出在独立 worktree 时，先 `git worktree remove <path>`，再删除本地分支。
 
@@ -93,7 +93,7 @@ classic branch protection 和适用于 master 的 rulesets；文档声明或 CI 
 2. 在最终源码和构建上验收，记录提交、构建版本和测试结果；镜像可直接使用 digest 标识。fixture、真实模型和下游客户端结果分别列出。输入改变后重跑受影响检查。
 3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才把 `CHANGELOG.md` 的 `[Unreleased]` 整理为 `## [vX.Y.Z]` 节、更新 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
 4. 仅在明确发布决定后，从干净且 HEAD 等于 `origin/master` 的 checkout/worktree 运行 `bash scripts/release.sh X.Y.Z`；不必切换当前主工作树。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致；push 仍执行本地门禁。
-5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布：amd64/arm64 在原生 runner 并行构建，合并为多架构 manifest，匿名回拉并启动两种架构，校验构建版本与 cosign 签名后，才构建五个平台二进制、checksums 和安装脚本并执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
+5. release helper 与 SemVer tag CI 都先核对精确 commit 已有成功的 master push 全量汇总检查；查询失败、全量汇总未成功或只有 PR 成功记录均拒绝发布；后续开发镜像上传失败不否定已成功的源码验证。tag 不重复完整测试套件，随后由 `.github/workflows/main.yml` 执行产物检查及镜像发布：amd64/arm64 在原生 runner 并行构建，合并为多架构 manifest，匿名回拉并启动两种架构，校验构建版本与 cosign 签名后，才构建五个平台二进制、checksums 和安装脚本并执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
 
 ### 构建渠道与发布状态（当前 workflow）
 
@@ -149,7 +149,7 @@ hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭
 | 合并策略 | 仓库 Settings → General | 项目要求 Allow squash merging only，启用状态以远端为准 |
 | master 保护 | 仓库 Settings → Branches / Rulesets | 目标配置见 §3，核对两类远端规则 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
-| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：amd64/arm64 原生并行构建 → 多架构 manifest → 匿名回拉冒烟 + cosign 验签 → 多平台二进制 + 新建 draft Release；已发布版本 tag 不可覆盖，已有 Release 重跑不改 draft/published 状态 |
-| 本地门禁 | `.githooks/pre-push-project` | 可直接运行；可选的 `.githooks/pre-push` 委托此入口。完整执行前端检查/构建、Go build/vet/race，不依赖个人全局工具链 |
+| CI + CD + Release | `.github/workflows/main.yml` | 单一管道按 scope 分层：PR 规则与影响面验证，master push 全量，SemVer tag 复核精确 SHA 的成功主线记录后验证发布产物；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：amd64/arm64 原生并行构建 → 多架构 manifest → 匿名回拉冒烟 + cosign 验签 → 多平台二进制 + 新建 draft Release；已发布版本 tag 不可覆盖，已有 Release 重跑不改 draft/published 状态 |
+| 本地门禁 | `.githooks/pre-push-project` | 默认规则与影响面验证，高风险自动全量；显式 --full 及 make verify 保留前端检查/构建、Go build/vet/全量 race，不依赖个人全局工具链 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。

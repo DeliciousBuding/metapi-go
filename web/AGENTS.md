@@ -42,7 +42,8 @@
 ## 验证
 
 - 修改后运行定向行为测试、`bun run typecheck`、`bun run lint`；
-  push 前仍须完整门禁。格式、死代码和构建命令由 package scripts 维护。
+  push 前运行根目录的影响面门禁；前端保留完整静态检查与相关行为验证，
+  工具链或依赖改动回退全量。格式、死代码和构建命令由 package scripts 维护。
 - 新测试放模块的 `__tests__/`，通过真实代码验证用户可见输出和交互。
   只在必要的网络、时间、存储、浏览器 API 边界 mock，不 mock 被测模块。
 - 修改相关流程时验证 loading、empty、error 和异步失败状态，不更新 snapshot
