@@ -161,7 +161,7 @@ func projectGateCommand(t *testing.T, overrides map[string]string, stdin string)
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command("bash", ".githooks/pre-push-project")
+	cmd := exec.Command("bash", ".githooks/pre-push-project", "--full")
 	cmd.Dir = root
 	cmd.Stdin = strings.NewReader(stdin)
 	cmd.Env = make([]string, 0, len(os.Environ())+8)

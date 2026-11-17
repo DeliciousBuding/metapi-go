@@ -20,7 +20,7 @@ func TestMakeVerifyUsesFullGateBeforeReleaseChecks(t *testing.T) {
 				t.Fatalf("make %s: %v\n%s", target, err, output)
 			}
 			text := string(output)
-			const gate = "bash .githooks/pre-push-project </dev/null"
+			const gate = "bash .githooks/pre-push-project --full </dev/null"
 			if strings.Count(text, gate) != 1 {
 				t.Fatalf("expected one full local gate:\n%s", text)
 			}

@@ -1,9 +1,11 @@
 name: CI/CD
 
-# Single pipeline: every PR and master push runs the full 12-check suite;
+# Four gates: PR rules + affected behavior; master full integration; tag packaging.
+# Existing required names stay stable; docker-build validates planned skips.
+# Every master push runs the full suite;
 # master pushes additionally publish the ghcr.io image (edge + sha); SemVer
 # tags (vX.Y.Z) publish release tags, move latest, and add multi-platform
-# release binaries + the GitHub Release after the suite and image push succeed.
+# release binaries + draft Release after exact master validation and image verification.
 #
 # Branch protection requires the 12 test job ids below by name — do NOT rename
 # a job here without updating the required status checks on master.
@@ -17,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -38,7 +41,67 @@ env:
   DOCKER_CACHE_SCOPE: metapi-go
 
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      backend: ${{ steps.plan.outputs.backend }}
+      frontend: ${{ steps.plan.outputs.frontend }}
+      browser: ${{ steps.plan.outputs.browser }}
+      full: ${{ steps.plan.outputs.full }}
+      packages: ${{ steps.plan.outputs.packages }}
+      lintPackages: ${{ steps.plan.outputs.lintPackages }}
+      webFiles: ${{ steps.plan.outputs.webFiles }}
+      shards: ${{ steps.plan.outputs.shards }}
+      total: ${{ steps.plan.outputs.total }}
+      started: ${{ steps.plan.outputs.started }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/go-toolchain
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          created=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+          echo "started=$(date -d "$created" +%s)" >> "$GITHUB_OUTPUT"
+          mode=full
+          args=()
+          if [[ "$EVENT" == pull_request ]]; then
+            mode=change
+            args=(-base "$BASE" -head "$GITHUB_SHA")
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            mode=release
+            bash scripts/require-main-validation.sh "$GITHUB_SHA"
+          fi
+          plan=$(go run scripts/ci-plan.go -mode "$mode" "${args[@]}")
+          echo "plan=$plan" >> "$GITHUB_OUTPUT"
+          for key in backend frontend browser full packages lintPackages webFiles; do
+            echo "$key=$(jq -c ".$key" <<< "$plan")" >> "$GITHUB_OUTPUT"
+          done
+          if [[ $(jq -r .full <<< "$plan") == true ]]; then
+            echo 'shards=[0,1,2,3]' >> "$GITHUB_OUTPUT"
+            echo 'total=4' >> "$GITHUB_OUTPUT"
+          else
+            echo 'shards=[0]' >> "$GITHUB_OUTPUT"
+            echo 'total=1' >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo '## Verification plan'
+            echo 'PR target: 5 minutes; broad-risk changes deliberately run full validation.'
+            echo '~~~json'
+            jq . <<< "$plan"
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   lint:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -50,7 +113,11 @@ jobs:
         # version local devs get from `go env`. Only tracked files are listed,
         # which keeps gitignored evidence dirs out of scope.
         run: |
-          out="$(gofmt -l $(git ls-files '*.go'))"
+          set -euo pipefail
+          git ls-files -z -- '*.go' > "$RUNNER_TEMP/go-files"
+          mapfile -d '' -t files < "$RUNNER_TEMP/go-files"
+          [[ ${#files[@]} -gt 0 ]] || { echo 'empty format scan' >&2; exit 1; }
+          out="$(gofmt -l "${files[@]}")"
           if [ -n "$out" ]; then
             echo "gofmt drift in these files:"
             echo "$out"
@@ -87,17 +154,28 @@ jobs:
           version: v2.15.0
           install-mode: none
           verify: false
-          args: --timeout=3m
+          args: --timeout=3m ${{ join(fromJSON(needs.scope.outputs.lintPackages), ' ') }}
 
   vet:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
-      - run: go vet ./...
+      - env:
+          SELECTED_PACKAGES: ${{ needs.scope.outputs.packages }}
+        run: |
+          set -euo pipefail
+          jq -er '.[]' <<< "$SELECTED_PACKAGES" > "$RUNNER_TEMP/vet-packages"
+          mapfile -t packages < "$RUNNER_TEMP/vet-packages"
+          [[ ${#packages[@]} -gt 0 ]]
+          go vet "${packages[@]}"
 
   vulncheck:
+    if: ${{ needs.scope.outputs.full == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -106,6 +184,8 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
   mod-verify:
+    if: ${{ needs.scope.outputs.full == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -117,6 +197,8 @@ jobs:
       - run: go mod verify
 
   secret-scan:
+    if: ${{ needs.scope.outputs.plan != '' && fromJSON(needs.scope.outputs.plan).mode != 'release' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -126,10 +208,17 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Run gitleaks (full git history)
-        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 detect --redact --verbose
+      - name: Run gitleaks (PR commit range; full history on master)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          args=()
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then args=(--log-opts="$BASE..$GITHUB_SHA"); fi
+          go run github.com/zricethezav/gitleaks/v8@v8.28.0 detect --redact --verbose "${args[@]}"
 
   docs-hygiene:
+    if: ${{ needs.scope.outputs.plan != '' && fromJSON(needs.scope.outputs.plan).mode != 'release' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -138,9 +227,11 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Repository hygiene gates (Markdown, programme codes, tracked file size)
-        run: go test ./docs -run 'Hygiene|ProgrammeCode' -count=1
+        run: go test ./docs -count=1
 
   frontend:
+    if: ${{ needs.scope.outputs.frontend == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -165,11 +256,24 @@ jobs:
       # transient-fault retry policy, and scripts/bun_install_wiring_test.go
       # fails if a bare call reappears.
       - run: sh ../scripts/bun-install.sh
-      - run: bun run check
+      - name: Frontend rules and affected behavior
+        env:
+          FULL: ${{ needs.scope.outputs.full }}
+          SELECTED_WEB_FILES: ${{ needs.scope.outputs.webFiles }}
+        run: |
+          set -euo pipefail
+          if [[ "$FULL" == true ]]; then bun run check; else
+            bun run check:static
+            bun run routes:verify
+            node --test scripts/__tests__/*.test.mjs
+            node scripts/test-related.mjs
+          fi
 
   # Build the bundle independently: Go and browser checks need its bytes, not
   # the frontend lint/test job's completion. docker-build still requires both.
   web-dist:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -197,13 +301,14 @@ jobs:
           retention-days: 3
 
   a11y:
+    if: ${{ needs.scope.outputs.browser == 'true' }}
     # Real-browser production-SPA gates: axe accessibility + route/crash/mobile
     # smoke. The Go server embeds web/dist (built by web-dist) and serves
     # the admin app + API from one origin, so these exercise the exact shipped
     # bundle instead of the dev server. Requires a fresh sqlite runtime DB.
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: web-dist
+    needs: [scope, web-dist]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -238,6 +343,8 @@ jobs:
         run: bunx playwright install --with-deps chromium
         working-directory: web
       - name: Serve SPA and run browser gates
+        env:
+          FULL: ${{ needs.scope.outputs.full }}
         run: |
           set -euo pipefail
           AUTH_TOKEN=dev-admin-token-123 \
@@ -263,9 +370,12 @@ jobs:
           cd web
           BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
           BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bun run ui:smoke
-          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs model-playground.spec.mjs
+          if [[ "$FULL" == true ]]; then
+            BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs model-playground.spec.mjs
+          fi
 
   test-sqlite-shard:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
     # Deterministic LPT balances measured heavy packages across runners. The
     # checked-in timing table is only a hint: every current go list package,
     # including new/unmeasured ones, runs exactly once under -race. Packages
@@ -274,12 +384,12 @@ jobs:
     # protection keeps a single required check.
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: web-dist
+    needs: [scope, web-dist]
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
-        total: [4]
+        shard: ${{ fromJSON(needs.scope.outputs.shards) }}
+        total: ["${{ needs.scope.outputs.total }}"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
@@ -294,15 +404,21 @@ jobs:
         env:
           # Bind matrix values, not shell text. Invalid/empty selections and
           # failed go list/selector commands must never report a green shard.
+          FULL: ${{ needs.scope.outputs.full }}
+          SELECTED_PACKAGES: ${{ needs.scope.outputs.packages }}
           SHARD: ${{ matrix.shard }}
           SHARD_TOTAL: ${{ matrix.total }}
         run: |
           set -euo pipefail
           # A file preserves the producer's exit status (unlike < <(go list)).
+          if [[ "$FULL" == true ]]; then
           go list ./... > "$RUNNER_TEMP/go-packages.txt"
           go run scripts/ci-test-shards.go -weights scripts/ci-test-shards.weights.tsv \
             -shard "$SHARD" -total "$SHARD_TOTAL" \
             < "$RUNNER_TEMP/go-packages.txt" > "$RUNNER_TEMP/shard-packages.txt"
+          else
+            jq -er '.[]' <<< "$SELECTED_PACKAGES" > "$RUNNER_TEMP/shard-packages.txt"
+          fi
           mapfile -t shard_pkgs < "$RUNNER_TEMP/shard-packages.txt"
           if [ "${#shard_pkgs[@]}" -eq 0 ]; then
             echo "ERROR: shard $SHARD/$SHARD_TOTAL selected no packages; refusing to report green"
@@ -315,21 +431,23 @@ jobs:
   # Stable name that branch protection depends on: passes only when every
   # shard above passed.
   test-sqlite:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: test-sqlite-shard
+    needs: [scope, test-sqlite-shard]
     steps:
       - run: echo "all test-sqlite shards passed"
 
   test-pg-shard:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: web-dist
+    needs: [scope, web-dist]
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
-        total: [4]
+        shard: ${{ fromJSON(needs.scope.outputs.shards) }}
+        total: ["${{ needs.scope.outputs.total }}"]
     env:
       PG_SCHEME: postgres
       PG_USER: postgres
@@ -362,18 +480,24 @@ jobs:
           path: web/dist
       - name: Run PostgreSQL tests (shard ${{ matrix.shard }}/${{ matrix.total }})
         env:
+          FULL: ${{ needs.scope.outputs.full }}
+          SELECTED_PACKAGES: ${{ needs.scope.outputs.packages }}
           SHARD: ${{ matrix.shard }}
           SHARD_TOTAL: ${{ matrix.total }}
         run: |
           set -euo pipefail
           packages_file="$RUNNER_TEMP/pg-packages.txt"
           selected_file="$RUNNER_TEMP/pg-shard-packages.txt"
+          if [[ "$FULL" == true ]]; then
           go list ./... > "$packages_file"
           go run scripts/ci-test-shards.go \
             -weights scripts/ci-test-pg.weights.tsv \
             -shard "$SHARD" \
             -total "$SHARD_TOTAL" \
             < "$packages_file" > "$selected_file"
+          else
+            jq -er '.[]' <<< "$SELECTED_PACKAGES" > "$selected_file"
+          fi
           mapfile -t shard_pkgs < "$selected_file"
           if [ "${#shard_pkgs[@]}" -eq 0 ]; then
             echo "ERROR: PostgreSQL shard $SHARD/$SHARD_TOTAL selected no packages; refusing to report green"
@@ -387,9 +511,10 @@ jobs:
           PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test "${shard_pkgs[@]}" -count=1 -tags=integration -p 1
 
   test-pg-process:
+    if: ${{ needs.scope.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: web-dist
+    needs: [scope, web-dist]
     env:
       PG_SCHEME: postgres
       PG_USER: postgres
@@ -430,18 +555,31 @@ jobs:
   # Stable branch-protection check: the four isolated database shards and the
   # process-level E2E pass independently and in parallel before this aggregates.
   test-pg:
+    if: ${{ always() && needs.scope.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-pg-shard, test-pg-process]
+    needs: [scope, test-pg-shard, test-pg-process]
     steps:
-      - run: echo "all PostgreSQL shards and process E2E passed"
+      - env:
+          SHARDS: ${{ needs.test-pg-shard.result }}
+          PROCESS: ${{ needs.test-pg-process.result }}
+          FULL: ${{ needs.scope.outputs.full }}
+        run: |
+          [[ "$SHARDS" == success ]]
+          if [[ "$FULL" == true ]]; then [[ "$PROCESS" == success ]]; else [[ "$PROCESS" == skipped ]]; fi
 
   build:
+    if: ${{ needs.scope.outputs.backend == 'true' }}
+    needs: [scope, web-dist]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 
@@ -454,6 +592,8 @@ jobs:
   # version of the transient ARM testbed: no external infra, no secrets,
   # re-runnable per push.
   test-e2e:
+    if: ${{ needs.scope.outputs.full == 'true' }}
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
@@ -1066,6 +1206,8 @@ jobs:
   # x64, Linux x64 + arm64) against an in-memory SQLite store: --version,
   # startup, /ready + /health, and one minimal authenticated /v1 request.
   runtime-smoke-matrix:
+    if: ${{ needs.scope.outputs.full == 'true' }}
+    needs: scope
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -1116,7 +1258,7 @@ jobs:
             -H "Authorization: Bearer smoke-proxy-token" | grep -q '"object":"list"'
           echo "runtime smoke OK: $bin ($(uname -s)/$(uname -m))"
 
-  # Build + smoke the image on every run (this is also a required check on PRs).
+  # Stable required aggregate. Build/smoke images only for full-risk validation.
   # This required check runs even when an upstream job fails or skips, then
   # fails closed on every prerequisite result. A skipped required check counts
   # as successful in branch protection, so needs alone cannot gate a merge.
@@ -1127,6 +1269,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
+      - scope
       - lint
       - vet
       - vulncheck
@@ -1142,14 +1285,17 @@ jobs:
       - test-e2e
       - runtime-smoke-matrix
     steps:
-      - name: Require successful prerequisites
-        env:
-          NEEDS_RESULTS: ${{ toJSON(needs.*.result) }}
-        run: |
-          printf '%s' "$NEEDS_RESULTS" | jq -e 'length > 0 and all(.[]; . == "success")'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/go-toolchain
+      - name: Require exactly the planned prerequisites
+        env:
+          PLAN_JSON: ${{ needs.scope.outputs.plan }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: go run scripts/ci-plan.go -verify-needs
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: needs.scope.outputs.full == 'true'
       - name: Build Docker image
+        if: needs.scope.outputs.full == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -1163,6 +1309,7 @@ jobs:
           cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}-amd64
           cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}-amd64
       - name: Smoke Docker image
+        if: needs.scope.outputs.full == 'true'
         run: |
           set -euo pipefail
           name=metapi-ci-smoke
@@ -1191,6 +1338,18 @@ jobs:
 
           curl -fsS "http://127.0.0.1:${port}/health" | grep -q '"status":"ok"'
           curl -fsS "http://127.0.0.1:${port}/ready" | grep -q '"database":"ok"'
+
+      - name: PR latency budget
+        if: github.event_name == 'pull_request'
+        env:
+          STARTED: ${{ needs.scope.outputs.started }}
+          FULL: ${{ needs.scope.outputs.full }}
+        run: |
+          elapsed=$(( $(date +%s) - STARTED ))
+          echo "PR end-to-end elapsed: ${elapsed}s; full-risk exception=$FULL" >> "$GITHUB_STEP_SUMMARY"
+          if (( elapsed > 300 )); then
+            echo "::warning::PR exceeded the 300s target (${elapsed}s). Optimize work; do not drop required coverage."
+          fi
 
   # ---- Publish images: one native build per architecture, then one manifest ----
   # The old single-job build ran the arm64 half under emulation (about 10.5

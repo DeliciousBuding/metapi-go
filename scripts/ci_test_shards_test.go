@@ -138,7 +138,7 @@ func TestCITestShardsCLI(t *testing.T) {
 				"scripts/ci-test-shards.weights.tsv", weights,
 				"scripts/ci-test-pg.weights.tsv", weights,
 			).Replace(entry.body)
-			for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard"} {
+			for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard", "targeted-normal", "targeted-empty", "targeted-invalid-json"} {
 				t.Run(entry.name+"/"+mode, func(t *testing.T) {
 					tmp := t.TempDir()
 					stub := `#!/usr/bin/env bash
@@ -167,12 +167,22 @@ esac
 					if mode == "invalid-shard" {
 						shard = "bad"
 					}
+					full, selected := "true", "[]"
+					if strings.HasPrefix(mode, "targeted-") {
+						full, selected = "false", `["`+shardModule+`a"]`
+					}
+					if mode == "targeted-empty" {
+						selected = "[]"
+					}
+					if mode == "targeted-invalid-json" {
+						selected = "{"
+					}
 					cmd := exec.Command("bash", "-c", workflowBody)
 					cmd.Dir = root
-					cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule, "PG_SCHEME=postgres", "PG_USER=postgres", "PG_PASSWORD=test", "PG_DATABASE=metapi_test")
+					cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "FULL="+full, "SELECTED_PACKAGES="+selected, "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule, "PG_SCHEME=postgres", "PG_USER=postgres", "PG_PASSWORD=test", "PG_DATABASE=metapi_test")
 					out, err := cmd.CombinedOutput()
 					invoked, invocationErr := os.ReadFile(filepath.Join(tmp, "invoked"))
-					if mode == "normal" {
+					if mode == "normal" || mode == "targeted-normal" {
 						if err != nil || invocationErr != nil || !strings.Contains(string(invoked), entry.wantArgs) {
 							t.Fatalf("valid workflow failed: %v %v\n%s\n%s", err, invocationErr, out, invoked)
 						}

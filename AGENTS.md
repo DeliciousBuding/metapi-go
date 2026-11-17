@@ -31,10 +31,11 @@ Go 网关，React SPA 预构建后嵌入单个服务端二进制。
 
 ## 验证与交付
 
-- push 前运行 `.githooks/pre-push-project` 完整本地门禁：前端检查/构建、
-  Go build、vet、全量 race 测试。可直接执行
-  `bash .githooks/pre-push-project </dev/null`。CI 是复核，不替代本地验证，
-  也不作为调试环境。
+- push 前运行 `bash .githooks/pre-push-project </dev/null`：按影响面验证规则与
+  变更行为；共享配置、依赖、门禁及未知影响范围自动回退全量。
+  `bash .githooks/pre-push-project --full </dev/null` 保留完整本地检查，
+  master push 执行完整集成验证；发布须绑定精确 commit 的成功主线验证。
+  CI 是复核，不替代适用的本地验证，也不作为调试环境。
   这是 coding agent 的执行要求；公共贡献者的可选 hook 和环境例外见
   [贡献规范](CONTRIBUTING.md#本地验证)，不要求其安装个人工具链。
 - 只在输入完全相同且验证范围适用时复用结果。记录 commit、未提交 diff 和

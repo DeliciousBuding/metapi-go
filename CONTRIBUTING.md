@@ -31,34 +31,40 @@ git config core.hooksPath .githooks
 
 ## 本地验证
 
-开发时按改动运行定向测试、类型检查和 lint。
-完整本地检查可直接运行，不依赖 hook 是否安装：
+开发时按改动运行定向测试、类型检查和 lint。push 前的共享入口：
 
 ```bash
 bash .githooks/pre-push-project </dev/null
 ```
 
-它运行前端测试、类型、lint、格式、死代码检查和构建，再执行 Go build、vet、
-全量 race 测试。`scripts/go-race.sh` 使用当前 Go 工具链，不自动进入 WSL；
-Windows 原生的工具链要求与环境限制见[测试策略](docs/testing.md#本地-race-检查)。
-入口先运行 `scripts/pre-push-preflight.sh`：核对 `go.mod` 的精确 Go 版本，使用该
-工具链自带的 gofmt 检查全部 tracked Go 文件、检查 staged/unstaged diff，并执行
-`bun run check:static`。格式、工具链或前端静态问题在昂贵测试之前失败；读取失败
-和空扫描同样失败。可单独运行该脚本做快速预检，但不替代完整门禁。
-随后单独构建 `web/dist`（Go 二进制嵌入它），把前端全量 test 与 Go lane
-（build → vet → 全量 race）并行执行；每个 lane 写独立日志，任一失败会取消另一
-lane 并以非零状态退出。前端 `check` 仍是 `check:static` 加 `test`，完整门禁各执行
-一次，不缓存通过结果或缩小测试范围。`METAPI_PREPUSH_LANES=1` 在低核机器或排查时按相同
-顺序串行；设置 `PG_TEST_DSN` 时默认单 lane。未设置 `PG_TEST_DSN` 时，16 核
-以上机器由本地 gate 把 race 包并发默认提到 4，显式 `METAPI_RACE_PACKAGES`
-优先。
-`make verify` 先执行同一入口，再检查依赖、lint 和漏洞，并构建发行二进制；
-`make verify-race` 是它的别名。
-本地各层也可单独运行：`make test` 是 Go 快速套件，`make web-check` 是完整
-前端门禁，`make build-check` 只编译发布命令，`make race` 跑全量 Go race。
-CI 按 job 并行执行同一批底层检查，不维护第二套测试实现。
-PR 中说明本地验证结果，合并须通过完整 CI。测试分层、PostgreSQL 夹具和真实上游
-验收见[测试策略](docs/testing.md)。
+默认通过 `scripts/ci-plan.go` 比较当前 HEAD 与 `origin/master` 的共同祖先，并纳入
+staged、unstaged、untracked 文件。Go 修改验证所属包和传递的生产/测试消费者，
+前端修改运行完整静态检查和构建；feature 行为使用 Vitest 导入图、所属 feature 全套
+及文件读取契约选测，共享/删除/空图回退全部前端测试。文档契约始终验证。依赖、构建配置、门禁自身、
+非代码夹具或未知路径回退完整门禁；读取、解析和意外空扫描失败，不降级成通过。
+普通后端改动本地执行选中包的 vet、race 和构建；提供 `PG_TEST_DSN` 时还运行选中包
+的 PostgreSQL integration 测试，未提供时明确报告未验证，PR 的 `test-pg` 必须补齐。
+新 worktree 先按上节安装前端依赖，不共享可变 `node_modules`。
+
+完整本地检查仍可显式执行：
+
+```bash
+bash .githooks/pre-push-project --full </dev/null
+```
+
+完整入口先验证精确 Go 版本、diff、全部 tracked Go 文件的 pinned gofmt 和前端
+`check:static`，再生成真实 `web/dist`，运行前端全量测试及 Go build → vet → 全量 race。
+`METAPI_PREPUSH_LANES=1` 串行执行相同检查；`PG_TEST_DSN` 时默认串行。
+完整入口的资源控制及 Windows race 限制见[测试策略](docs/testing.md#本地-race-检查)。
+`make verify` 明确调用 `--full` 后检查依赖、lint、漏洞并构建发行二进制；
+`make verify-race` 是兼容别名。独立入口 `make test`、`make web-check`、
+`make build-check`、`make race` 保持原有范围。
+
+PR CI 复核规则与影响面行为；master push 跑完整集成套件；tag 先确认精确提交的
+成功主线验证，再运行发布产物验证，不把历史其他 SHA 的通过结果当作当前证据。
+普通 PR 以 5 分钟为延迟优化目标，高风险全量例外在计划中注明；超预算不能删除
+适用测试。PR 中分别说明本地、CI、真实上游和客户端验证结果。完整分层见
+[测试策略](docs/testing.md#四类验证与影响面计划)。
 
 ### 规则由谁维护
 

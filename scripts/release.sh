@@ -58,7 +58,9 @@ if [ "$pkg_ver" != "$ver" ]; then
   exit 1
 fi
 
-echo "release checks passed: $tag (CHANGELOG + web/package.json consistent)"
+bash scripts/require-main-validation.sh "$local_head"
+
+echo "release checks passed: $tag (CHANGELOG + web/package.json + exact master validation)"
 if [ "$dry" = "1" ]; then
   echo "dry-run: tag not created, nothing pushed"
   exit 0
