@@ -460,5 +460,116 @@ func fmtInt(v any) int {
 	return -1
 }
 
+func TestResponsesBridgeRecorder(t *testing.T) {
+	t.Parallel()
+
+	t.Run("first status wins and explicit content-type preserved", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		if rec.statusCode != http.StatusOK {
+			t.Fatalf("default statusCode = %d, want 200", rec.statusCode)
+		}
+		rec.Header().Set("Content-Type", "text/event-stream")
+		rec.WriteHeader(http.StatusAccepted)
+		rec.WriteHeader(http.StatusInternalServerError)
+		if rec.statusCode != http.StatusAccepted {
+			t.Fatalf("statusCode = %d, want 202 (first status wins)", rec.statusCode)
+		}
+		if _, err := rec.Write([]byte("data: ok\n\n")); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "text/event-stream" {
+			t.Fatalf("Content-Type = %q, want text/event-stream", got)
+		}
+		if got := rec.body.String(); got != "data: ok\n\n" {
+			t.Fatalf("body = %q, want %q", got, "data: ok\n\n")
+		}
+	})
+
+	t.Run("flush commits implicit 200 before subsequent WriteHeader", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		if err := http.NewResponseController(rec).Flush(); err != nil {
+			t.Fatalf("Flush: %v", err)
+		}
+		rec.WriteHeader(http.StatusServiceUnavailable)
+		if rec.statusCode != http.StatusOK {
+			t.Fatalf("statusCode = %d, want 200 after Flush", rec.statusCode)
+		}
+	})
+
+	t.Run("first write sniffs content-type and commits 200", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		if _, err := rec.Write([]byte("hello")); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		rec.WriteHeader(http.StatusBadRequest)
+		rec.WriteHeader(0) // post-commit invalid status is ignored, matching httptest.ResponseRecorder
+		if rec.statusCode != http.StatusOK {
+			t.Fatalf("implicit statusCode = %d, want 200", rec.statusCode)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+			t.Fatalf("Content-Type = %q, want text/plain; charset=utf-8", got)
+		}
+	})
+
+	t.Run("first write skips content-type sniff when Transfer-Encoding is set", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		rec.Header().Set("Transfer-Encoding", "chunked")
+		if _, err := rec.Write([]byte("hello")); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "" {
+			t.Fatalf("Content-Type = %q, want empty when Transfer-Encoding is set", got)
+		}
+	})
+
+	t.Run("explicit nil Content-Type map entry suppresses sniff", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		rec.Header()["Content-Type"] = nil
+		if _, err := rec.Write([]byte("abc")); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "" {
+			t.Fatalf("Content-Type = %q, want empty when key is explicitly nil", got)
+		}
+	})
+
+	t.Run("first Write(nil) sniffs default Content-Type like httptest.ResponseRecorder", func(t *testing.T) {
+		rec := newResponsesBridgeRecorder()
+		if _, err := rec.Write(nil); err != nil {
+			t.Fatalf("Write(nil): %v", err)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+			t.Fatalf("Content-Type = %q, want text/plain; charset=utf-8", got)
+		}
+	})
+
+	t.Run("204 and 304 reject body writes with ErrBodyNotAllowed while recording bytes", func(t *testing.T) {
+		for _, code := range []int{http.StatusNoContent, http.StatusNotModified} {
+			rec := newResponsesBridgeRecorder()
+			rec.WriteHeader(code)
+			n, err := rec.Write([]byte("x"))
+			if n != 0 || err != http.ErrBodyNotAllowed {
+				t.Fatalf("code %d: Write = (%d, %v), want (0, ErrBodyNotAllowed)", code, n, err)
+			}
+			if got := rec.body.String(); got != "x" {
+				t.Fatalf("code %d: recorded body = %q, want %q", code, got, "x")
+			}
+		}
+	})
+
+	t.Run("invalid status code panics like httptest.ResponseRecorder", func(t *testing.T) {
+		for _, bad := range []int{0, 99, 1000} {
+			func(code int) {
+				defer func() {
+					if recover() == nil {
+						t.Fatalf("WriteHeader(%d) did not panic", code)
+					}
+				}()
+				newResponsesBridgeRecorder().WriteHeader(code)
+			}(bad)
+		}
+	})
+}
+
 // Ensure imports used
 var _ = json.Marshal

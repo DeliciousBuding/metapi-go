@@ -12,8 +12,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
-	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/platform"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/pricing"
 )
@@ -62,7 +62,7 @@ type downstreamPricingScope struct {
 }
 
 func newDownstreamPricingScope(policy auth.DownstreamRoutingPolicy) *downstreamPricingScope {
-	routePolicy := proxyhandler.RoutingPolicyFromAuth(policy)
+	routePolicy := proxy.RoutingPolicyFromAuth(policy)
 	scope := &downstreamPricingScope{
 		policy:                routePolicy,
 		allowedSites:          map[int64]struct{}{},

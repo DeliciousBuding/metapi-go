@@ -2025,46 +2025,7 @@ func bytesReader(b []byte) io.Reader {
 }
 
 // RoutingPolicyFromAuth converts the auth-layer downstream policy into the
-// routing-layer policy. Single owner of the field mapping; both the proxy
-// admission path and the admin key-context explainer use it.
+// routing-layer policy by delegating to the shared proxy package owner.
 func RoutingPolicyFromAuth(policy auth.DownstreamRoutingPolicy) routing.DownstreamRoutingPolicy {
-	refs := mapAuthCredentialRefs(policy.ExcludedCredentialRefs)
-	allowedRefs := mapAuthCredentialRefs(policy.AllowedCredentialRefs)
-
-	multipliers := policy.SiteWeightMultipliers
-	if multipliers == nil {
-		multipliers = map[int64]float64{}
-	}
-
-	return routing.DownstreamRoutingPolicy{
-		UserRouteIDs:           policy.UserRouteIDs,
-		AccessPolicy:           policy.AccessPolicy,
-		SupportedModels:        policy.SupportedModels,
-		AllowedRouteIDs:        policy.AllowedRouteIDs,
-		SiteWeightMultipliers:  multipliers,
-		KeyWeight:              policy.KeyWeight,
-		ExcludedSiteIDs:        policy.ExcludedSiteIDs,
-		ExcludedCredentialRefs: refs,
-		AllowedSiteIDs:         policy.AllowedSiteIDs,
-		AllowedCredentialRefs:  allowedRefs,
-		DenyAllWhenEmpty:       policy.DenyAllWhenEmpty,
-	}
-}
-
-func mapAuthCredentialRefs(in []auth.ExcludedCredentialRef) []routing.CredentialRef {
-	refs := make([]routing.CredentialRef, 0, len(in))
-	for _, ref := range in {
-		tokenID := int64(0)
-		if ref.TokenID != nil {
-			tokenID = *ref.TokenID
-		}
-		refs = append(refs, routing.CredentialRef{
-			Kind:      string(ref.Kind),
-			SiteID:    ref.SiteID,
-			AccountID: ref.AccountID,
-			TokenID:   tokenID,
-			GrantID:   ref.GrantID,
-		})
-	}
-	return refs
+	return proxy.RoutingPolicyFromAuth(policy)
 }

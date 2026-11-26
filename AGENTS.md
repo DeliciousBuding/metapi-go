@@ -52,7 +52,8 @@ Go 网关，React SPA 预构建后嵌入单个服务端二进制。
 | 任务 | 权威来源 |
 | --- | --- |
 | 查找文档 | [文档地图](docs/README.md) |
-| 修改后端职责或依赖 | [架构](docs/architecture.md)、[依赖门禁](docs/package_boundary_test.go)、[后端契约](docs/internal/design/BACKEND.md) |
+| 修改后端职责或依赖 | [架构](docs/architecture.md)、[依赖与耦合门禁](docs/package_boundary_test.go) / [`coupling_ratchet_test.go`](docs/coupling_ratchet_test.go)、[后端契约](docs/internal/design/BACKEND.md) |
+| 修改 Direct 渠道、插件或备份导入 | [子系统契约](docs/internal/subsystems/direct-channels-and-import.md) |
 | 修改前端 | [前端规则](web/AGENTS.md) |
 | 修改 API、配置或迁移 | [API](docs/api.md)、[配置](docs/configuration.md)、[迁移](docs/migration.md)；环境变量变化同步 `.env.example` |
 | 重构、测试或 lint | [贡献规范](CONTRIBUTING.md)、[测试策略](docs/testing.md)；机械规则由工具配置和可执行检查维护 |

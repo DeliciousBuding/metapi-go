@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
@@ -109,4 +110,51 @@ func TestDownstreamModelPolicyHTTP(t *testing.T) {
 			}
 		})
 	}
+}
+
+func openProbeTestDB(t *testing.T) *store.DB {
+	t.Helper()
+	return sqlitetest.Open(t)
+}
+
+func seedProbeChannel(t *testing.T, db *store.DB, upstreamURL, model, token string) int64 {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"probe-site", upstreamURL, "anyrouter", "active", now, now)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	siteID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("site LastInsertId: %v", err)
+	}
+	res, err = db.Exec(`INSERT INTO accounts (site_id, access_token, api_token, status, balance, quota, value_score, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		siteID, token, token, "active", 10.0, 100.0, 1.0, now, now)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	accountID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("account LastInsertId: %v", err)
+	}
+	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		model, "pattern", "weighted", true, now, now)
+	if err != nil {
+		t.Fatalf("insert route: %v", err)
+	}
+	routeID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("route LastInsertId: %v", err)
+	}
+	res, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled) VALUES (?, ?, ?, ?, ?, ?)`,
+		routeID, accountID, model, 0, 10, true)
+	if err != nil {
+		t.Fatalf("insert channel: %v", err)
+	}
+	channelID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("channel LastInsertId: %v", err)
+	}
+	return channelID
 }

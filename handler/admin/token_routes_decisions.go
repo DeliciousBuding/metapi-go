@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/auth"
-	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
@@ -86,7 +85,7 @@ func (h *tokenRoutesHandler) routeDecisionKeyContext(w http.ResponseWriter, r *h
 	admission := keyCtx.ExplainAdmission(r.URL.Query().Get("clientIp"))
 
 	// The key's routing policy plus the endpoint's protocol context.
-	policy := proxyhandler.RoutingPolicyFromAuth(keyCtx.Policy)
+	policy := proxy.RoutingPolicyFromAuth(keyCtx.Policy)
 	policy.RequiredUpstreamProtocol = endpointPolicy.RequiredUpstreamProtocol
 	policy.AllowUpstreamProtocolConversion = endpointPolicy.AllowUpstreamProtocolConversion
 

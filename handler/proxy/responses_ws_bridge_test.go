@@ -3,14 +3,19 @@ package proxyhandler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/internal/channellimit"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // TestResponsesWebsocket_PrewarmTurn verifies C1 upgrade + generate=false prewarm
@@ -112,5 +117,133 @@ func TestResponsesWebsocket_DialWithoutAuthRejected(t *testing.T) {
 		if resp.StatusCode == http.StatusSwitchingProtocols {
 			t.Fatalf("must not switch protocols without auth, status=%d", resp.StatusCode)
 		}
+	}
+}
+
+// TestResponsesWebsocketBridgeQueuedRevalidationPreservesClientIP verifies that
+// the WS → HTTP fallback bridge inherits the real client RemoteAddr instead of
+// a synthetic test address: an IP-restricted managed key passes queued
+// revalidation from an allowed client IP, and is rejected if its IP allowlist
+// is narrowed/revoked while waiting for a channel slot.
+func TestResponsesWebsocketBridgeQueuedRevalidationPreservesClientIP(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		revokeWhileWait   bool
+		wantTerminal      string
+		wantUpstreamCalls int32
+		wantErrorStatus   int
+	}{
+		{name: "allowed_ip_succeeds_after_queue_wait", revokeWhileWait: false, wantTerminal: "response.completed", wantUpstreamCalls: 1},
+		{name: "revoked_ip_rejected_after_queue_wait", revokeWhileWait: true, wantTerminal: "error", wantUpstreamCalls: 0, wantErrorStatus: http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var upstreamCalls atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				upstreamCalls.Add(1)
+				w.Header().Set("Content-Type", "text/event-stream")
+				_, _ = fmt.Fprint(w, "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-queued\",\"status\":\"completed\",\"model\":\"provider-model\",\"output\":[],\"usage\":{\"input_tokens\":2,\"output_tokens\":1}}}\n\n")
+			}))
+			t.Cleanup(upstream.Close)
+
+			db := installDirectMediaRuntime(t, store.DialectSQLite, store.DirectEndpoints{
+				Responses: &store.DirectEndpoint{URL: upstream.URL + "/v1/responses", Auth: store.DirectAuthBearer},
+			}, store.DirectProtocolResponses, "")
+			prevDB := store.GetDB()
+			store.OverrideDB(db)
+			t.Cleanup(func() { store.OverrideDB(prevDB) })
+
+			var channelID int64
+			if err := db.QueryRow(`SELECT id FROM upstream_channels LIMIT 1`).Scan(&channelID); err != nil {
+				t.Fatalf("query channel id: %v", err)
+			}
+			limits := channellimit.Config{MaxConcurrent: 1, QueueSize: 4, QueueTimeoutMs: 5000}
+			limitsJSON, err := json.Marshal(limits)
+			if err != nil {
+				t.Fatalf("marshal limits: %v", err)
+			}
+			if _, err := db.Exec(db.Rebind(`UPDATE upstream_channels SET rate_limit=? WHERE id=?`), string(limitsJSON), channelID); err != nil {
+				t.Fatalf("set channel rate_limit: %v", err)
+			}
+
+			keyToken := "sk-ws-ip-" + tc.name
+			keyID := insertWSAdmissionKey(t, db, keyToken, nil, 0, nil, 0)
+			if _, err := db.Exec(db.Rebind(`UPDATE downstream_api_keys SET ip_allowlist='127.0.0.1,::1' WHERE id=?`), keyID); err != nil {
+				t.Fatalf("set ip_allowlist: %v", err)
+			}
+
+			mgr := channellimit.NewManager()
+			cfg := *getUpstreamConfig()
+			cfg.ChannelLimits = mgr
+			SetUpstreamConfig(&cfg)
+
+			// Occupy the single concurrency slot so the WS turn must queue and
+			// trigger revalidateQueuedChannel → auth.RevalidateQueuedRequest.
+			blocker, err := mgr.Acquire(t.Context(), channelID, limits)
+			if err != nil {
+				t.Fatalf("acquire blocker slot: %v", err)
+			}
+			var releaseOnce sync.Once
+			releaseBlocker := func() { releaseOnce.Do(blocker.Release) }
+			t.Cleanup(releaseBlocker)
+
+			server := httptest.NewServer(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)))
+			t.Cleanup(server.Close)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http")+"/v1/responses", &websocket.DialOptions{
+				HTTPHeader: http.Header{"Authorization": {"Bearer " + keyToken}},
+			})
+			if err != nil {
+				t.Fatalf("dial responses WS: %v", err)
+			}
+			defer conn.Close(websocket.StatusNormalClosure, "done")
+
+			turn := `{"type":"response.create","model":"client-alias","input":[{"role":"user","content":"hi"}]}`
+			if err := conn.Write(ctx, websocket.MessageText, []byte(turn)); err != nil {
+				t.Fatalf("write turn: %v", err)
+			}
+
+			// Wait until the WS turn is queued behind the blocker slot.
+			deadline := time.Now().Add(3 * time.Second)
+			for mgr.Snapshot(channelID, limits).Waiting == 0 {
+				if time.Now().After(deadline) {
+					t.Fatal("WS turn did not enter channel queue")
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			if tc.revokeWhileWait {
+				if _, err := db.Exec(db.Rebind(`UPDATE downstream_api_keys SET ip_allowlist='203.0.113.1' WHERE id=?`), keyID); err != nil {
+					t.Fatalf("narrow ip_allowlist: %v", err)
+				}
+			}
+			releaseBlocker()
+
+			var terminal map[string]any
+			for range 10 {
+				frame := readWSFrame(t, ctx, conn)
+				kind, _ := frame["type"].(string)
+				if kind == "error" || kind == "response.completed" || kind == "response.failed" {
+					terminal = frame
+					break
+				}
+			}
+			if terminal == nil {
+				t.Fatal("missing terminal WS frame")
+			}
+			got, _ := terminal["type"].(string)
+			if got != tc.wantTerminal {
+				t.Fatalf("terminal frame = %q, want %q (frame=%v)", got, tc.wantTerminal, terminal)
+			}
+			if calls := upstreamCalls.Load(); calls != tc.wantUpstreamCalls {
+				t.Fatalf("upstream calls = %d, want %d", calls, tc.wantUpstreamCalls)
+			}
+			if tc.wantErrorStatus != 0 {
+				if status := fmtInt(terminal["status"]); status != tc.wantErrorStatus {
+					t.Fatalf("error frame status = %d, want %d (frame=%v)", status, tc.wantErrorStatus, terminal)
+				}
+			}
+		})
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -600,6 +599,81 @@ func shouldHandleLocalPrewarm(msg *ResponsesWSMessage, lastRequest map[string]an
 	return msg.Generate != nil && !*msg.Generate
 }
 
+// responsesBridgeRecorder captures an in-process HTTP handler response without
+// pulling net/http/httptest (and the testing package) into production binaries.
+// It matches http.ResponseWriter / httptest.ResponseRecorder commit semantics:
+// first Write/Flush commits 200, WriteHeader validates status codes and honors
+// only the first call, 1xx/204/304 reject body writes with http.ErrBodyNotAllowed,
+// and an unset Content-Type is sniffed on the first non-empty write.
+type responsesBridgeRecorder struct {
+	header      http.Header
+	body        bytes.Buffer
+	statusCode  int
+	wroteHeader bool
+}
+
+func newResponsesBridgeRecorder() *responsesBridgeRecorder {
+	return &responsesBridgeRecorder{
+		header:     make(http.Header),
+		statusCode: http.StatusOK,
+	}
+}
+
+func (r *responsesBridgeRecorder) Header() http.Header { return r.header }
+
+func (r *responsesBridgeRecorder) WriteHeader(code int) {
+	if r.wroteHeader {
+		return
+	}
+	if code < 100 || code > 999 {
+		panic(fmt.Sprintf("invalid WriteHeader code %v", code))
+	}
+	r.statusCode = code
+	r.wroteHeader = true
+}
+
+func (r *responsesBridgeRecorder) bodyAllowed() bool {
+	if !r.wroteHeader {
+		return true
+	}
+	switch {
+	case r.statusCode >= 100 && r.statusCode <= 199:
+		return false
+	case r.statusCode == http.StatusNoContent:
+		return false
+	case r.statusCode == http.StatusNotModified:
+		return false
+	}
+	return true
+}
+
+func (r *responsesBridgeRecorder) writeHeader(b []byte) {
+	if r.wroteHeader {
+		return
+	}
+	_, hasType := r.header["Content-Type"]
+	hasTE := r.header.Get("Transfer-Encoding") != ""
+	if !hasType && !hasTE {
+		r.header.Set("Content-Type", http.DetectContentType(b))
+	}
+	r.WriteHeader(http.StatusOK)
+}
+
+func (r *responsesBridgeRecorder) Write(p []byte) (int, error) {
+	r.writeHeader(p)
+	r.body.Write(p)
+	if !r.bodyAllowed() {
+		return 0, http.ErrBodyNotAllowed
+	}
+	return len(p), nil
+}
+
+func (r *responsesBridgeRecorder) Flush() {
+	if !r.wroteHeader {
+		r.WriteHeader(http.StatusOK)
+	}
+}
+
 // bridgeHTTP performs an in-process POST /v1/responses and forwards SSE/JSON to the WS.
 func (s *responsesWSSession) bridgeHTTP(ctx context.Context, payload map[string]any, preserveIncremental bool) ([]any, error) {
 	bodyBytes, err := json.Marshal(payload)
@@ -608,7 +682,13 @@ func (s *responsesWSSession) bridgeHTTP(ctx context.Context, payload map[string]
 		return nil, err
 	}
 
-	bridgeReq := httptest.NewRequestWithContext(ctx, http.MethodPost, "/v1/responses", bytes.NewReader(bodyBytes))
+	bridgeReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://metapi.local/v1/responses", bytes.NewReader(bodyBytes))
+	if err != nil {
+		_ = s.writeError(ctx, 500, "failed to construct bridge request")
+		return nil, err
+	}
+	bridgeReq.RequestURI = "/v1/responses"
+	bridgeReq.RemoteAddr = s.req.RemoteAddr
 	bridgeReq.Header.Set("Content-Type", "application/json")
 	bridgeReq.Header.Set("Accept", "text/event-stream")
 	bridgeReq.Header.Set(responsesWebsocketTransportHeader, "1")
@@ -646,12 +726,12 @@ func (s *responsesWSSession) bridgeHTTP(ctx context.Context, payload map[string]
 		bridgeReq = bridgeReq.WithContext(auth.WithProxyAuth(bridgeReq.Context(), s.auth))
 	}
 
-	// C1 accumulates full SSE body via recorder. Live flush-to-WS can upgrade later.
-	rec := httptest.NewRecorder()
+	// Accumulate full SSE/JSON body in-memory before projecting to WS frames.
+	rec := newResponsesBridgeRecorder()
 	HandleResponses(rec, bridgeReq, "/v1/responses")
 
-	status := rec.Code
-	respBody := rec.Body.Bytes()
+	status := rec.statusCode
+	respBody := rec.body.Bytes()
 	ct := strings.ToLower(rec.Header().Get("Content-Type"))
 
 	if status < 200 || status >= 300 {
