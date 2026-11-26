@@ -173,7 +173,7 @@ func exchangeCodexToken(ctx context.Context, form url.Values, proxyURL *string, 
 
 	if resp.StatusCode != 200 {
 		body := readOAuthErrorResponseBody(resp.Body)
-		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, body, fmt.Errorf("%s", string(body)))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, body, summarizeOAuthHTTPError("codex token exchange", resp.StatusCode, body))
 	}
 
 	body, err := readOAuthJSONResponseBody(resp.Body)

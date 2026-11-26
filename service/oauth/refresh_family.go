@@ -149,23 +149,38 @@ func refreshFamilyWinner(ctx context.Context, db *sqlx.DB, f *store.CredentialRe
 		var row directCredentialRow
 		err = db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,c.provider FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), f.ResultID)
 		if err != nil || row.Kind != store.DirectCredentialOAuth || directOAuthProvider(row.Provider) != provider || row.State.Scan(row.RawOAuth) != nil {
-			return nil, ErrOAuthRefreshUncertain
+			if f.Retired {
+				return nil, ErrOAuthRefreshUncertain
+			}
+			// Active family whose caller already holds the current non-retired
+			// refresh token can proceed under the existing family lease even if
+			// the previous winner record was deleted or changed.
+			return nil, nil
 		}
 		scope, err = refreshFamilyScope(provider, row.State.ClientID)
 		token = &TokenSet{AccessToken: row.Secret, RefreshToken: row.State.RefreshToken, IDToken: row.State.IDToken, AccountID: row.State.AccountID, ProjectID: row.State.ProjectID, TokenExpiresAt: row.State.ExpiresAt}
 	case "account":
 		var account store.Account
 		if db.GetContext(ctx, &account, db.Rebind(`SELECT * FROM accounts WHERE id=?`), f.ResultID) != nil {
-			return nil, ErrOAuthRefreshUncertain
+			if f.Retired {
+				return nil, ErrOAuthRefreshUncertain
+			}
+			return nil, nil
 		}
 		info := GetOauthInfoFromAccount(&account)
 		if info == nil || info.Provider != provider {
-			return nil, ErrOAuthRefreshUncertain
+			if f.Retired {
+				return nil, ErrOAuthRefreshUncertain
+			}
+			return nil, nil
 		}
 		scope, err = refreshFamilyScope(provider, "")
 		token = &TokenSet{AccessToken: account.AccessToken, RefreshToken: info.RefreshToken, IDToken: info.IDToken, AccountID: info.AccountID, AccountKey: info.AccountKey, ProjectID: info.ProjectID, Email: info.Email, PlanType: info.PlanType, ProviderData: info.ProviderData, TokenExpiresAt: info.TokenExpiresAt}
 	default:
-		return nil, ErrOAuthRefreshUncertain
+		if f.Retired {
+			return nil, ErrOAuthRefreshUncertain
+		}
+		return nil, nil
 	}
 	valid := err == nil && scope == f.Provider && store.OAuthRefreshFingerprint(scope, token.RefreshToken) == f.CurrentFingerprint && token.AccessToken != "" && token.TokenExpiresAt > time.Now().Add(3*time.Minute).UnixMilli()
 	if !valid {

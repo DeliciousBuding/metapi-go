@@ -112,5 +112,12 @@ func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, 
 			return "", "", store.DirectOAuthState{}, "", ErrInvalidDirectCredential
 		}
 	}
+	if directOAuthProvider(provider) == string(ProviderGrok) {
+		trimmedClientID := strings.TrimSpace(state.ClientID)
+		if trimmedClientID != "" && trimmedClientID != grokClientID {
+			return "", "", store.DirectOAuthState{}, "", ErrInvalidDirectCredential
+		}
+		state.ClientID = grokClientID
+	}
 	return oauth.AccessToken, store.DirectCredentialOAuth, state, "", nil
 }

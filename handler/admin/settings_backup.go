@@ -1032,7 +1032,7 @@ func importTableRowsWithConn(conn backupImportConn, table string, rows []map[str
 	if len(rows) == 0 {
 		return 0, 0, nil
 	}
-	knownColumns, err := tableColumns(conn, table)
+	knownColumns, boolColumns, err := tableColumns(conn, table)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -1065,6 +1065,13 @@ func importTableRowsWithConn(conn backupImportConn, table string, rows []map[str
 			}
 			if err := validateBackupImportCellValue(col, val); err != nil {
 				return 0, 0, err
+			}
+			if boolColumns[col] {
+				coerced, err := coerceBackupBoolCellValue(col, val)
+				if err != nil {
+					return 0, 0, err
+				}
+				val = coerced
 			}
 			columns = append(columns, col)
 			values = append(values, val)
@@ -1213,28 +1220,74 @@ func shouldSkipBackupImportRow(table string, row map[string]any) bool {
 	return backupsvc.RuntimeLocalSettingKeys[key]
 }
 
-func tableColumns(conn backupImportConn, table string) (map[string]bool, error) {
+func tableColumns(conn backupImportConn, table string) (map[string]bool, map[string]bool, error) {
 	if !isKnownTable(table) {
-		return nil, fmt.Errorf("unknown table: %s", table)
+		return nil, nil, fmt.Errorf("unknown table: %s", table)
 	}
 
 	query := fmt.Sprintf("SELECT * FROM %s LIMIT 0", quoteIdentifier(table))
 	rows, err := conn.Queryx(query)
 	if err != nil {
-		return nil, fmt.Errorf("read table columns: %w", err)
+		return nil, nil, fmt.Errorf("read table columns: %w", err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, fmt.Errorf("read table columns: %w", err)
+		return nil, nil, fmt.Errorf("read table columns: %w", err)
 	}
 
 	allowed := make(map[string]bool, len(cols))
 	for _, col := range cols {
 		allowed[col] = true
 	}
-	return allowed, nil
+
+	boolCols := make(map[string]bool)
+	if colTypes, err := rows.ColumnTypes(); err == nil {
+		for _, ct := range colTypes {
+			dbType := strings.ToUpper(strings.TrimSpace(ct.DatabaseTypeName()))
+			if dbType == "BOOL" || dbType == "BOOLEAN" {
+				boolCols[ct.Name()] = true
+			}
+		}
+	}
+	return allowed, boolCols, nil
+}
+
+// coerceBackupBoolCellValue normalizes SQLite-exported integer booleans (0/1)
+// into native Go bool values when importing into a target BOOLEAN column
+// (required for PostgreSQL pgx binary encoding of OID 16).
+func coerceBackupBoolCellValue(column string, value any) (any, error) {
+	switch v := value.(type) {
+	case nil, bool:
+		return v, nil
+	case float64:
+		if v == 0 {
+			return false, nil
+		}
+		if v == 1 {
+			return true, nil
+		}
+		return nil, backupImportClientError{message: fmt.Sprintf("column %q expects a boolean value", column)}
+	case int:
+		if v == 0 {
+			return false, nil
+		}
+		if v == 1 {
+			return true, nil
+		}
+		return nil, backupImportClientError{message: fmt.Sprintf("column %q expects a boolean value", column)}
+	case int64:
+		if v == 0 {
+			return false, nil
+		}
+		if v == 1 {
+			return true, nil
+		}
+		return nil, backupImportClientError{message: fmt.Sprintf("column %q expects a boolean value", column)}
+	default:
+		return nil, backupImportClientError{message: fmt.Sprintf("column %q expects a boolean value", column)}
+	}
 }
 
 func quoteIdentifiers(columns []string) []string {

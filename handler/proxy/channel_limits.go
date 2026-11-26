@@ -51,9 +51,11 @@ func revalidateQueuedChannel(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, sel
 
 // Token exchange can outlive a grant/configuration change even without queue
 // waiting. Reuse the same eligibility owner without another admission or route
-// choice; a changed wire configuration cannot use the old channel permit.
-func revalidateDirectCredentialDispatch(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, policy *routing.DownstreamRoutingPolicy) (int, error) {
-	if selected.Direct.CredentialKind != store.DirectCredentialOAuth && selected.Direct.CredentialKind != store.DirectCredentialGCPServiceAccount {
+// choice; a changed wire configuration or credential kind cannot use the old
+// channel permit.
+func revalidateDirectCredentialDispatch(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, resolvedKind string, policy *routing.DownstreamRoutingPolicy) (int, error) {
+	kindChanged := resolvedKind != "" && selected.Direct.CredentialKind != resolvedKind
+	if !kindChanged && selected.Direct.CredentialKind != store.DirectCredentialOAuth && selected.Direct.CredentialKind != store.DirectCredentialGCPServiceAccount {
 		return 0, nil
 	}
 	return revalidateDirectOperationDispatch(r, ctx, cfg, selected, policy)

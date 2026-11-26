@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptrace"
+	"strings"
 	"sync/atomic"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -47,6 +49,22 @@ func doRefreshHTTP(req *http.Request, proxyURL *string, refresh bool) (*http.Res
 		return nil, &uncertainRefreshResponseError{detail: "exchange transport failed"}
 	}
 	return resp, nil
+}
+
+// summarizeOAuthHTTPError produces a bounded, sanitized error message for
+// non-200 OAuth token responses using only the HTTP status code and the
+// standard OAuth `error` code when present, never forwarding raw provider
+// bodies that could contain sensitive material into management API responses.
+func summarizeOAuthHTTPError(op string, status int, body []byte) error {
+	var payload struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(body, &payload) == nil {
+		if code := strings.TrimSpace(payload.Error); code != "" && len(code) <= 64 {
+			return fmt.Errorf("%s failed (%d: %s)", op, status, code)
+		}
+	}
+	return fmt.Errorf("%s failed (%d)", op, status)
 }
 
 func refreshHTTPFailure(ctx context.Context, refresh bool, status int, body []byte, original error) error {
