@@ -153,8 +153,8 @@ export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
           {pageNumbers.map((pageNumber, index) => (
             // `getPageNumbers` can emit more than one `'...'` gap, so the index is
             // part of the key: without it the two gaps collide.
-            // eslint-disable-next-line react/no-array-index-key
             <div
+              // oxlint-disable-next-line react/no-array-index-key -- multiple `'...'` gaps require index to disambiguate
               key={`${pageNumber}-${index}`}
               className='hidden items-center @xl/pagination:flex'
             >

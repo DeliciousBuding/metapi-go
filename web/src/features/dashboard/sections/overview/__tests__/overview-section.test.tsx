@@ -48,9 +48,6 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/features/dashboard/components/announcement-banner', () => ({
   AnnouncementBanner: () => null,
 }))
-vi.mock('@/features/dashboard/components/stat-card', () => ({
-  StatCard: () => <div data-testid='stat-card' />,
-}))
 
 const { mockToastSuccess } = vi.hoisted(() => ({
   mockToastSuccess: vi.fn(),

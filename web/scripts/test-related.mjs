@@ -29,7 +29,12 @@ try {
   let selected = all
   if (!full) {
     const owners = new Set(input.map(feature))
-    ctx.config.related = input.map((file) => resolve(ctx.config.root, file))
+    // Vitest's module graph keys files with POSIX slashes (even on Windows via
+    // pathe.resolve), while Node's path.resolve emits backslashes on win32 and
+    // would miss every entry in `importers`.
+    ctx.config.related = input.map((file) =>
+      resolve(ctx.config.root, file).replaceAll('\\', '/')
+    )
     const related = await ctx.getRelevantTestSpecifications()
     const ids = new Set(related.map((spec) => spec.moduleId))
     // Keep whole changed feature suites, plus filesystem contracts which read

@@ -34,7 +34,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | Path                                             | Role                                                        |
 | :----------------------------------------------- | :---------------------------------------------------------- |
 | [`internal/git-workflow.md`](internal/git-workflow.md) | Branch model, PR flow, protection rules, release cadence |
-| [`internal/design/`](internal/design/)           | Design source of truth (BACKEND / DESIGN / a11y / components / state-stability) |
+| [`internal/design/`](internal/design/)           | Design source of truth (BACKEND / DESIGN / a11y / components / dashboard-operations / state-stability) |
 | [`internal/subsystems/direct-channels-and-import.md`](internal/subsystems/direct-channels-and-import.md) | Direct 渠道、OAuth 凭据族、插件/Provider 驱动与外部备份导入细粒度契约 |
 | [`internal/web-package-boundaries.md`](internal/web-package-boundaries.md) | Frontend layering contract (`web/scripts/check-boundaries.mjs` enforces it) |
 | [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WebSocket transport and single-instance session state |

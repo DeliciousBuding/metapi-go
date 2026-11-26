@@ -25,23 +25,11 @@ linters:
       # TS-parity packages: fire-and-forget DB/notify operations match original
       - path: "handler/admin/.*\\.go"
         linters: [errcheck]
-      - path: "handler/proxy/.*\\.go"
-        linters: [errcheck]
-      - path: "handler/shared/.*\\.go"
-        linters: [errcheck]
-      - path: "service/.*\\.go"
-        linters: [errcheck]
-      - path: "scheduler/.*\\.go"
-        linters: [errcheck]
-      - path: "platform/.*\\.go"
+      - path: "service/(site_service\\.go|(alert|balance|checkin|oauth)/.*\\.go)"
         linters: [errcheck]
 
       # 测试夹具中的 best-effort 清理；其余静态检查仍检查测试代码。
       - path: "_test\\.go"
-        linters: [errcheck]
-
-      # app/health.go + app/metrics.go: w.Write best-effort in health/metrics handlers
-      - path: "app/.*\\.go"
         linters: [errcheck]
 
       # router/router.go: w.Write in SPA fallback is best-effort

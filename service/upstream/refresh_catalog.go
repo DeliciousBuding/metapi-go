@@ -262,7 +262,7 @@ func catalogBasisToken(rows []catalogModelRow, discovered []string, identity ...
 		_, _ = h.Write([]byte("provider:" + identity[0] + "\x00"))
 	}
 	for _, row := range rows {
-		fmt.Fprintf(h, "%d|%s|%t|%s\n", row.ID, row.Name, row.Enabled, row.Origin)
+		_, _ = fmt.Fprintf(h, "%d|%s|%t|%s\n", row.ID, row.Name, row.Enabled, row.Origin)
 	}
 	h.Write([]byte{0})
 	sorted := slices.Clone(discovered)

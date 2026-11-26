@@ -1923,15 +1923,15 @@ func writeStubResponse(w http.ResponseWriter, ctx *Ctx) {
 			return payload
 		}
 
-		w.Write(sseEvent(string(stubChunk("Hello from Metapi Go (stub)", nil))))
+		_, _ = w.Write(sseEvent(string(stubChunk("Hello from Metapi Go (stub)", nil))))
 		if flusher != nil {
 			flusher.Flush()
 		}
-		w.Write(sseEvent(string(stubChunk("", "stop"))))
+		_, _ = w.Write(sseEvent(string(stubChunk("", "stop"))))
 		if flusher != nil {
 			flusher.Flush()
 		}
-		w.Write(sseDone())
+		_, _ = w.Write(sseDone())
 		if flusher != nil {
 			flusher.Flush()
 		}
