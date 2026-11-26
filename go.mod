@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/Calcium-Ion/moejs v0.1.0-alpha.7
-	github.com/QuantumNous/new-api/relaykit v0.3.7
+	github.com/QuantumNous/new-api/relaykit v0.3.8
 	github.com/coder/websocket v1.8.15
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/cors v1.2.2
@@ -23,7 +23,7 @@ require (
 )
 
 require (
-	github.com/MoeForge/moego v0.1.0-alpha.1 // indirect
+	github.com/MoeForge/moego v0.1.0-alpha.5 // indirect
 	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
