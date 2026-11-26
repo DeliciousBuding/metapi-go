@@ -313,6 +313,65 @@ func TestDeleteOauthRouteUnit_NotFound(t *testing.T) {
 	}
 }
 
+func TestDeleteOauthRouteUnit_SnapshotErrorAbortsBeforeDelete(t *testing.T) {
+	cases := []struct {
+		name      string
+		dropTable string
+		wantErr   string
+	}{
+		{
+			name:      "members snapshot failure",
+			dropTable: "oauth_route_unit_members",
+			wantErr:   "snapshot oauth route unit members",
+		},
+		{
+			name:      "channels snapshot failure",
+			dropTable: "route_channels",
+			wantErr:   "snapshot oauth route unit channels",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, cleanup := setupTestDB(t)
+			defer cleanup()
+
+			previousHooks := workflowHooks
+			SetOAuthWorkflowHooks(nil)
+			t.Cleanup(func() { SetOAuthWorkflowHooks(previousHooks) })
+
+			suffix := "snapshot-err-" + strings.ReplaceAll(tc.name, " ", "-")
+			siteID := insertRouteUnitSite(t, db, suffix)
+			accountID1 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-1")
+			accountID2 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-2")
+
+			created, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+				AccountIDs: []int64{accountID1, accountID2},
+				Name:       "unit-" + suffix,
+				Strategy:   RouteUnitStrategyRoundRobin,
+			})
+			if err != nil {
+				t.Fatalf("CreateOauthRouteUnit: %v", err)
+			}
+
+			if _, err := db.Exec("DROP TABLE " + tc.dropTable); err != nil {
+				t.Fatalf("drop %s: %v", tc.dropTable, err)
+			}
+
+			err = DeleteOauthRouteUnit(created.RouteUnit.ID)
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("DeleteOauthRouteUnit err = %v, want substring %q", err, tc.wantErr)
+			}
+
+			// The route unit row must remain intact because snapshot failed before DELETE.
+			assertRouteUnitCount(t, db, "oauth_route_units", "id", created.RouteUnit.ID, 1)
+			if tc.dropTable != "oauth_route_unit_members" {
+				assertRouteUnitCount(t, db, "oauth_route_unit_members", "unit_id", created.RouteUnit.ID, 2)
+			}
+		})
+	}
+}
+
 // ---- ListOauthRouteUnitsByAccountIDs Tests (no DB / empty) ----
 
 func TestListOauthRouteUnitsByAccountIDs_EmptyInput(t *testing.T) {

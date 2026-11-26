@@ -198,7 +198,7 @@ func directImageMultipart(body []byte, contentType string) (map[string]json.RawM
 	req.Header.Set("Content-Type", contentType)
 	form, err := ParseMultipartFormData(req)
 	if req.MultipartForm != nil {
-		defer req.MultipartForm.RemoveAll()
+		defer func() { _ = req.MultipartForm.RemoveAll() }()
 	}
 	if err != nil {
 		return nil, err

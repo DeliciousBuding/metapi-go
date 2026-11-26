@@ -357,10 +357,14 @@ func DeleteOauthRouteUnit(routeUnitID int64) error {
 
 	// Step 2: Snapshot current members + channels for rollback.
 	var snapshotMembers []store.OAuthRouteUnitMember
-	db.Select(&snapshotMembers, "SELECT * FROM oauth_route_unit_members WHERE unit_id = ?", routeUnitID)
+	if err := db.Select(&snapshotMembers, "SELECT * FROM oauth_route_unit_members WHERE unit_id = ?", routeUnitID); err != nil {
+		return fmt.Errorf("snapshot oauth route unit members: %w", err)
+	}
 
 	var snapshotChannels []store.RouteChannel
-	db.Select(&snapshotChannels, "SELECT * FROM route_channels WHERE oauth_route_unit_id = ?", routeUnitID)
+	if err := db.Select(&snapshotChannels, "SELECT * FROM route_channels WHERE oauth_route_unit_id = ?", routeUnitID); err != nil {
+		return fmt.Errorf("snapshot oauth route unit channels: %w", err)
+	}
 
 	// Step 3: Delete channels -> members -> unit.
 	_, err := db.Exec("DELETE FROM route_channels WHERE oauth_route_unit_id = ?", routeUnitID)

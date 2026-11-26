@@ -315,3 +315,73 @@ func TestAuthSettingsChange_RejectsShortCustomToken(t *testing.T) {
 		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
 	}
 }
+
+func TestAuthSettingsChange_DBErrorReturns500WithoutMutatingRuntime(t *testing.T) {
+	t.Run("settings query failure", func(t *testing.T) {
+		db, r := setupAuthSettingsTest(t)
+		if _, err := db.Exec("DROP TABLE settings"); err != nil {
+			t.Fatalf("drop settings: %v", err)
+		}
+
+		resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+			"oldToken": "admin-auth-settings-token",
+			"newToken": "rotated-admin-token-db-fail",
+		})
+		if resp.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d body=%s, want 500", resp.Code, resp.Body.String())
+		}
+		if config.Runtime().AuthToken != "admin-auth-settings-token" {
+			t.Fatalf("AuthToken mutated to %q despite DB failure", config.Runtime().AuthToken)
+		}
+		assertNoMonitorAuthClearCookies(t, resp)
+	})
+
+	t.Run("settings insert failure", func(t *testing.T) {
+		db, r := setupAuthSettingsTest(t)
+		if _, err := db.Exec(`CREATE TRIGGER deny_auth_token_insert BEFORE INSERT ON settings
+			WHEN NEW.key = 'auth_token'
+			BEGIN
+				SELECT RAISE(ABORT, 'settings write blocked');
+			END`); err != nil {
+			t.Fatalf("create insert trigger: %v", err)
+		}
+
+		resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+			"oldToken": "admin-auth-settings-token",
+			"newToken": "rotated-admin-token-insert-fail",
+		})
+		if resp.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d body=%s, want 500", resp.Code, resp.Body.String())
+		}
+		if config.Runtime().AuthToken != "admin-auth-settings-token" {
+			t.Fatalf("AuthToken mutated to %q despite INSERT failure", config.Runtime().AuthToken)
+		}
+		assertNoMonitorAuthClearCookies(t, resp)
+	})
+
+	t.Run("settings update failure", func(t *testing.T) {
+		db, r := setupAuthSettingsTest(t)
+		if _, err := db.Exec(`INSERT INTO settings (key, value) VALUES ('auth_token', '"admin-auth-settings-token"')`); err != nil {
+			t.Fatalf("seed auth_token setting: %v", err)
+		}
+		if _, err := db.Exec(`CREATE TRIGGER deny_auth_token_update BEFORE UPDATE ON settings
+			WHEN NEW.key = 'auth_token'
+			BEGIN
+				SELECT RAISE(ABORT, 'settings update blocked');
+			END`); err != nil {
+			t.Fatalf("create update trigger: %v", err)
+		}
+
+		resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+			"oldToken": "admin-auth-settings-token",
+			"newToken": "rotated-admin-token-update-fail",
+		})
+		if resp.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d body=%s, want 500", resp.Code, resp.Body.String())
+		}
+		if config.Runtime().AuthToken != "admin-auth-settings-token" {
+			t.Fatalf("AuthToken mutated to %q despite UPDATE failure", config.Runtime().AuthToken)
+		}
+		assertNoMonitorAuthClearCookies(t, resp)
+	})
+}

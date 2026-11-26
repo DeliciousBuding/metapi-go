@@ -218,7 +218,7 @@ func directVideoMultipart(body []byte, contentType string) (map[string]json.RawM
 	req.Header.Set("Content-Type", contentType)
 	form, err := ParseMultipartFormData(req)
 	if req.MultipartForm != nil {
-		defer req.MultipartForm.RemoveAll()
+		defer func() { _ = req.MultipartForm.RemoveAll() }()
 	}
 	if err != nil || form == nil {
 		return nil, fmt.Errorf("invalid video multipart form")

@@ -245,7 +245,8 @@ func (s *UsageAggregationScheduler) buildLeaseOwner() string {
 
 func (s *UsageAggregationScheduler) generateLeaseToken() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	// Go 1.24+ crypto/rand.Read never returns an error.
+	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
 

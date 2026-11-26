@@ -89,14 +89,27 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 		body.NewToken = token
 	}
 
-	// Persist to settings table
+	// Persist to settings table before mutating in-memory RuntimeSettings so a
+	// storage failure cannot desynchronize live auth from durable state.
 	now := timeNowUTC()
 	var existingCount int
-	h.db.Get(&existingCount, "SELECT COUNT(*) FROM settings WHERE key = 'auth_token'")
+	if err := h.db.Get(&existingCount, "SELECT COUNT(*) FROM settings WHERE key = 'auth_token'"); err != nil {
+		slog.Error("failed to query auth_token setting before rotation", "error", err)
+		writeError(w, http.StatusInternalServerError, "Failed to update token")
+		return
+	}
 	if existingCount > 0 {
-		h.db.Exec(h.db.Rebind("UPDATE settings SET value = ? WHERE key = 'auth_token'"), jsonQuote(body.NewToken))
+		if _, err := h.db.Exec(h.db.Rebind("UPDATE settings SET value = ? WHERE key = 'auth_token'"), jsonQuote(body.NewToken)); err != nil {
+			slog.Error("failed to update auth_token setting", "error", err)
+			writeError(w, http.StatusInternalServerError, "Failed to update token")
+			return
+		}
 	} else {
-		h.db.Exec(h.db.Rebind("INSERT INTO settings (key, value) VALUES (?, ?)"), "auth_token", jsonQuote(body.NewToken))
+		if _, err := h.db.Exec(h.db.Rebind("INSERT INTO settings (key, value) VALUES (?, ?)"), "auth_token", jsonQuote(body.NewToken)); err != nil {
+			slog.Error("failed to insert auth_token setting", "error", err)
+			writeError(w, http.StatusInternalServerError, "Failed to update token")
+			return
+		}
 	}
 
 	// Publish the rotated token atomically; every subsequent admin/proxy
