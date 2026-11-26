@@ -260,6 +260,25 @@ func exchangeGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL 
 		return nil, ErrDirectCredentialRefresh
 	}
 	if count, err := result.RowsAffected(); err != nil || count != 1 {
+		// Another process or DB handle may have exchanged the exact same
+		// GCP service-account material concurrently and published a fresh
+		// cached token. Re-read and verify all identity/material/channel
+		// fields still match before reusing it.
+		current, loadErr := loadDirectCredential(ctx, db, id)
+		if loadErr == nil &&
+			current.Kind == row.Kind &&
+			current.Provider == row.Provider &&
+			current.ChannelID == row.ChannelID &&
+			current.RawEndpoints == row.RawEndpoints &&
+			current.ChannelOrigin == row.ChannelOrigin &&
+			current.ChannelSource == row.ChannelSource &&
+			current.Origin == row.Origin &&
+			current.SourceID == row.SourceID &&
+			coalesceStrPtr(current.GCPMaterial) == coalesceStrPtr(row.GCPMaterial) &&
+			current.Secret != "" &&
+			current.State.ExpiresAt > time.Now().Add(3*time.Minute).UnixMilli() {
+			return directCredentialResult(current), nil
+		}
 		return nil, ErrDirectCredentialChanged
 	}
 	// Recheck enablement after the exchange; a mid-flight replacement must

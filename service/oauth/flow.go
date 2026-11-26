@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -498,6 +499,8 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 	var accountID int64
 	created := false
 	now := time.Now().Format(time.RFC3339)
+	var writtenAccessToken string
+	var writtenExtraConfig *string
 
 	if existing != nil {
 		// Update existing account.
@@ -525,6 +528,8 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 			return nil, fmt.Errorf("failed to update oauth account: %w", err)
 		}
 		accountID = existing.ID
+		writtenAccessToken = input.Exchange.AccessToken
+		writtenExtraConfig = extraConfigStr
 	} else {
 		// Create new account.
 		created = true
@@ -566,9 +571,9 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 	if hooks != nil {
 		allowInactive := !created
 		if err := hooks.RefreshModelsForAccount(ctx, accountID, allowInactive); err != nil {
-			// Step 7d: Full rollback on model refresh failure.
+			// Step 7d: Full rollback on model refresh failure (CAS-fenced to avoid clobbering a newer rebind).
 			slog.Warn("model refresh failed for account, rolling back", "accountID", accountID, "error", err)
-			rollbackErr := revertPersistedOauthAccount(db, accountID, created, snapshot)
+			rollbackErr := revertPersistedOauthAccount(db, accountID, created, snapshot, writtenAccessToken, writtenExtraConfig)
 			if rollbackErr != nil {
 				slog.Warn("rollback failed for account", "accountID", accountID, "error", rollbackErr)
 			}
@@ -577,16 +582,22 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 
 		// If existing and we just updated: activate the account now that model refresh succeeded.
 		if !created && input.PersistedStatus == "" {
-			if _, err := db.Exec(db.Rebind("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ?"), now, accountID); err != nil {
-				slog.Warn("oauth status activation failed", "error", err, "account_id", accountID)
+			if writtenExtraConfig == nil {
+				if _, err := db.Exec(db.Rebind("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ? AND access_token = ? AND extra_config IS NULL"), now, accountID, writtenAccessToken); err != nil {
+					slog.Warn("oauth status activation failed", "error", err, "account_id", accountID)
+				}
+			} else {
+				if _, err := db.Exec(db.Rebind("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ? AND access_token = ? AND extra_config = ?"), now, accountID, writtenAccessToken, *writtenExtraConfig); err != nil {
+					slog.Warn("oauth status activation failed", "error", err, "account_id", accountID)
+				}
 			}
 		}
 
 		// Step 7f: Rebuild routes.
 		if err := hooks.RebuildRoutesOnly(ctx); err != nil {
-			// Step 7g: On route rebuild fail: rollback account + restore routes.
+			// Step 7g: On route rebuild fail: rollback account + restore routes (CAS-fenced).
 			slog.Warn("route rebuild failed after account, rolling back", "accountID", accountID, "error", err)
-			rollbackErr := revertPersistedOauthAccount(db, accountID, created, snapshot)
+			rollbackErr := revertPersistedOauthAccount(db, accountID, created, snapshot, writtenAccessToken, writtenExtraConfig)
 			if rollbackErr != nil {
 				slog.Warn("rollback failed for account", "accountID", accountID, "error", rollbackErr)
 			}
@@ -625,8 +636,10 @@ func captureAccountSnapshot(db *store.DB, account *store.Account) *accountSnapsh
 }
 
 // revertPersistedOauthAccount rolls back a persisted OAuth account to its previous state.
-// If created=true, deletes the account. If created=false, restores all previous fields.
-func revertPersistedOauthAccount(db *store.DB, accountID int64, created bool, snapshot *accountSnapshot) error {
+// If created=true, deletes the account. If created=false, restores previous fields only
+// when the stored row still matches the version written by this attempt (expectedAccessToken
+// and expectedExtraConfig), preventing a stale failed rebind from clobbering a newer commit.
+func revertPersistedOauthAccount(db *store.DB, accountID int64, created bool, snapshot *accountSnapshot, expectedAccessToken string, expectedExtraConfig *string) error {
 	if created {
 		// Delete the newly created account.
 		_, err := db.Exec("DELETE FROM accounts WHERE id = ?", accountID)
@@ -640,23 +653,44 @@ func revertPersistedOauthAccount(db *store.DB, accountID int64, created bool, sn
 	prev := snapshot.account
 	now := time.Now().Format(time.RFC3339)
 
-	// Restore all previous fields in a transaction.
+	// Restore previous fields in a transaction, fenced by our written version.
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	_, err = tx.Exec(tx.Rebind(
-		`UPDATE accounts SET site_id = ?, username = ?, access_token = ?, api_token = ?,
-		 checkin_enabled = ?, status = ?, oauth_provider = ?, oauth_account_key = ?,
-		 oauth_project_id = ?, extra_config = ?, updated_at = ? WHERE id = ?`),
-		prev.SiteID, prev.Username, prev.AccessToken, prev.APIToken,
-		prev.CheckinEnabled, prev.Status, prev.OAuthProvider, prev.OAuthAccountKey,
-		prev.OAuthProjectID, prev.ExtraConfig, now, accountID,
-	)
+	var res sql.Result
+	if expectedExtraConfig == nil {
+		res, err = tx.Exec(tx.Rebind(
+			`UPDATE accounts SET site_id = ?, username = ?, access_token = ?, api_token = ?,
+			 checkin_enabled = ?, status = ?, oauth_provider = ?, oauth_account_key = ?,
+			 oauth_project_id = ?, extra_config = ?, updated_at = ?
+			 WHERE id = ? AND access_token = ? AND extra_config IS NULL`),
+			prev.SiteID, prev.Username, prev.AccessToken, prev.APIToken,
+			prev.CheckinEnabled, prev.Status, prev.OAuthProvider, prev.OAuthAccountKey,
+			prev.OAuthProjectID, prev.ExtraConfig, now, accountID, expectedAccessToken,
+		)
+	} else {
+		res, err = tx.Exec(tx.Rebind(
+			`UPDATE accounts SET site_id = ?, username = ?, access_token = ?, api_token = ?,
+			 checkin_enabled = ?, status = ?, oauth_provider = ?, oauth_account_key = ?,
+			 oauth_project_id = ?, extra_config = ?, updated_at = ?
+			 WHERE id = ? AND access_token = ? AND extra_config = ?`),
+			prev.SiteID, prev.Username, prev.AccessToken, prev.APIToken,
+			prev.CheckinEnabled, prev.Status, prev.OAuthProvider, prev.OAuthAccountKey,
+			prev.OAuthProjectID, prev.ExtraConfig, now, accountID, expectedAccessToken, *expectedExtraConfig,
+		)
+	}
 	if err != nil {
 		return fmt.Errorf("rollback account update failed: %w", err)
+	}
+	if affected, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("rollback account rows affected failed: %w", err)
+	} else if affected == 0 {
+		// A newer rebind/refresh superseded this attempt; leave the newer state intact.
+		slog.Warn("skipping oauth account rollback because a newer write superseded this attempt", "accountID", accountID)
+		return nil
 	}
 
 	// Restore model availability: delete current, re-insert previous.

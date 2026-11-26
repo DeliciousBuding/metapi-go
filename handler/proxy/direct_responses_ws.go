@@ -82,7 +82,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	if err != nil || credential == nil || credential.AccessToken == "" || (credential.Kind != store.DirectCredentialAPIKey && credential.Kind != store.DirectCredentialOAuth) {
 		return reject(503, "Selected direct credential is unavailable")
 	}
-	if status, err := revalidateDirectCredentialDispatch(request, proxyCtx, cfg, selected, &policy); err != nil {
+	if status, err := revalidateDirectCredentialDispatch(request, proxyCtx, cfg, selected, credential.Kind, &policy); err != nil {
 		return reject(status, err.Error())
 	}
 	s.auth = proxyCtx.Auth

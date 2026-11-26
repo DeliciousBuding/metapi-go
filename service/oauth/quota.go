@@ -1,9 +1,11 @@
 package oauth
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -229,28 +231,68 @@ func persistQuotaSnapshot(db *store.DB, accountID int64, snapshot *OauthQuotaSna
 		slog.Warn("failed to serialize quota snapshot", "error", err)
 		return
 	}
-
-	// Merge into extraConfig.oauth.quota.
-	var account store.Account
-	if err := db.Get(&account, "SELECT * FROM accounts WHERE id = ?", accountID); err != nil {
-		return
-	}
-
 	var quotaMap map[string]interface{}
 	if err := json.Unmarshal(quotaJSON, &quotaMap); err != nil {
 		return
 	}
 
-	extraPatch := map[string]interface{}{
-		"oauth": map[string]interface{}{
-			"quota": quotaMap,
-		},
+	// Merge only extraConfig.oauth.quota using optimistic CAS against the
+	// account's current extra_config so sibling OAuth credentials (refreshToken,
+	// sessionToken, tokenExpiresAt, idToken, providerData) and concurrent token
+	// rotations are preserved instead of overwritten.
+	const maxAttempts = 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		var account store.Account
+		if err := db.Get(&account, db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
+			return
+		}
+		extraConfig := mergeAccountOAuthSubfield(account.ExtraConfig, "quota", quotaMap)
+		now := time.Now().Format(time.RFC3339)
+		var (
+			res sql.Result
+			err error
+		)
+		if account.ExtraConfig == nil {
+			res, err = db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ? AND extra_config IS NULL"), extraConfig, now, accountID)
+		} else {
+			res, err = db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ? AND extra_config = ?"), extraConfig, now, accountID, *account.ExtraConfig)
+		}
+		if err != nil {
+			slog.Warn("oauth quota persist failed", "error", err, "account_id", accountID)
+			return
+		}
+		if n, err := res.RowsAffected(); err == nil && n == 1 {
+			return
+		}
 	}
-	extraConfig := MergeAccountExtraConfig(account.ExtraConfig, extraPatch)
-	now := time.Now().Format(time.RFC3339)
-	if _, err := db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?"), extraConfig, now, accountID); err != nil {
-		slog.Warn("oauth quota persist failed", "error", err, "account_id", accountID)
+	slog.Warn("oauth quota persist skipped after concurrent account update", "account_id", accountID)
+}
+
+// mergeAccountOAuthSubfield updates a single key inside extraConfig.oauth while
+// preserving all other top-level keys and sibling extraConfig.oauth fields.
+func mergeAccountOAuthSubfield(existing *string, key string, value interface{}) *string {
+	base := make(map[string]interface{})
+	if existing != nil && strings.TrimSpace(*existing) != "" {
+		if err := json.Unmarshal([]byte(*existing), &base); err != nil {
+			base = make(map[string]interface{})
+		}
 	}
+	oauthObj, ok := base["oauth"].(map[string]interface{})
+	if !ok || oauthObj == nil {
+		oauthObj = make(map[string]interface{})
+	}
+	if value == nil {
+		delete(oauthObj, key)
+	} else {
+		oauthObj[key] = value
+	}
+	base["oauth"] = oauthObj
+	b, err := json.Marshal(base)
+	if err != nil {
+		return existing
+	}
+	s := string(b)
+	return &s
 }
 
 func resolveAccountProxyURLForQuota(siteID int64, extraConfig *string) *string {

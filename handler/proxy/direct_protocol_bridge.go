@@ -144,7 +144,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
 		return true, nil, false
 	}
-	if status, err := revalidateDirectCredentialDispatch(r, ctx, cfg, selected, ctx.dispatchPolicy); err != nil {
+	if status, err := revalidateDirectCredentialDispatch(r, ctx, cfg, selected, credential.Kind, ctx.dispatchPolicy); err != nil {
 		writeJSONErrorWithRequest(w, status, err.Error(), "permission_error", requestID)
 		return true, nil, false
 	}

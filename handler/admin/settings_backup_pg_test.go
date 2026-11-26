@@ -91,6 +91,50 @@ func TestBackupImportResyncsPostgresSequences(t *testing.T) {
 	}
 }
 
+// TestBackupImportCoercesSQLiteIntBooleansForPostgres proves that an export from
+// SQLite (which emits 0/1 numbers for BOOLEAN columns such as sites.use_system_proxy
+// and accounts.checkin_enabled) restores cleanly into PostgreSQL.
+func TestBackupImportCoercesSQLiteIntBooleansForPostgres(t *testing.T) {
+	dsn := os.Getenv("PG_TEST_DSN")
+	if strings.TrimSpace(dsn) == "" {
+		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
+	}
+	db, err := store.Open(store.DialectPostgres, dsn, false)
+	if err != nil {
+		t.Fatalf("failed to open PostgreSQL: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	pgtest.Reset(t, db.DB)
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate failed: %v", err)
+	}
+
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	payload := map[string]json.RawMessage{
+		"sites":    json.RawMessage(`[{"id":1,"name":"sqlite-site","url":"http://127.0.0.1:3000","platform":"codex","use_system_proxy":0,"custom_headers_override_request_headers":1,"is_pinned":0,"status":"active","created_at":"` + now + `","updated_at":"` + now + `"}]`),
+		"accounts": json.RawMessage(`[{"id":1,"site_id":1,"username":"oauth-user","access_token":"tok","checkin_enabled":0,"is_pinned":1,"status":"active","oauth_provider":"codex","created_at":"` + now + `","updated_at":"` + now + `"}]`),
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		t.Fatalf("begin import tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := importBackupTablesWithConn(tx, payload); err != nil {
+		t.Fatalf("import SQLite-encoded booleans into PostgreSQL failed: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit import tx: %v", err)
+	}
+
+	var useProxy, overrideHeaders bool
+	if err := db.QueryRow(`SELECT use_system_proxy, custom_headers_override_request_headers FROM sites WHERE id = 1`).Scan(&useProxy, &overrideHeaders); err != nil {
+		t.Fatalf("query restored site: %v", err)
+	}
+	if useProxy || !overrideHeaders {
+		t.Fatalf("restored site booleans = (%v, %v), want (false, true)", useProxy, overrideHeaders)
+	}
+}
+
 func itoaPG(n int) string {
 	if n == 0 {
 		return "0"
