@@ -1,4 +1,4 @@
-package proxyhandler
+package proxy
 
 import (
 	"bytes"
@@ -14,18 +14,33 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
-	"github.com/deliciousbuding/metapi-go/proxy"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 )
+
+// ChannelProbeTarget identifies one channel/model pair for a lightweight health check.
+type ChannelProbeTarget struct {
+	ChannelID int64
+	AccountID int64
+	SiteID    int64
+	ModelName string
+}
+
+// ChannelProbeOutcome is the result of a single lightweight probe attempt.
+// Status is one of: success | failure | inconclusive | skipped.
+type ChannelProbeOutcome struct {
+	Status     string
+	LatencyMs  float64
+	HTTPStatus int
+	ErrorText  string
+}
 
 // ChannelHealthProbeExecutor is a thin boot-wired probe that hits live upstream
 // for ModelProbeScheduler / admin probe-now paths.
 //
 // It prefers a lightweight GET /v1/models check. Platforms without a models
 // catalog endpoint may return non-2xx; those outcomes are recorded as failure
-// (not credential expiry). See known limitation.
+// (not credential expiry).
 type ChannelHealthProbeExecutor struct {
 	cfg *config.Config
 
@@ -50,13 +65,13 @@ func (p *ChannelHealthProbeExecutor) SetDB(db *store.DB) {
 	p.db = db
 }
 
-// ProbeChannel implements scheduler.ChannelHealthProbe.
-func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target scheduler.ProbeTarget) (scheduler.ProbeOutcome, error) {
+// ProbeChannel runs a single lightweight upstream probe for target.
+func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target ChannelProbeTarget) (ChannelProbeOutcome, error) {
 	if p == nil {
-		return scheduler.ProbeOutcome{Status: "inconclusive", ErrorText: "probe executor nil"}, nil
+		return ChannelProbeOutcome{Status: "inconclusive", ErrorText: "probe executor nil"}, nil
 	}
 	if target.ChannelID <= 0 {
-		return scheduler.ProbeOutcome{Status: "skipped", ErrorText: "invalid channel id"}, nil
+		return ChannelProbeOutcome{Status: "skipped", ErrorText: "invalid channel id"}, nil
 	}
 
 	dbw := p.db
@@ -64,16 +79,16 @@ func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target sc
 		dbw = store.GetDB()
 	}
 	if dbw == nil {
-		return scheduler.ProbeOutcome{}, fmt.Errorf("database not initialized")
+		return ChannelProbeOutcome{}, fmt.Errorf("database not initialized")
 	}
 
 	loaded, err := loadProbeChannel(ctx, dbw, target.ChannelID)
 	if err != nil {
 		// Missing channel is inconclusive (no health mutation).
-		return scheduler.ProbeOutcome{Status: "inconclusive", ErrorText: err.Error()}, nil
+		return ChannelProbeOutcome{Status: "inconclusive", ErrorText: err.Error()}, nil
 	}
 	if loaded.TokenValue == "" {
-		return scheduler.ProbeOutcome{
+		return ChannelProbeOutcome{
 			Status:    "inconclusive",
 			ErrorText: "no usable token on channel/account",
 		}, nil
@@ -85,8 +100,7 @@ func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target sc
 	}
 
 	// Prefer lightweight models listing. Fall back to a tiny chat completion
-	// when the operator/target model is known and models endpoint is absent
-	// is documented as known limitation — we still try models first for cost.
+	// when the operator/target model is known and models endpoint is absent.
 	return p.executeModelsProbe(ctx, loaded, model)
 }
 
@@ -192,13 +206,13 @@ func resolveProbeToken(tokenID *int64, token *store.AccountToken, acc store.Acco
 	return strings.TrimSpace(acc.AccessToken)
 }
 
-func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, target *probeChannelTarget, model string) (scheduler.ProbeOutcome, error) {
+func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, target *probeChannelTarget, model string) (ChannelProbeOutcome, error) {
 	upstreamPath := "/v1/models"
-	upstreamURL := proxy.BuildUpstreamURL(target.SiteURL, upstreamPath)
+	upstreamURL := BuildUpstreamURL(target.SiteURL, upstreamPath)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, upstreamURL, nil)
 	if err != nil {
-		return scheduler.ProbeOutcome{Status: "inconclusive", ErrorText: "build request: " + err.Error()}, nil
+		return ChannelProbeOutcome{Status: "inconclusive", ErrorText: "build request: " + err.Error()}, nil
 	}
 	req.Header.Set("Authorization", "Bearer "+target.TokenValue)
 	req.Header.Set("User-Agent", "metapi-go-model-probe/1.0")
@@ -220,7 +234,7 @@ func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, tar
 		if strings.Contains(msg, "context deadline exceeded") {
 			msg = "timeout waiting for upstream"
 		}
-		return scheduler.ProbeOutcome{
+		return ChannelProbeOutcome{
 			Status:     "failure",
 			LatencyMs:  latencyMs,
 			ErrorText:  msg,
@@ -232,7 +246,7 @@ func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, tar
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8<<10))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return scheduler.ProbeOutcome{
+		return ChannelProbeOutcome{
 			Status:     "success",
 			LatencyMs:  latencyMs,
 			HTTPStatus: resp.StatusCode,
@@ -245,7 +259,7 @@ func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, tar
 		return p.executeChatProbe(ctx, target, model)
 	}
 
-	return scheduler.ProbeOutcome{
+	return ChannelProbeOutcome{
 		Status:     "failure",
 		LatencyMs:  latencyMs,
 		HTTPStatus: resp.StatusCode,
@@ -253,9 +267,9 @@ func (p *ChannelHealthProbeExecutor) executeModelsProbe(ctx context.Context, tar
 	}, nil
 }
 
-func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, target *probeChannelTarget, model string) (scheduler.ProbeOutcome, error) {
+func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, target *probeChannelTarget, model string) (ChannelProbeOutcome, error) {
 	upstreamPath := "/v1/chat/completions"
-	upstreamURL := proxy.BuildUpstreamURL(target.SiteURL, upstreamPath)
+	upstreamURL := BuildUpstreamURL(target.SiteURL, upstreamPath)
 	payload := map[string]any{
 		"model": model,
 		"messages": []map[string]string{
@@ -268,7 +282,7 @@ func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, targe
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return scheduler.ProbeOutcome{Status: "inconclusive", ErrorText: "build chat request: " + err.Error()}, nil
+		return ChannelProbeOutcome{Status: "inconclusive", ErrorText: "build chat request: " + err.Error()}, nil
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+target.TokenValue)
@@ -290,7 +304,7 @@ func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, targe
 		if strings.Contains(msg, "context deadline exceeded") {
 			msg = "timeout waiting for upstream"
 		}
-		return scheduler.ProbeOutcome{
+		return ChannelProbeOutcome{
 			Status:     "failure",
 			LatencyMs:  latencyMs,
 			ErrorText:  msg,
@@ -301,13 +315,13 @@ func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, targe
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8<<10))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return scheduler.ProbeOutcome{
+		return ChannelProbeOutcome{
 			Status:     "success",
 			LatencyMs:  latencyMs,
 			HTTPStatus: resp.StatusCode,
 		}, nil
 	}
-	return scheduler.ProbeOutcome{
+	return ChannelProbeOutcome{
 		Status:     "failure",
 		LatencyMs:  latencyMs,
 		HTTPStatus: resp.StatusCode,

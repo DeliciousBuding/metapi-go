@@ -6,10 +6,32 @@ import (
 	"sync"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 )
+
+type proxyChannelHealthProbeAdapter struct {
+	exec *proxy.ChannelHealthProbeExecutor
+}
+
+func (a proxyChannelHealthProbeAdapter) ProbeChannel(ctx context.Context, target scheduler.ProbeTarget) (scheduler.ProbeOutcome, error) {
+	out, err := a.exec.ProbeChannel(ctx, proxy.ChannelProbeTarget{
+		ChannelID: target.ChannelID,
+		AccountID: target.AccountID,
+		SiteID:    target.SiteID,
+		ModelName: target.ModelName,
+	})
+	if err != nil {
+		return scheduler.ProbeOutcome{}, err
+	}
+	return scheduler.ProbeOutcome{
+		Status:     out.Status,
+		LatencyMs:  out.LatencyMs,
+		HTTPStatus: out.HTTPStatus,
+		ErrorText:  out.ErrorText,
+	}, nil
+}
 
 // activeProbeRouter is the TokenRouter built by ConfigureProxyUpstream.
 // ModelProbeScheduler health recording feeds this router at boot.
@@ -84,8 +106,8 @@ func WireModelProbeScheduler(s *scheduler.ModelProbeScheduler) {
 		cfg = config.Get()
 	}
 
-	probe := proxyhandler.NewChannelHealthProbeExecutor(cfg)
-	s.SetProbeExecutor(probe)
+	probe := proxy.NewChannelHealthProbeExecutor(cfg)
+	s.SetProbeExecutor(proxyChannelHealthProbeAdapter{exec: probe})
 	s.SetHealthRecorder(&tokenRouterHealthRecorder{router: router})
 	slog.Info("model-probe: probe executor and health recorder wired")
 }

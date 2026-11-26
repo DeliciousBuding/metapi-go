@@ -1,4 +1,4 @@
-package proxyhandler
+package proxy
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -35,7 +34,7 @@ func TestChannelHealthProbeExecutor_ModelsSuccess(t *testing.T) {
 
 	probe := NewChannelHealthProbeExecutor(&config.Config{})
 	probe.SetDB(db)
-	out, err := probe.ProbeChannel(context.Background(), scheduler.ProbeTarget{
+	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
 	})
@@ -75,7 +74,7 @@ func TestChannelHealthProbeExecutor_Models404FallsBackToChat(t *testing.T) {
 
 	probe := NewChannelHealthProbeExecutor(&config.Config{})
 	probe.SetDB(db)
-	out, err := probe.ProbeChannel(context.Background(), scheduler.ProbeTarget{
+	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
 	})
@@ -101,7 +100,7 @@ func TestChannelHealthProbeExecutor_Upstream5xxIsFailure(t *testing.T) {
 
 	probe := NewChannelHealthProbeExecutor(&config.Config{})
 	probe.SetDB(db)
-	out, err := probe.ProbeChannel(context.Background(), scheduler.ProbeTarget{
+	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
 	})
@@ -141,7 +140,7 @@ func TestChannelHealthProbeExecutor_RejectsCrossOriginRedirect(t *testing.T) {
 	probe := NewChannelHealthProbeExecutor(&config.Config{})
 	probe.SetDB(db)
 	// Leave transport nil so doRequest uses the real bare http.Client path.
-	out, err := probe.ProbeChannel(context.Background(), scheduler.ProbeTarget{
+	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
 	})

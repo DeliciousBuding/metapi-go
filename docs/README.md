@@ -1,6 +1,6 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-10-19
+**Last updated**: 2026-11-26
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
@@ -35,6 +35,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | :----------------------------------------------- | :---------------------------------------------------------- |
 | [`internal/git-workflow.md`](internal/git-workflow.md) | Branch model, PR flow, protection rules, release cadence |
 | [`internal/design/`](internal/design/)           | Design source of truth (BACKEND / DESIGN / a11y / components / state-stability) |
+| [`internal/subsystems/direct-channels-and-import.md`](internal/subsystems/direct-channels-and-import.md) | Direct 渠道、OAuth 凭据族、插件/Provider 驱动与外部备份导入细粒度契约 |
 | [`internal/web-package-boundaries.md`](internal/web-package-boundaries.md) | Frontend layering contract (`web/scripts/check-boundaries.mjs` enforces it) |
 | [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WebSocket transport and single-instance session state |
 
@@ -58,6 +59,7 @@ docs/
   assets/                   ← public images (hero, screenshots)
   internal/                 ← contributor design notes & residual caveats (never linked from README)
     design/                   living design source of truth
+    subsystems/               subsystem-level invariants & ownership references
     git-workflow.md           branch model / PR / protection rules
     web-package-boundaries.md frontend layering gate contract
     responses-websocket-residual.md
