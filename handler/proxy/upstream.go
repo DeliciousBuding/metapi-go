@@ -1304,12 +1304,7 @@ func dispatchEndpointAttemptWithContinue(
 		if expectStreamUsage {
 			warnMissingStreamUsageAfterIncludeUsage(upstreamModel, upstreamPath, streamUsage)
 		}
-		if streamEnd != streamEndedClientDisconnect {
-			// A downstream disconnect alone is neither an upstream fault nor a
-			// proof of channel health: keep the existing non-fault log contract
-			// without clearing cooldown or decaying failure streaks.
-			recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, streamUsage)
-		}
+		recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, streamUsage)
 		writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, true, streamUsage, retry, requestID)
 		observeProxyTerminal(ctx, shared.OutcomeSuccess, true, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
