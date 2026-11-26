@@ -225,6 +225,14 @@ EXCEPTIONS.forEach((entry, index) => {
   }
 })
 
+if (checked === 0) {
+  failed = true
+  console.error(
+    `✗ FormControl gate would pass vacuously: 0 <FormControl> sites checked across ${files.length} files.\n` +
+      `    Refusing to report clean on an empty scan — check the scan root or RAW_RES.`
+  )
+}
+
 if (failed) process.exit(1)
 
 console.log(

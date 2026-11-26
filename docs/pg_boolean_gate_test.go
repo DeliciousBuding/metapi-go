@@ -98,7 +98,10 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 	for _, dir := range dirs {
 		root := filepath.Join(repoRoot, dir)
 		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
 				return nil
 			}
 			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
@@ -106,11 +109,11 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 			}
 			src, err := os.ReadFile(path)
 			if err != nil {
-				return nil
+				return err
 			}
 			rel, relErr := filepath.Rel(repoRoot, path)
 			if relErr != nil {
-				return nil
+				return relErr
 			}
 			scannedFiles++
 			dirsReached[dir] = true
