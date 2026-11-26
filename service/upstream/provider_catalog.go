@@ -129,8 +129,10 @@ func discoverProviderCatalog(ctx context.Context, manager *channelplugins.Manage
 			return nil, Discovery{}, "", invalid("Invalid upstream model URL")
 		}
 		request.Header.Set("Accept", "application/json")
-		for key, value := range custom {
-			request.Header.Set(key, value)
+		if binding.Catalog.Auth != store.DirectAuthNone {
+			for key, value := range custom {
+				request.Header.Set(key, value)
+			}
 		}
 		for key, value := range descriptor.Headers {
 			request.Header.Set(key, value)
@@ -143,10 +145,12 @@ func discoverProviderCatalog(ctx context.Context, manager *channelplugins.Manage
 		case store.DirectAuthGoogle:
 			request.Header.Set("X-Goog-Api-Key", identity.Secret)
 		}
-		if binding.Catalog.Auth != store.DirectAuthNone {
-			if err := invocation.ApplyAuthentication(request.Header, identity.Secret); err != nil {
-				return nil, Discovery{}, "", invalid("Current credential cannot authenticate the provider catalog")
-			}
+		if binding.Catalog.Auth == store.DirectAuthNone {
+			// Explicitly unauthenticated catalogs must never carry supplier
+			// credentials or JS-injected headers matching the provider's auth header.
+			invocation.ClearAuthentication(request.Header)
+		} else if err := invocation.ApplyAuthentication(request.Header, identity.Secret); err != nil {
+			return nil, Discovery{}, "", invalid("Current credential cannot authenticate the provider catalog")
 		}
 		response, err := client.Do(request)
 		if err != nil {

@@ -71,10 +71,11 @@ func DoPinnedDownloadStreamBudget(ctx context.Context, req *http.Request, cfg *P
 		if next.URL.User != nil || next.URL.Fragment != "" || next.URL.Scheme != request.URL.Scheme {
 			return fmt.Errorf("invalid download redirect")
 		}
-		// A CDN can emit an absolute URL for its original hostname. Map that
-		// exact logical origin back to the already-validated IP, never resolve
-		// it again. Other hosts/ports remain subject to the existing guard.
-		if request.Host != "" && strings.EqualFold(next.URL.Host, request.Host) {
+		// A CDN can emit an absolute URL for its original hostname (including
+		// an explicit default port such as :443 on https or :80 on http). Map
+		// that exact logical origin back to the already-validated IP, never
+		// resolve it again. Other hosts/ports remain subject to the guard.
+		if request.Host != "" && sameLogicalOriginHost(request.URL.Scheme, next.URL.Host, request.Host) {
 			next.URL.Host = request.URL.Host
 		}
 		if err := RejectCrossOriginRedirect(next, via); err != nil {
@@ -95,6 +96,27 @@ func DoPinnedDownloadStreamBudget(ctx context.Context, req *http.Request, cfg *P
 type pinnedDownloadBody struct {
 	io.ReadCloser
 	transport *http.Transport
+}
+
+func sameLogicalOriginHost(scheme, a, b string) bool {
+	return strings.EqualFold(normalizeOriginHostPort(scheme, a), normalizeOriginHostPort(scheme, b))
+}
+
+func normalizeOriginHostPort(scheme, hostport string) string {
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		host = strings.Trim(hostport, "[]")
+		port = ""
+	}
+	if port == "" {
+		switch strings.ToLower(scheme) {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		}
+	}
+	return net.JoinHostPort(strings.ToLower(host), port)
 }
 
 func (b *pinnedDownloadBody) Close() error {

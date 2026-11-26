@@ -170,7 +170,7 @@ func TestPinnedDownloadKeepsHostAndRangeWithoutCredentialsOrTLSBypass(t *testing
 			return
 		}
 		if r.URL.Path == "/next" {
-			w.Header().Set("Location", "http://cdn.fixture.invalid/final")
+			w.Header().Set("Location", "http://cdn.fixture.invalid:80/final")
 			w.WriteHeader(302)
 			return
 		}
@@ -218,5 +218,25 @@ func TestPinnedDownloadRejectsRedirectsThatChangeOriginOrAddCredentials(t *testi
 				t.Fatal("unsafe redirect made another request")
 			}
 		})
+	}
+}
+
+func TestSameLogicalOriginHostNormalizesDefaultPorts(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		scheme, a, b string
+		want         bool
+	}{
+		{"https", "cdn.example:443", "cdn.example", true},
+		{"https", "CDN.EXAMPLE", "cdn.example:443", true},
+		{"http", "cdn.example:80", "cdn.example", true},
+		{"https", "cdn.example:8443", "cdn.example", false},
+		{"http", "cdn.example:443", "cdn.example", false},
+		{"https", "other.example:443", "cdn.example", false},
+	}
+	for _, tc := range cases {
+		if got := sameLogicalOriginHost(tc.scheme, tc.a, tc.b); got != tc.want {
+			t.Errorf("sameLogicalOriginHost(%q, %q, %q) = %v, want %v", tc.scheme, tc.a, tc.b, got, tc.want)
+		}
 	}
 }

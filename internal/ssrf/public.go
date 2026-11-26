@@ -16,15 +16,33 @@ import (
 // answer, and dials the pinned IP, so a hostname cannot pass validation and
 // then resolve privately at dial time.
 
+var (
+	// RFC 6598 CGNAT / Shared Address Space (100.64.0.0/10, which also covers
+	// Alibaba Cloud metadata 100.100.100.200 and Tailscale/VPC private ranges).
+	cgnatPrefix = netip.MustParsePrefix("100.64.0.0/10")
+	// RFC 6052 Well-Known NAT64 prefix (64:ff9b::/96) and RFC 8215 Local-Use
+	// NAT64 prefix (64:ff9b:1::/48) that can translate into private/metadata IPv4.
+	nat64WellKnownPrefix = netip.MustParsePrefix("64:ff9b::/96")
+	nat64LocalPrefix     = netip.MustParsePrefix("64:ff9b:1::/48")
+)
+
 // IsUnsafePublicAddr reports whether addr is outside the global unicast range
 // accepted for user/admin-controlled outbound traffic: unspecified, loopback,
 // RFC1918, ULA (fc00::/7, which also covers GCP's fd20:ce::254 metadata
-// endpoint), link-local, multicast, and the whole 0.0.0.0/8 "this network"
-// block. IsUnspecified alone only matches 0.0.0.0; addresses such as 0.1.2.3
+// endpoint), link-local, multicast, CGNAT (100.64.0.0/10, including Alibaba
+// Cloud IMDS 100.100.100.200), NAT64 translation prefixes (64:ff9b::/96,
+// 64:ff9b:1::/48), and the whole 0.0.0.0/8 "this network" block.
+// IsUnspecified alone only matches 0.0.0.0; addresses such as 0.1.2.3
 // are routed to the local stack on some kernels.
 func IsUnsafePublicAddr(addr netip.Addr) bool {
 	addr = addr.Unmap()
 	if addr.Is4() && addr.As4()[0] == 0 {
+		return true
+	}
+	if cgnatPrefix.Contains(addr) || nat64WellKnownPrefix.Contains(addr) || nat64LocalPrefix.Contains(addr) {
+		return true
+	}
+	if IsForbiddenSiteAddr(addr) {
 		return true
 	}
 	return addr.IsUnspecified() ||

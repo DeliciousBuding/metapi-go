@@ -48,6 +48,6 @@ func ownsDirectVideoTask(publicID string, pac *ProxyAuthContext) bool {
 		Version int    `json:"version"`
 		Owner   string `json:"owner"`
 	}
-	return json.Unmarshal([]byte(raw), &identity) == nil && (identity.Version == 1 || identity.Version == 2) &&
+	return json.Unmarshal([]byte(raw), &identity) == nil && (identity.Version == 1 || identity.Version == 2 || identity.Version == 3) &&
 		identity.Owner != "" && identity.Owner == DirectVideoTaskOwner(pac)
 }

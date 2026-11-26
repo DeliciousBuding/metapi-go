@@ -155,7 +155,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 			}
 		}
 
-		taskRead := ownsDirectVideoTask(videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID})
+		taskRead := ownsDirectVideoTask(videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID, OwnerUserID: managed.OwnerUserID})
 		// Already admitted owned tasks remain retrievable when generation budget
 		// is exhausted. Identity, expiry, IP and route policies still apply.
 		//

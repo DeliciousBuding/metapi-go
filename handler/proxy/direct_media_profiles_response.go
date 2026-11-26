@@ -386,7 +386,7 @@ func (op directMediaOperation) downloadModelScopeImage(ctx context.Context, imag
 		return encoded, nil, err
 	}
 	parsed, err := url.Parse(imageURL)
-	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !allowedPublicMediaTarget(ctx, imageURL) {
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return "", nil, fmt.Errorf("invalid ModelScope output image URL")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
@@ -394,15 +394,32 @@ func (op directMediaOperation) downloadModelScopeImage(ctx context.Context, imag
 		return "", nil, err
 	}
 	req.Header.Set("Accept", "image/*")
-	// Output URLs can point to a separate CDN. Keep the proxy transport, but
-	// never copy the selected API key or configured private headers to it.
-	var downloadProxy *platform.ProxyConfig
-	if op.proxyConfig != nil {
-		copy := *op.proxyConfig
-		copy.CustomHeaders = nil
-		downloadProxy = &copy
+	// Output URLs can point to a separate CDN. Pin the resolved public IP and
+	// isolate credentials, cookies, UA, custom headers, and TLS verification so
+	// an upstream-supplied URL cannot DNS-rebind to private/metadata networks or
+	// receive channel-private cookies/TLS overrides.
+	var resp *http.Response
+	if mediaTargetAllowPrivate {
+		// Test-only escape hatch for loopback fake CDNs; production never sets it.
+		var clean *platform.ProxyConfig
+		if op.proxyConfig != nil {
+			copy := *op.proxyConfig
+			copy.CustomHeaders = nil
+			copy.ClearanceCookie = ""
+			copy.BrowserUA = ""
+			copy.InsecureSkipTLS = false
+			clean = &copy
+		}
+		resp, err = sendUpstreamRequest(op.cfg, req, clean, op.firstByteTimeoutMs, false)
+	} else {
+		var host, serverName string
+		req.URL, host, serverName, err = pinnedPublicMediaTarget(ctx, imageURL, nil)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid ModelScope output image URL")
+		}
+		req.Host = host
+		resp, err = platform.DoPinnedDownloadStreamBudget(ctx, req, op.proxyConfig, serverName, op.firstByteTimeoutMs)
 	}
-	resp, err := sendUpstreamRequest(op.cfg, req, downloadProxy, op.firstByteTimeoutMs, false)
 	if err != nil {
 		return "", nil, err
 	}

@@ -27,6 +27,8 @@ var forbiddenSitePrefixes = []netip.Prefix{
 	netip.MustParsePrefix("240.0.0.0/4"),    // reserved / limited broadcast
 	netip.MustParsePrefix("fe80::/10"),      // IPv6 link-local unicast
 	netip.MustParsePrefix("ff00::/8"),       // IPv6 multicast
+	netip.MustParsePrefix("64:ff9b::/96"),   // RFC 6052 Well-Known NAT64 (can embed metadata IPv4)
+	netip.MustParsePrefix("64:ff9b:1::/48"), // RFC 8215 Local-Use NAT64
 }
 
 var explicitMetadataAddrs = map[netip.Addr]struct{}{
