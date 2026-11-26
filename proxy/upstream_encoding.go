@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 // UpstreamEncodingSkippedMessage is the STABLE warn text the data plane emits
@@ -231,35 +232,73 @@ func WrapUpstreamStreamBody(h http.Header, body io.ReadCloser) UpstreamStreamBod
 	}
 }
 
-// lazyDecodeReader decodes a stream on first Read. A single goroutine (the SSE
-// relay loop) ever touches it, so no locking is needed. Close always closes the
-// underlying body: the relay's idle guard closes through this reader to
-// interrupt a stalled Read, and the upstream connection must not leak.
+// lazyDecodeReader decodes a stream on first Read. Close may be invoked from
+// the stream idle-timeout watchdog goroutine concurrently with an in-flight
+// Read, so access to dec/err/closed is synchronized under mu while underlying
+// I/O runs unlocked so Close can interrupt a blocked Read.
 type lazyDecodeReader struct {
-	codec string
-	src   io.ReadCloser
-	dec   io.Reader
-	err   error
+	mu     sync.Mutex
+	codec  string
+	src    io.ReadCloser
+	dec    io.Reader
+	err    error
+	closed bool
 }
 
 func (l *lazyDecodeReader) Read(p []byte) (int, error) {
-	if l.dec == nil && l.err == nil {
-		l.dec, l.err = newStreamDecoder(l.codec, l.src)
+	l.mu.Lock()
+	if l.closed {
+		l.mu.Unlock()
+		return 0, io.ErrClosedPipe
 	}
-	if l.err != nil {
-		return 0, l.err
+	dec := l.dec
+	err := l.err
+	src := l.src
+	codec := l.codec
+	l.mu.Unlock()
+
+	if dec == nil && err == nil {
+		dec, err = newStreamDecoder(codec, src)
+		l.mu.Lock()
+		if l.closed {
+			l.mu.Unlock()
+			if closer, ok := dec.(io.Closer); ok && closer != nil {
+				_ = closer.Close()
+			}
+			return 0, io.ErrClosedPipe
+		}
+		if l.dec == nil && l.err == nil {
+			l.dec = dec
+			l.err = err
+		} else {
+			dec = l.dec
+			err = l.err
+		}
+		l.mu.Unlock()
 	}
-	return l.dec.Read(p)
+	if err != nil {
+		return 0, err
+	}
+	return dec.Read(p)
 }
 
 func (l *lazyDecodeReader) Close() error {
-	if closer, ok := l.dec.(io.Closer); ok && closer != nil {
+	l.mu.Lock()
+	l.closed = true
+	dec := l.dec
+	src := l.src
+	l.mu.Unlock()
+
+	// Close underlying src first to unblock any Read stuck inside the decoder
+	// (e.g. gzip header/block read) before closing the decoder wrapper.
+	var srcErr error
+	if src != nil {
+		srcErr = src.Close()
+	}
+	if closer, ok := dec.(io.Closer); ok && closer != nil {
 		_ = closer.Close()
 	}
-	if l.src != nil {
-		return l.src.Close()
-	}
-	return nil
+	return srcErr
 }
 
 func newStreamDecoder(codec string, src io.Reader) (io.Reader, error) {

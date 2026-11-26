@@ -435,6 +435,29 @@ func beginGatewayAttempt(ctx context.Context) context.Context {
 	return context.WithValue(ctx, gatewayAttemptKey{}, ordinal)
 }
 
+// isZeroUsageUpstreamRejection reports whether a failed attempt without a
+// usage payload is a definitive pre-generation upstream HTTP rejection (auth,
+// forbidden, missing endpoint/model, rate limit, or bad request) that cannot
+// have billed generated tokens.
+func isZeroUsageUpstreamRejection(entry *proxy.ProxyLogEntry) bool {
+	if entry == nil || entry.Status != "failed" {
+		return false
+	}
+	switch entry.HTTPStatus {
+	case http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusPaymentRequired,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusMethodNotAllowed,
+		http.StatusUnprocessableEntity,
+		http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
 func upstreamFailureReason(status int) string {
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -476,6 +499,12 @@ func (s *requestLifecycle) recordAttempt(ctx context.Context, entry *proxy.Proxy
 		budget.seenAttempts[ordinal] = true
 		if entry.TotalTokens != nil && *entry.TotalTokens >= 0 && *entry.TotalTokens <= math.MaxInt64-budget.tokens {
 			budget.tokens += *entry.TotalTokens
+			budget.usageFound = true
+		} else if isZeroUsageUpstreamRejection(entry) {
+			// A definitive pre-generation upstream rejection (e.g. 401/403/404/429
+			// with no usage payload) consumed zero tokens; treat it as 0 rather
+			// than poisoning a subsequent failover success into a permanent
+			// unknown-usage budget freeze.
 			budget.usageFound = true
 		} else {
 			budget.usageUnknown = true

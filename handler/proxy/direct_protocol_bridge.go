@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
@@ -34,7 +35,7 @@ func directBridgeNeeded(downstream, upstream string) bool {
 	return dok && uok && d != u
 }
 
-func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, disableCrossProtocolFallback bool, requestID string) (bool, *pendingUpstreamFailure) {
+func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs, configuredFirstByteTimeoutMs int64, retry, maxRetries int, disableCrossProtocolFallback bool, requestID string) (bool, *pendingUpstreamFailure) {
 	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
 	if openCode && ctx.directOpenCodeSession == "" {
 		ctx.directOpenCodeSession = directOpenCodeSessionID(r.Header, ctx.ClientCtx.SessionID)
@@ -90,6 +91,12 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		if finished || !cont {
 			return finished, pending
 		}
+		// Match the site-channel candidate loop: refresh the shared first-byte
+		// retry budget after a fallback-authorized response so the next protocol
+		// gets a fresh bounded window (never leaving deadline zeroed or reusing
+		// a stale clamped remainder).
+		ctx.startRetryBudget(time.Duration(configuredFirstByteTimeoutMs) * time.Millisecond)
+		firstByteTimeoutMs = ctx.remaining(configuredFirstByteTimeoutMs)
 	}
 	return false, jsonPendingUpstreamFailure(http.StatusBadGateway, "No compatible direct endpoint", "upstream_error")
 }
