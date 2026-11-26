@@ -567,7 +567,7 @@ func dispatchSelectedUpstream(
 				writeJSONErrorWithRequest(w, 400, "Invalid provider multipart metadata", "invalid_request_error", requestID)
 				return true, nil
 			}
-			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
+			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, configuredFirstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
 		}
 		// Multipart bodies are not multi-protocol rewritten; single-shot only.
 		var bodyReader io.Reader
@@ -598,7 +598,7 @@ func dispatchSelectedUpstream(
 			}
 		}
 		if selected.Direct != nil {
-			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
+			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, configuredFirstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
 		}
 		return dispatchEndpointAttempt(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, upstreamPath, contentType, bodyBytes, firstByteTimeoutMs, retry, maxRetries, true, requestID)
 	}
@@ -613,7 +613,7 @@ func dispatchSelectedUpstream(
 		bodyBytes = ctx.RawBody
 	}
 	if selected.Direct != nil {
-		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
+		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, configuredFirstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
 	}
 
 	// Site protocol preference: responses-only + stream.
@@ -1068,13 +1068,20 @@ func dispatchEndpointAttemptWithContinue(
 	}
 
 	if err != nil {
-		// First-byte timeout: continue to next protocol when allowed; do not poison.
-		if proxy.IsDirectMediaPath(upstreamPath) && r.Context().Err() != nil {
-			writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, effectiveStream, directMediaFailureUsage(err), retry, requestID, "Client canceled media request")
+		// Downstream client cancellation while waiting for upstream headers:
+		// never trigger cross-protocol fallback, never poison channel health,
+		// and record 499 + client_cancelled consistently across all endpoints.
+		if r.Context().Err() != nil {
+			reason := "Client canceled request"
+			if proxy.IsDirectMediaPath(upstreamPath) {
+				reason = "Client canceled media request"
+			}
+			writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, effectiveStream, directMediaFailureUsage(err), retry, requestID, reason)
 			w.WriteHeader(499)
 			observeProxyTerminal(ctx, shared.OutcomeClientError, effectiveStream, time.Since(startedAt))
 			return true, nil, false
 		}
+		// First-byte timeout: continue to next protocol when allowed; do not poison.
 		if ctx.expiredBeforeHeaders(err, firstByteTimeoutMs) {
 			err = proxy.ErrObservedFirstByteTimeout
 		}
@@ -1307,6 +1314,12 @@ func dispatchEndpointAttemptWithContinue(
 	resp.Body.Close()
 	latencyMs = time.Since(startedAt).Milliseconds()
 	if readErr != nil {
+		if r.Context().Err() != nil {
+			writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, "Client canceled request")
+			w.WriteHeader(499)
+			observeProxyTerminal(ctx, shared.OutcomeClientError, false, time.Duration(latencyMs)*time.Millisecond)
+			return true, nil, false
+		}
 		slog.Warn("failed to read upstream response",
 			"err", readErr, "latency_ms", latencyMs, "channel_id", selected.Channel.ID,
 			"request_id", requestID, "retry", retry)
