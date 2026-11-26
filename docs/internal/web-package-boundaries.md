@@ -2,7 +2,7 @@
 
 **Status**: machine-enforced since 2026-08-29 by `web/scripts/check-boundaries.mjs`
 **Date**: 2026-08-23 (updated 2026-09-12)
-**Gate**: `bun run lint` chains `oxlint && bun run check:boundaries`; pre-push
+**Gate**: `bun run lint` chains `oxlint && bun run check:boundaries && bun run check:form-control`; pre-push
 and the CI `frontend` job both run `bun run lint`, so violations are caught
 locally and in CI.
 

@@ -18,14 +18,14 @@ import {
 import type { z } from 'zod'
 
 export type UseSettingsFormOptions<TValues extends FieldValues> = {
-  schema: z.ZodType<TValues, any, any>
+  schema: z.ZodType<TValues, FieldValues>
   defaultValues: DefaultValues<TValues>
   /** Server-derived form values; the form resets (and baseline refreshes) only when this changes. */
   serverValues?: TValues | null
 }
 
 export type SettingsFormController<TValues extends FieldValues> = {
-  form: UseFormReturn<TValues, any, TValues>
+  form: UseFormReturn<TValues, unknown, TValues>
   /** Last server snapshot used for dirty diffing on submit. */
   baseline: TValues | null
   /** Force-reset form + baseline to a server snapshot. */
