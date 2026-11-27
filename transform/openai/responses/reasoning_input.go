@@ -3,6 +3,8 @@ package responses
 import (
 	"fmt"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 // Reasoning item types that must carry required multi-turn content fields
@@ -90,30 +92,30 @@ func sanitizeResponsesInputItem(item map[string]any, index int) (map[string]any,
 	if item == nil {
 		return item, nil
 	}
-	typ := strings.ToLower(asTrimmedString(item["type"]))
+	typ := strings.ToLower(shared.AsTrimmedString(item["type"]))
 	switch typ {
 	case ResponsesInputTypeReasoning:
 		return sanitizeReasoningInputItem(item, index)
 	case ResponsesInputTypeMessage, "":
 		// Role-bearing items without type are treated as messages by Responses clients.
-		if typ == ResponsesInputTypeMessage || asTrimmedString(item["role"]) != "" {
+		if typ == ResponsesInputTypeMessage || shared.AsTrimmedString(item["role"]) != "" {
 			return preserveMessageContent(item), nil
 		}
-		return cloneMapShallow(item), nil
+		return shared.CloneObject(item), nil
 	default:
 		// function_call / function_call_output / custom_tool_call* / etc.
 		// Pass through without inventing a content field (schema differs by type).
-		return cloneMapShallow(item), nil
+		return shared.CloneObject(item), nil
 	}
 }
 
 func sanitizeReasoningInputItem(item map[string]any, index int) (map[string]any, error) {
-	next := cloneMapShallow(item)
+	next := shared.CloneObject(item)
 	next["type"] = ResponsesInputTypeReasoning
 
 	// Never drop encrypted_content / summary — these are the real multi-turn
 	// continuity payload for reasoning models (stateless + tool loops).
-	encrypted := asTrimmedString(next["encrypted_content"])
+	encrypted := shared.AsTrimmedString(next["encrypted_content"])
 	if encrypted != "" {
 		next["encrypted_content"] = encrypted
 	}
@@ -165,8 +167,8 @@ func sanitizeReasoningInputItem(item map[string]any, index int) (map[string]any,
 }
 
 func preserveMessageContent(item map[string]any) map[string]any {
-	next := cloneMapShallow(item)
-	if typ := asTrimmedString(next["type"]); typ == "" {
+	next := shared.CloneObject(item)
+	if typ := shared.AsTrimmedString(next["type"]); typ == "" {
 		next["type"] = ResponsesInputTypeMessage
 	}
 	// Empty assistant content is valid for tool-call turns. Do not delete the
@@ -174,7 +176,7 @@ func preserveMessageContent(item map[string]any) map[string]any {
 	if _, ok := next["content"]; !ok {
 		// Only inject when role is present and content is completely absent.
 		// Leave non-message shapes alone.
-		if asTrimmedString(next["role"]) != "" {
+		if shared.AsTrimmedString(next["role"]) != "" {
 			next["content"] = ""
 		}
 	}
@@ -228,7 +230,7 @@ func extractReasoningContentText(content any) string {
 		return strings.Join(parts, "\n")
 	case map[string]any:
 		for _, key := range []string{"text", "content", "summary_text", "output_text", "input_text", "reasoning", "reasoning_content"} {
-			if t := asTrimmedString(c[key]); t != "" {
+			if t := shared.AsTrimmedString(c[key]); t != "" {
 				return t
 			}
 		}
@@ -256,28 +258,9 @@ func HasReasoningInputItems(body map[string]any) bool {
 		if !ok {
 			continue
 		}
-		if strings.ToLower(asTrimmedString(item["type"])) == ResponsesInputTypeReasoning {
+		if strings.ToLower(shared.AsTrimmedString(item["type"])) == ResponsesInputTypeReasoning {
 			return true
 		}
 	}
 	return false
-}
-
-func asTrimmedString(v any) string {
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(s)
-}
-
-func cloneMapShallow(body map[string]any) map[string]any {
-	next := map[string]any{}
-	if body == nil {
-		return next
-	}
-	for k, v := range body {
-		next[k] = v
-	}
-	return next
 }

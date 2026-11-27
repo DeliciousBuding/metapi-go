@@ -8,6 +8,8 @@ import (
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 const (
@@ -89,10 +91,10 @@ func (s *Stream) TransformEvent(frame []byte) ([]byte, error) {
 		return s.fail(err)
 	}
 	if event != "" && (s.session.to == Messages || s.session.to == Responses) {
-		if typ := text(obj["type"]); typ != "" && typ != event {
+		if typ := shared.RawString(obj["type"]); typ != "" && typ != event {
 			return s.fail(fmt.Errorf("SSE event type mismatch: %w", ErrConversion))
 		}
-		if text(obj["type"]) == "" {
+		if shared.RawString(obj["type"]) == "" {
 			obj["type"], _ = json.Marshal(event)
 			data, _ = json.Marshal(obj)
 		}
@@ -239,7 +241,7 @@ func (s *Stream) encode(results []relayconvert.ResponseResult) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			typ := text(obj["type"])
+			typ := shared.RawString(obj["type"])
 			if typ == "" || strings.ContainsAny(typ, "\r\n") {
 				return nil, ErrConversion
 			}

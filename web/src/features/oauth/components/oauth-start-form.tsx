@@ -1,0 +1,313 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Link } from '@tanstack/react-router'
+import { ExternalLink as ExternalLinkIcon } from 'lucide-react'
+import { useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+
+import { useReauthReplay } from '@/components/common/reauth-provider'
+import { Button } from '@/components/ui/button'
+import {
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+import type { OAuthStartResponse } from '@/lib/api'
+import { toast } from '@/lib/toast'
+
+import { useOAuthProviders, useStartOAuth } from '../api'
+import {
+  OAUTH_START_DEFAULT_VALUES,
+  oauthStartSchema,
+  type OAuthStartValues,
+} from '../lib/oauth-schema'
+
+export function useOAuthStartForm(
+  open: boolean,
+  onStarted: (response: OAuthStartResponse) => void
+) {
+  const { t } = useTranslation()
+  const providersQuery = useOAuthProviders({ enabled: open })
+  const startOAuth = useStartOAuth()
+  const handleReauth = useReauthReplay()
+  const enabledProviders = useMemo(
+    () => (providersQuery.data ?? []).filter((provider) => provider.enabled),
+    [providersQuery.data]
+  )
+
+  const form = useForm<OAuthStartValues>({
+    resolver: zodResolver(oauthStartSchema),
+    defaultValues: OAUTH_START_DEFAULT_VALUES,
+  })
+
+  useEffect(() => {
+    if (!open) return
+    form.reset(OAUTH_START_DEFAULT_VALUES)
+  }, [open, form])
+  const selectedProviderId = form.watch('provider')
+  const selectedProvider = useMemo(
+    () =>
+      enabledProviders.find(
+        (provider) => provider.provider === selectedProviderId
+      ),
+    [enabledProviders, selectedProviderId]
+  )
+  const requiresProjectId = selectedProvider?.requiresProjectId ?? false
+
+  async function onSubmit(values: OAuthStartValues) {
+    if (requiresProjectId && !values.projectId.trim()) {
+      form.setError('projectId', {
+        type: 'manual',
+        message: t('oauth.form.errors.projectIdRequired'),
+      })
+      return
+    }
+    const start = async (confirmToken?: string) => {
+      const result = await startOAuth.mutateAsync({
+        provider: values.provider,
+        projectId: values.projectId.trim() || undefined,
+        proxyUrl: values.proxyUrl.trim() || null,
+        useSystemProxy: values.useSystemProxy,
+        confirmToken,
+      })
+      onStarted(result)
+    }
+    try {
+      await start()
+    } catch (error) {
+      // A connection-level proxy redirects the OAuth refresh token exchange;
+      // the backend answers reauthRequired until the master token is re-entered.
+      if (
+        handleReauth(error, t('reauth.operations.oauthProxy'), (confirmToken) =>
+          start(confirmToken)
+        )
+      ) {
+        return
+      }
+      toast.error(t('oauth.form.startFailed'))
+    }
+  }
+  return {
+    form,
+    providersQuery,
+    enabledProviders,
+    requiresProjectId,
+    onSubmit,
+    isSubmitting: startOAuth.isPending,
+  }
+}
+
+export function OAuthStartForm({
+  start,
+  requestClose,
+}: {
+  start: ReturnType<typeof useOAuthStartForm>
+  requestClose: () => void
+}) {
+  const { t } = useTranslation()
+  const {
+    form,
+    providersQuery,
+    enabledProviders,
+    requiresProjectId,
+    onSubmit,
+    isSubmitting,
+  } = start
+  // The provider <Select> collapses three distinct non-ready states into an
+  // empty dropdown otherwise. Branch on the query state so the user sees
+  // why there is nothing to pick and how to recover, instead of clicking
+  // Start and getting a bare "Please select a provider." validation error.
+  const providersLoading = providersQuery.isLoading
+  const providersError = providersQuery.isError
+  const hasEnabledProviders = enabledProviders.length > 0
+  const providersReady =
+    !providersLoading && !providersError && hasEnabledProviders
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{t('oauth.form.startTitle')}</DialogTitle>
+        <DialogDescription>
+          {t('oauth.form.startDescription')}
+        </DialogDescription>
+      </DialogHeader>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-4'>
+          <FormField
+            control={form.control}
+            name='provider'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('oauth.form.provider')}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger disabled={!providersReady}>
+                      <SelectValue>
+                        {(selected) => {
+                          if (!selected) {
+                            return t('oauth.form.providerPlaceholder')
+                          }
+                          const provider = enabledProviders.find(
+                            (item) => item.provider === selected
+                          )
+                          return provider
+                            ? provider.label || provider.provider
+                            : String(selected)
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {enabledProviders.map((provider) => (
+                      <SelectItem
+                        key={provider.provider}
+                        value={provider.provider}
+                      >
+                        {provider.label || provider.provider}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {providersLoading && (
+                  <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
+                    <Spinner className='size-3.5' />
+                    {t('oauth.form.loadingProviders')}
+                  </div>
+                )}
+                {providersError && (
+                  <div className='text-destructive flex items-center gap-2 text-sm'>
+                    <span>{t('oauth.form.providersLoadFailed')}</span>
+                    <Button
+                      type='button'
+                      variant='link'
+                      size='sm'
+                      className='h-auto px-0'
+                      onClick={() => providersQuery.refetch()}
+                    >
+                      {t('oauth.form.retry')}
+                    </Button>
+                  </div>
+                )}
+                {!providersLoading &&
+                  !providersError &&
+                  !hasEnabledProviders && (
+                    <FormDescription>
+                      {t('oauth.form.noProviders')}{' '}
+                      <Link
+                        to='/settings'
+                        className='text-primary hover:underline'
+                      >
+                        {t('oauth.form.goToSettings')}
+                      </Link>
+                    </FormDescription>
+                  )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {requiresProjectId && (
+            <FormField
+              control={form.control}
+              name='projectId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('oauth.form.projectId')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t('oauth.form.projectIdPlaceholder')}
+                      autoFocus
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('oauth.form.projectIdDescription')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name='proxyUrl'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('oauth.form.proxyUrl')}</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder={t('oauth.form.optionalUrlPlaceholder')}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='useSystemProxy'
+            render={({ field }) => (
+              <FormItem className='border-border flex flex-row items-center justify-between rounded-lg border p-3'>
+                <div className='space-y-0.5'>
+                  <FormLabel>{t('oauth.form.useSystemProxy')}</FormLabel>
+                  <FormDescription>
+                    {t('oauth.form.useSystemProxyDescription')}
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={requestClose}
+              disabled={isSubmitting}
+            >
+              {t('oauth.form.cancel')}
+            </Button>
+            <Button type='submit' disabled={isSubmitting || !providersReady}>
+              {isSubmitting ? (
+                <Spinner />
+              ) : (
+                <ExternalLinkIcon className='size-4' />
+              )}
+              {t('oauth.form.start')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    </>
+  )
+}
