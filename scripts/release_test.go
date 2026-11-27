@@ -96,7 +96,14 @@ func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
 	runGit(t, repo, "push", "origin", "master")
 	runGit(t, repo, "switch", "-c", "chore/release")
 	stub := filepath.Join(t.TempDir(), "gh.sh")
-	mustWrite(t, stub, []byte(`gh() { if [[ "$4" == */jobs ]]; then printf '{"jobs":[{"name":"docker-build","conclusion":"success"}]}'; else printf '{"workflow_runs":[{"id":123,"head_sha":"%s","head_branch":"master","event":"push","conclusion":"success"}]}' "$(git rev-parse HEAD)"; fi; }`))
+	mustWrite(t, stub, []byte(`gh() {
+  case "$4" in
+    */main.yml/runs) echo '[{"workflow_runs":[]}]';;
+    */nightly.yml/runs) printf '[{"workflow_runs":[{"id":123,"head_sha":"%s","head_branch":"master","event":"schedule","status":"completed","conclusion":"success"}]}]' "$(git rev-parse HEAD)";;
+    */123/jobs) printf '[{"jobs":[{"name":"nightly-gate","conclusion":"success","steps":[{"name":"Validated %s","conclusion":"success"}]}]}]' "$(git rev-parse HEAD)";;
+    *) return 99;;
+  esac
+}`))
 	cmd := exec.Command("bash", "scripts/release.sh", "9.9.9", "--dry-run")
 	cmd.Dir = repo
 	cmd.Env = append(gitTestEnv(t), "BASH_ENV="+stub, "GITHUB_REPOSITORY=fixture/repo")

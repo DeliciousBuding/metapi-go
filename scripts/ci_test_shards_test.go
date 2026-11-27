@@ -108,7 +108,7 @@ func TestCITestShardsCLI(t *testing.T) {
 		if _, err := exec.LookPath("bash"); err != nil {
 			t.Skip("workflow uses bash")
 		}
-		workflow, err := os.ReadFile(filepath.Join(root, ".github/workflows/main.yml"))
+		workflow, err := os.ReadFile(filepath.Join(root, ".github/workflows/nightly.yml"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -138,7 +138,7 @@ func TestCITestShardsCLI(t *testing.T) {
 				"scripts/ci-test-shards.weights.tsv", weights,
 				"scripts/ci-test-pg.weights.tsv", weights,
 			).Replace(entry.body)
-			for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard", "targeted-normal", "targeted-empty", "targeted-invalid-json"} {
+			for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard"} {
 				t.Run(entry.name+"/"+mode, func(t *testing.T) {
 					tmp := t.TempDir()
 					stub := `#!/usr/bin/env bash
@@ -167,22 +167,12 @@ esac
 					if mode == "invalid-shard" {
 						shard = "bad"
 					}
-					full, selected := "true", "[]"
-					if strings.HasPrefix(mode, "targeted-") {
-						full, selected = "false", `["`+shardModule+`a"]`
-					}
-					if mode == "targeted-empty" {
-						selected = "[]"
-					}
-					if mode == "targeted-invalid-json" {
-						selected = "{"
-					}
 					cmd := exec.Command("bash", "-c", workflowBody)
 					cmd.Dir = root
-					cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "FULL="+full, "SELECTED_PACKAGES="+selected, "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule, "PG_SCHEME=postgres", "PG_USER=postgres", "PG_PASSWORD=test", "PG_DATABASE=metapi_test")
+					cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule, "PG_SCHEME=postgres", "PG_USER=postgres", "PG_PASSWORD=test", "PG_DATABASE=metapi_test")
 					out, err := cmd.CombinedOutput()
 					invoked, invocationErr := os.ReadFile(filepath.Join(tmp, "invoked"))
-					if mode == "normal" || mode == "targeted-normal" {
+					if mode == "normal" {
 						if err != nil || invocationErr != nil || !strings.Contains(string(invoked), entry.wantArgs) {
 							t.Fatalf("valid workflow failed: %v %v\n%s\n%s", err, invocationErr, out, invoked)
 						}
@@ -193,43 +183,113 @@ esac
 			}
 		}
 	})
-	t.Run("PostgreSQL weights cover the complete package list exactly once", func(t *testing.T) {
-		// -e keeps the package inventory available in a source-only worktree
-		// where web/dist has not been built yet. The real workflow intentionally
-		// uses plain go list after downloading the embedded asset.
-		cmd := exec.Command("go", "list", "-e", "./...")
-		cmd.Dir = root
-		packages, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("go list: %v", err)
-		}
-		weights := filepath.Join(root, "scripts", "ci-test-pg.weights.tsv")
-		expected := strings.Fields(string(packages))
-		var assigned []string
-		for shard := 0; shard < 4; shard++ {
-			out, stderr, err := run(string(packages), "-shard", fmt.Sprint(shard), "-total", "4", "-weights", weights)
-			if err != nil || len(strings.Fields(out)) == 0 {
-				t.Fatalf("PG shard %d: %v stdout=%q stderr=%q", shard, err, out, stderr)
+	t.Run("real package inventory and proxy slices assigned exactly once", func(t *testing.T) {
+		for table, flag := range map[string]string{"ci-test-pg.weights.tsv": "-tags=integration", "ci-test-shards.weights.tsv": "-race"} {
+			cmd := exec.Command("go", "list", "-e", flag, "./...")
+			cmd.Dir = root
+			packages, err := cmd.Output()
+			if err != nil {
+				t.Fatal(err)
 			}
-			assigned = append(assigned, strings.Fields(out)...)
-		}
-		sort.Strings(expected)
-		sort.Strings(assigned)
-		if !reflect.DeepEqual(assigned, expected) {
-			t.Fatalf("PostgreSQL shards do not cover all packages exactly once")
+			var expected []string
+			for _, pkg := range strings.Fields(string(packages)) {
+				if pkg == shardModule+"handler/proxy" {
+					for i := range 3 {
+						expected = append(expected, fmt.Sprintf("%s@%d/3", pkg, i))
+					}
+				} else {
+					expected = append(expected, pkg)
+				}
+			}
+			sort.Strings(expected)
+			var assigned []string
+			for shard := range 8 {
+				out, stderr, err := run(string(packages), "-shard", fmt.Sprint(shard), "-total", "8", "-weights", filepath.Join(root, "scripts", table))
+				if err != nil || len(strings.Fields(out)) == 0 {
+					t.Fatalf("%s shard %d: %v %s", table, shard, err, stderr)
+				}
+				assigned = append(assigned, strings.Fields(out)...)
+			}
+			sort.Strings(assigned)
+			if !reflect.DeepEqual(assigned, expected) {
+				t.Errorf("%s assignments differ from complete inventory", table)
+			}
 		}
 	})
 }
 
-func TestCIBunDownloadCache(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "main.yml"))
+// Drive a real test binary so -run cannot silently drop examples, fuzz seeds,
+// subtests or a newly added test, or report a green empty selection.
+func TestCITestSlices(t *testing.T) {
+	root := filepath.Dir(mustWorkingDir(t))
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.24\n"))
+	mustWrite(t, filepath.Join(dir, "fixture_test.go"), []byte(`package fixture
+
+import (
+	"fmt"
+	"os"
+	"testing"
+)
+
+func mark(name string) {
+	f, err := os.OpenFile("ran", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fmt.Fprintln(f, name)
+}
+func TestNew(t *testing.T)  { t.Run("child", func(t *testing.T) { mark(t.Name()) }) }
+func FuzzSeed(f *testing.F) { f.Add(1); f.Fuzz(func(t *testing.T, i int) { mark(t.Name()) }) }
+func Example() {
+	mark("Example")
+	fmt.Println("ok")
+	// Output: ok
+}
+func BenchmarkSlow(b *testing.B) { panic("benchmarks require -bench") }
+`))
+	run := func(part string) ([]byte, error) {
+		cmd := exec.Command("python3", filepath.Join(root, "scripts", "run-ci-shard.py"), "-count=1", "--", "fixture@"+part)
+		cmd.Dir = dir
+		return cmd.CombinedOutput()
+	}
+	for i := range 3 {
+		if out, err := run(fmt.Sprintf("%d/3", i)); err != nil {
+			t.Fatalf("split %d: %v\n%s", i, err, out)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "ran"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	got := strings.Fields(string(data))
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, []string{"Example", "FuzzSeed/seed#0", "TestNew/child"}) {
+		t.Fatalf("test execution: %q", got)
+	}
+	if out, err := run("0/4"); err == nil {
+		t.Fatalf("accepted an empty slice: %s", out)
+	}
+	mustWrite(t, filepath.Join(dir, "bad_test.go"), []byte("package fixture\nimport \"testing\"\nfunc TestBad(t *testing.T){ t.Fatal(\"negative control\") }\n"))
+	if out, err := run("0/1"); err == nil || !strings.Contains(string(out), "negative control") {
+		t.Fatalf("failed test not propagated: %v %s", err, out)
+	}
+}
+
+func TestCIBunDownloadCache(t *testing.T) {
+	var data []byte
+	for _, name := range []string{"main", "nightly"} {
+		b, err := os.ReadFile(filepath.Join("..", ".github/workflows", name+".yml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = append(data, b...)
+	}
 	// Validate actual cache step blocks, not mentions in workflow comments.
 	blocks := regexp.MustCompile(`(?m)^      - name: Cache Bun downloads\n(?:        .*\n)+`).FindAllString(string(data), -1)
-	if len(blocks) != 4 { // frontend, web-dist, a11y, release
-		t.Fatalf("got %d Bun cache steps, want all four frozen-install consumers", len(blocks))
+	if len(blocks) != 6 { // both frontend and web-dist jobs, a11y, release
+		t.Fatalf("got %d Bun cache steps, want all frozen-install consumers", len(blocks))
 	}
 	for _, block := range blocks {
 		for _, want := range []string{

@@ -1,7 +1,13 @@
 package scripts
 
 import (
+	"encoding/json"
+	"fmt"
+	"go/constant"
+	"go/token"
+	"go/types"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -11,25 +17,36 @@ import (
 // docker-build is the required branch-protection check and the sole upstream
 // dependency of image publishing. An optional visual QA tool is not a release
 // prerequisite; required runtime smoke still belongs in the dependency chain.
-func TestReleaseGateWiring(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "main.yml"))
+func workflowJobs(t *testing.T, file string) (string, map[string]string) {
+	t.Helper()
+	contents, err := os.ReadFile(filepath.Join("..", ".github", "workflows", file))
 	if err != nil {
 		t.Fatal(err)
 	}
 	workflow := strings.ReplaceAll(string(contents), "\r\n", "\n")
+	_, body, ok := strings.Cut(workflow, "\njobs:\n")
+	if !ok {
+		t.Fatal("missing jobs")
+	}
 	jobHeader := regexp.MustCompile(`(?m)^  ([a-z][a-z0-9-]*):\s*$`)
-	indices := jobHeader.FindAllStringSubmatchIndex(workflow, -1)
+	indices := jobHeader.FindAllStringSubmatchIndex(body, -1)
 	jobs := make(map[string]string, len(indices))
 	for i, match := range indices {
-		end := len(workflow)
+		end := len(body)
 		if i+1 < len(indices) {
 			end = indices[i+1][0]
 		}
-		jobs[workflow[match[2]:match[3]]] = workflow[match[1]:end]
+		jobs[body[match[2]:match[3]]] = body[match[1]:end]
 	}
 	if len(jobs) == 0 {
 		t.Fatal("workflow scan found no jobs; a vacuous release gate must not pass")
 	}
+	return workflow, jobs
+}
+
+func TestReleaseGateWiring(t *testing.T) {
+	workflow, jobs := workflowJobs(t, "main.yml")
+	_, nightly := workflowJobs(t, "nightly.yml")
 	if _, ok := jobs["web-dist"]; !ok {
 		t.Fatal("web-dist producer is missing")
 	}
@@ -37,7 +54,7 @@ func TestReleaseGateWiring(t *testing.T) {
 		t.Error("web-dist must build and publish the real SPA bundle")
 	}
 	for _, consumer := range []string{"a11y", "test-sqlite-shard", "test-pg-shard", "test-pg-process"} {
-		if !strings.Contains(jobs[consumer], "    needs: [scope, web-dist]\n") || !strings.Contains(jobs[consumer], "name: web-dist") {
+		if !strings.Contains(nightly[consumer], "    needs: [target, web-dist]\n") || !strings.Contains(nightly[consumer], "name: web-dist") {
 			t.Errorf("%s must consume the built bundle without waiting for frontend checks", consumer)
 		}
 	}
@@ -64,10 +81,10 @@ func TestReleaseGateWiring(t *testing.T) {
 	assertionAt := strings.Index(build, assertion)
 	checkoutAt := strings.Index(build, "uses: actions/checkout@")
 	buildAt := strings.Index(build, "name: Build Docker image")
-	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || buildAt < assertionAt {
+	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || buildAt >= 0 {
 		t.Error("docker-build must fail closed on planned prerequisites before image build")
 	}
-	for _, dep := range []string{"runtime-smoke-matrix", "frontend", "web-dist"} {
+	for _, dep := range []string{"frontend", "web-dist"} {
 		job, ok := jobs[dep]
 		if !ok {
 			t.Errorf("dependency %q has no actual job", dep)
@@ -116,6 +133,16 @@ func TestReleaseGateWiring(t *testing.T) {
 	}
 
 	push := jobs["docker-push"]
+	for _, name := range []string{"docker-prepare", "docker-push", "docker-manifest", "image-verify", "release"} {
+		t.Run(name, func(t *testing.T) {
+			deps := needsInline.FindStringSubmatch(jobs[name])
+			condition := regexp.MustCompile(`(?m)^    if: (.+)$`).FindStringSubmatch(jobs[name])
+			if deps == nil || condition == nil {
+				t.Fatal("missing publication dependencies or condition")
+			}
+			checkPublicationCondition(t, name, condition[1], strings.Split(deps[1], ", "))
+		})
+	}
 	for _, want := range []string{
 		"runner: ubuntu-latest",
 		"runner: ubuntu-24.04-arm",
@@ -180,12 +207,91 @@ func TestReleaseGateWiring(t *testing.T) {
 	}
 }
 
+// Bind Actions context/status values, then evaluate the remaining comparisons
+// and boolean operators with Go's constant evaluator (same precedence).
+func checkPublicationCondition(t *testing.T, job, condition string, deps []string) {
+	t.Helper()
+	condition = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(condition, "${{"), "}}"))
+	// The scheduler inserts success() unless the job uses a status function.
+	if !regexp.MustCompile(`\b(always|cancelled|success|failure)\(\)`).MatchString(condition) {
+		condition = "success() && (" + condition + ")"
+	}
+	check := func(ref string, success, cancelled bool, fault, status string, want bool) {
+		t.Helper()
+		expr := strings.NewReplacer(
+			"success()", fmt.Sprint(success), "always()", "true", "cancelled()", fmt.Sprint(cancelled),
+			"startsWith(github.ref, 'refs/tags/v')", fmt.Sprint(strings.HasPrefix(ref, "refs/tags/v")),
+			"github.ref", fmt.Sprintf("%q", ref), "'", `"`,
+		).Replace(condition)
+		for _, dep := range deps {
+			result := "success"
+			if fault == dep {
+				result = status
+			}
+			expr = strings.ReplaceAll(expr, "needs."+dep+".result", fmt.Sprintf("%q", result))
+		}
+		value, err := types.Eval(token.NewFileSet(), nil, token.NoPos, expr)
+		if err != nil {
+			t.Fatalf("evaluate %q: %v", expr, err)
+		}
+		if constant.BoolVal(value.Value) != want {
+			t.Errorf("ref=%s parent=%s status=%s cancelled=%t: %s (want %t)", ref, fault, status, cancelled, expr, want)
+		}
+	}
+	const tag = "refs/tags/v0.29.0"
+	check(tag, false, false, "", "", true) // skipped test ancestor, successful immediate parents
+	check(tag, true, false, "", "", true)
+	check("refs/heads/master", true, false, "", "", job != "release")
+	check("refs/pull/1/merge", true, false, "", "", false)
+	check(tag, false, true, "", "", false)
+	for _, parent := range deps {
+		for _, status := range []string{"failure", "skipped", "cancelled"} {
+			check(tag, false, false, parent, status, false)
+		}
+	}
+}
+
+func TestNightlyGateRealPredicate(t *testing.T) {
+	_, jobs := workflowJobs(t, "nightly.yml")
+	gate := jobs["nightly-gate"]
+	_, body, found := strings.Cut(gate, "        run: |\n")
+	if !found || !strings.Contains(gate, "    if: ${{ always() }}\n") {
+		t.Fatal("missing unconditional nightly gate")
+	}
+	needs := map[string]map[string]string{}
+	for name := range jobs {
+		if name != "nightly-gate" {
+			needs[name] = map[string]string{"result": "success"}
+		}
+	}
+	check := func(want bool) {
+		t.Helper()
+		data, err := json.Marshal(needs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("bash", "-c", body)
+		cmd.Env = append(os.Environ(), "NEEDS_JSON="+string(data))
+		if out, err := cmd.CombinedOutput(); (err == nil) != want {
+			t.Fatalf("predicate %s: %v %s", data, err, out)
+		}
+	}
+	check(true)
+	for _, status := range []string{"failure", "skipped", "cancelled"} {
+		needs["test-pg-shard"]["result"] = status
+		check(false)
+	}
+	delete(needs, "test-pg-shard")
+	check(false)
+}
+
 // Third-party actions run with the workflow's token, including the publish
 // job's packages:write and id-token:write. A floating major tag is mutable by
 // its owner; pin the commit and let Dependabot move the pin.
 func TestGitHubActionsArePinned(t *testing.T) {
 	files := []string{
 		".github/workflows/main.yml",
+		".github/workflows/nightly.yml",
 		".github/actions/go-toolchain/action.yml",
 	}
 	useRE := regexp.MustCompile(`(?m)^\s*-?\s*uses:\s+([^\s#]+)`)

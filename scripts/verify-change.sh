@@ -31,15 +31,11 @@ trap 'rm -f "$plan_file" "$plan_file.packages"' EXIT
 go run scripts/ci-plan.go -base "$base" -worktree >"$plan_file"
 command -v jq >/dev/null || { echo 'verify-change: jq is required' >&2; exit 1; }
 jq . "$plan_file"
-if [[ $(jq -r .full "$plan_file") == true ]]; then
-  exec bash .githooks/pre-push-project --full </dev/null
-fi
 git diff --check "$base"
 git diff --cached --check
 go test ./docs -count=1
 if [[ $(jq -r .frontend "$plan_file") == true ]]; then
-  web_files=$(jq -c .webFiles "$plan_file")
-  (cd web && bun run check:static && bun run routes:verify && node --test scripts/__tests__/*.test.mjs && SELECTED_WEB_FILES="$web_files" node scripts/test-related.mjs && bun run build:web)
+  (cd web && bun run check:static && bun run routes:verify && node --test scripts/__tests__/*.test.mjs && bunx vitest run src/i18n/__tests__/i18n-keys.test.ts src/styles/__tests__/ && bun run build:web)
 elif [[ $(jq -r .backend "$plan_file") == true ]]; then
   (cd web && bun run build:web)
 fi
@@ -52,13 +48,5 @@ if [[ $(jq -r .backend "$plan_file") == true ]]; then
   [[ -z "$format_drift" ]] || { printf '%s\n' "$format_drift" >&2; exit 1; }
   go build ./cmd/server ./cmd/migrate
   go vet "${packages[@]}"
-  package_parallelism=2
-  if [[ -n ${PG_TEST_DSN:-} ]]; then package_parallelism=1; fi
-  go test "${packages[@]}" -race -count=1 -p "$package_parallelism" -timeout=900s
-  if [[ -n ${PG_TEST_DSN:-} ]]; then
-    PG_TEST_DSN="$PG_TEST_DSN" go test "${packages[@]}" -count=1 -tags=integration -p 1 -timeout=900s
-  else
-    echo 'PostgreSQL affected behavior NOT verified locally; PR test-pg must verify it.'
-  fi
 fi
-echo 'pre-push: affected change checks passed (not a release approval)'
+echo 'pre-push: static checks passed (not a release approval)'

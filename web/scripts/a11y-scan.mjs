@@ -62,44 +62,58 @@ async function scanLocale(locale) {
   const failures = []
   for (const [name, path] of ROUTES) {
     const page = await context.newPage()
-    await page
-      .goto(BASE_URL + path, { waitUntil: 'networkidle' })
-      .catch(() => {})
-    await page.waitForTimeout(500)
-    // CSP script-src is 'self' (no 'unsafe-inline') since #1033, so an inline
-    // <script> injection via addScriptTag is blocked by the browser. Execute
-    // the axe bundle through page.evaluate instead — CDP Runtime.evaluate is
-    // not subject to the page CSP — which leaves window.axe available
-    // regardless.
-    await page.evaluate(readFileSync(AXE_SOURCE, 'utf-8'))
-    const violations = await page.evaluate(async () => {
-      const result = await window.axe.run(document, {
-        resultTypes: ['violations'],
+    try {
+      const response = await page.goto(BASE_URL + path, {
+        waitUntil: 'networkidle',
       })
-      return result.violations
-        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-        .map((v) => ({ id: v.id, nodes: v.nodes.length, help: v.help }))
-    })
-    for (const v of violations) {
-      failures.push(
-        `${locale}/${name}: ${v.id} (${v.nodes} node(s)) — ${v.help}`
-      )
+      if (!response?.ok())
+        throw new Error(`navigation returned ${response?.status()}`)
+      await page.waitForTimeout(500)
+      // CSP script-src is 'self' (no 'unsafe-inline') since #1033, so an inline
+      // <script> injection via addScriptTag is blocked by the browser. Execute
+      // the axe bundle through page.evaluate instead — CDP Runtime.evaluate is
+      // not subject to the page CSP — which leaves window.axe available
+      // regardless.
+      await page.evaluate(readFileSync(AXE_SOURCE, 'utf-8'))
+      const violations = await page.evaluate(async () => {
+        const result = await window.axe.run(document, {
+          resultTypes: ['violations'],
+        })
+        return result.violations
+          .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+          .map((v) => ({ id: v.id, nodes: v.nodes.length, help: v.help }))
+      })
+      for (const v of violations) {
+        failures.push(
+          `${locale}/${name}: ${v.id} (${v.nodes} node(s)) — ${v.help}`
+        )
+      }
+    } catch (error) {
+      failures.push(`${locale}/${name}: ${error.message}`)
+    } finally {
+      await page.close()
     }
-    await page.close()
   }
   await context.close()
   return failures
 }
 
 const failures = []
-for (const locale of LOCALES) {
-  failures.push(...(await scanLocale(locale)))
+try {
+  // Each locale owns its authenticated context. Keep one active page per context.
+  const scans = await Promise.allSettled(LOCALES.map(scanLocale))
+  for (const [index, scan] of scans.entries()) {
+    if (scan.status === 'fulfilled') failures.push(...scan.value)
+    else failures.push(`${LOCALES[index]}: ${scan.reason}`)
+  }
+} finally {
+  await browser.close()
 }
 
-await browser.close()
-
 if (failures.length > 0) {
-  console.error(`[a11y] ${failures.length} serious/critical violation(s):`)
+  console.error(
+    `[a11y] ${failures.length} scan failure(s) or serious/critical violation(s):`
+  )
   for (const f of failures) console.error('  ' + f)
   process.exit(1)
 }

@@ -38,12 +38,9 @@ bash .githooks/pre-push-project </dev/null
 ```
 
 默认通过 `scripts/ci-plan.go` 比较当前 HEAD 与 `origin/master` 的共同祖先，并纳入
-staged、unstaged、untracked 文件。Go 修改验证所属包和传递的生产/测试消费者，
-前端修改运行完整静态检查和构建；feature 行为使用 Vitest 导入图、所属 feature 全套
-及文件读取契约选测，共享/删除/空图回退全部前端测试。文档契约始终验证。依赖、构建配置、门禁自身、
-非代码夹具或未知路径回退完整门禁；读取、解析和意外空扫描失败，不降级成通过。
-普通后端改动本地执行选中包的 vet、race 和构建；提供 `PG_TEST_DSN` 时还运行选中包
-的 PostgreSQL integration 测试，未提供时明确报告未验证，PR 的 `test-pg` 必须补齐。
+staged、unstaged、untracked 文件。Go 修改执行格式检查、受影响包 vet 和编译；
+前端修改执行完整静态检查、路由、Node、词典与样式契约测试及构建。文档契约始终验证。
+共享配置、依赖或未知文件扩大静态检查范围。修复和功能改动仍应在开发时运行相应的行为测试。
 新 worktree 先按上节安装前端依赖，不共享可变 `node_modules`。
 
 完整本地检查仍可显式执行：
@@ -60,10 +57,8 @@ bash .githooks/pre-push-project --full </dev/null
 `make verify-race` 是兼容别名。独立入口 `make test`、`make web-check`、
 `make build-check`、`make race` 保持原有范围。
 
-PR CI 复核规则与影响面行为；master push 跑完整集成套件；tag 先确认精确提交的
-成功主线验证，再运行发布产物验证，不把历史其他 SHA 的通过结果当作当前证据。
-普通 PR 以 5 分钟为延迟优化目标，高风险全量例外在计划中注明；超预算不能删除
-适用测试。在 PR 或提交说明中记录实际执行的命令、对应提交和结果，分别注明本地夹具、
+PR 与 master 使用轻量检查，目标为 1–2 分钟。Nightly 定时或手动运行全量集成，
+发版必须取得精确提交的全量通过记录。在 PR 或提交说明中记录实际执行的命令、对应提交和结果，分别注明本地夹具、
 PostgreSQL、真实模型转发和下游客户端的验证情况，包括未运行的项。完整分层见
 [测试策略](docs/testing.md#四类验证与影响面计划)。
 

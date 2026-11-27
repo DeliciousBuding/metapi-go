@@ -173,37 +173,22 @@ go test ./internal/sqlitetest -run '^$' -bench '^BenchmarkOpen$' -benchmem
 
 ## 四类验证与影响面计划
 
-1. **规则**：PR 的格式、lint、类型、凭据及 docs 契约检查；本地先反馈，CI 可信复核。
-2. **变更行为**：PR 与本地共用 `scripts/ci-plan.go`。Go 修改覆盖所属包和传递的反向
-   生产/测试导入者，扫描包含全部 OS 与 build tag 变体；前端 feature 修改使用
-   Vitest 模块图的相关测试、所属 feature 全套及读取文件的契约测试，不做文件名猜测。
-   共享代码、样式、路由、public 资源、删除或空相关图回退全套；类型/lint/格式/边界
-   和 Node 脚本测试保持完整。Vitest 的相关图支持静态可解析导入，变量动态导入不在
-   支持范围；范围依据见 [Vitest related](https://vitest.dev/guide/cli#vitest-related)。
-   Go 影响面在 PR 上同时跑 SQLite race 和 PostgreSQL integration。
-3. **主线整体**：master push 运行完整套件，包括全量双方言、浏览器、跨服务与跨平台
-   运行验证；主线失败时优先恢复，暂停发布。被取消的运行不算验证通过。
-4. **发布候选**：`scripts/require-main-validation.sh` 核对精确 SHA 的 master push
-   workflow 的全量汇总成功记录；本地 release helper 与 tag CI 均调用该入口。
-   后续开发镜像上传失败不否定源码验证；tag 不重复测试套件，
-   但保留原生多架构构建、镜像回拉/版本/签名及发布二进制冒烟。真实供应商与下游客户端
-   仍属候选验收，不从确定性 CI 推断；维护者批准和 draft Release 流程不变。
-
-计划记录所选包、原因和预期 job。依赖、工具链、CI/脚本、SQL/非代码夹具与未知路径
-回退全量；删除的 Go owner 无法解析时也回退全量。无法读取 Git、解析源码或扫描为空
-直接失败。无可归因变更使用完整范围，不把空集合当作已验证。所有文档检查运行完整
-`go test ./docs`，不只执行 hygiene 子集。
-
-保留原 12 个 required check 名称以兼容现有保护；`docker-build` 现在也是汇总门禁：
-对照计划严格确认每个 prerequisite 的 success/skipped，拒绝失败、取消、缺失、
-额外 job 或意外跳过。普通 PR 不构建容器；主线和高风险全量例外仍构建并冒烟容器。
-不使用 workflow 级 `paths-ignore`，纯文档 PR 仍有实际规则与汇总检查。
-
-PR 的预算目标为 300 秒，汇总 job 记录耗时并在超预算时发出 warning；这不是已达成的
-P95 保证，也不以超时杀死合法测试。记录从 Actions run 创建时间到汇总 job 最后一步，
-包含排队、工具准备及高风险例外的容器构建；分析耗时同时比较总 runner-minutes，
-不能把加并行当作降低总成本。普通 UI PR 保留完整 accessibility 与路由冒烟；
-跨页面 Playwright 视觉回归仅在主线/高风险全量执行，不是每个 feature 的前置等待。
+1. PR 和 master push 使用 `scripts/ci-plan.go` 选择静态检查范围。Go 修改检查所属包及
+   传递导入者，未知影响面扩大到全部包。适用的 Go 检查包括 lint、三平台 vet、编译；
+   `go.mod` 或 `go.sum` 变更时额外执行漏洞和模块校验。凭据和完整 docs 契约始终检查。
+2. 前端变更执行静态检查、路由验证、Node 脚本测试、词典与样式契约，并构建 SPA。
+   `docker-build` 对照计划校验每个直接依赖的结果，包括预期跳过的重型作业。
+   保留原有 12 个必检名称；轻量验证的墙钟目标为 120 秒，排队和缓存会影响实测。
+   master 验证通过后执行 edge 镜像发布和回拉验收。
+3. Nightly 在每日 19:00 UTC（北京时间次日 03:00）执行全量 SQLite race、PostgreSQL
+   集成及进程 E2E、四片 Vitest、Chromium、真实服务端 E2E、四平台运行冒烟、漏洞与模块
+   校验、Docker 构建和冒烟。`nightly-gate` 要求所有作业成功。选定候选后可运行
+   `gh workflow run nightly.yml --ref master -f ref=<完整提交 SHA>`；省略输入则使用
+   workflow ref 的提交。指定提交必须属于该 ref 的历史，所有 runner 检出同一个 SHA。
+4. `scripts/require-main-validation.sh` 从 master 上的 Nightly 汇总步骤核对实际验证的
+   SHA，也识别旧 master push 中成功的重型作业及 Docker 构建、冒烟步骤。轻量检查或
+   其他 SHA 的成功记录不能授权发布。Tag 按计划跳过测试祖先；镜像准备、推送、manifest、
+   回拉验收和 draft Release 分别要求工作流未取消、ref 匹配、所有直接依赖成功。
 
 自托管产品不统一控制用户流量。候选在可控实例/通道先验证，关注转发成功率、首字
 延迟、流中断、路由与用量核算；扩大使用范围与发布由维护者决定。持久化迁移单独
@@ -246,22 +231,25 @@ OS/架构和 C 工具链；Windows 原生若因 ThreadSanitizer 无法分配 sha
 当前最轻的 shard；同权重/负载以包名/shard 编号确定次序。权重来源见同目录
 `ci-test-shards.weights.tsv`，只是调度提示，不是选测白名单：未知/新增包默认
 10 秒；权重表点名但已不在当前包清单中的条目会直接失败，避免改名/删除后悄悄
-使用失真的调度数据。所有输入包必须恰好分配一次，各 shard 必须非空。
+使用失真的调度数据。每种方言使用八个非空 shard。`handler/proxy` 的包耗时均分给
+三个调度项，其余包各分配一次。`scripts/run-ci-shard.py` 使用本次执行的 race 或
+integration 参数运行 `go test -list .`，将顶层 Test、Example、Fuzz 名称排序后轮流
+分到三片。每片运行完整子测试和 fuzz 种子，并核对 `go test -json` 实际启动的顶层
+名称与分配一致。清单重复、解析失败或不足以填满各片都会使检查失败。
 工作流先保存 `go list` 输出再执行 selector，避免进程替换隐藏失败；非法输入、
 权重读取/解析失败、selector 失败或空选择均拒绝运行测试，不返回绿色。
 权重总和不是墙钟预测；测试并发、编译和 runner 资源都会影响实际耗时。
 CI 的 Bun cache 仅保存下载包，key 绑定 OS/架构/Bun 版本/lockfile；每个消费者
 仍执行冻结锁文件安装，不复用可变 node_modules 或测试通过结果。
-全量模式下，PostgreSQL 也按完整 `go list` 清单分成四个 runner；每个 runner 使用自己的
+全量模式下，PostgreSQL 按完整 `go list` 清单分配；每个 runner 使用自己的
 PostgreSQL service/database，所以跨 runner 不共享表或迁移状态，而单个 runner
 内的选中包仍以 `-p 1` 串行运行。进程级 PostgreSQL E2E 是独立并行作业；稳定的
-`test-pg` 检查只在四个分片和该进程验收全部通过后成功。分片使用独立的实测
-权重表 `scripts/ci-test-pg.weights.tsv`，未知/新增包仍默认 10 秒且全部恰好执行一次。
+`nightly-gate` 要求所有分片和该进程验收全部通过。分片使用独立的实测
+权重表 `scripts/ci-test-pg.weights.tsv`，未知/新增包仍默认 10 秒。
 共享同一数据库的包不能提高 `-p`；并行只发生在隔离的 runner/数据库之间。
 `internal/pgtest.Reset` 只清空当前 schema 的业务表并保留迁移记录；
 跨 schema 外键会使清理失败，不连带清空其他 schema。
-普通 PR 使用单个非空影响面分片，不把全量权重表误用为选测白名单；PG 进程 E2E
-留在全量模式，PG 汇总检查按计划确认它通过或被明确跳过。
+PG 进程 E2E 与数据库分片均由 Nightly 汇总检查验收。
 本地 race 入口检测到 `PG_TEST_DSN` 时默认 `-p 1`，并拒绝更高的包并发设置。
 
 ## 门禁与 lint

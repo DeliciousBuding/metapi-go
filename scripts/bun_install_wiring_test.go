@@ -66,7 +66,7 @@ func TestBunInstallWiring(t *testing.T) {
 	})
 
 	t.Run("no workflow step calls bun install directly", func(t *testing.T) {
-		workflow := read(".github/workflows/main.yml")
+		workflow := read(".github/workflows/main.yml") + "\n" + read(".github/workflows/nightly.yml")
 		// Comments are allowed to say "bun install" (this policy is documented
 		// inline); an executable run: line is not.
 		bare := regexp.MustCompile(`(?m)^\s*(?:-\s*)?run:\s*(?:\|.*)?bun install`)
@@ -76,7 +76,7 @@ func TestBunInstallWiring(t *testing.T) {
 			}
 		}
 		got := strings.Count(workflow, "sh ../scripts/bun-install.sh")
-		const want = 4 // frontend, web-dist, a11y, release
+		const want = 6 // both frontend and web-dist jobs, a11y, release
 		if got != want {
 			t.Errorf(".github/workflows/main.yml routes %d web-deps installs through scripts/bun-install.sh, want %d; a new job that installs web deps must use it too", got, want)
 		}
@@ -105,7 +105,7 @@ func TestBunInstallWiring(t *testing.T) {
 	})
 
 	t.Run("Bun image pin matches CI", func(t *testing.T) {
-		workflow := read(".github/workflows/main.yml")
+		workflow := read(".github/workflows/main.yml") + "\n" + read(".github/workflows/nightly.yml")
 		dockerfile := read("Dockerfile")
 		version := regexp.MustCompile(`(?m)^  BUN_VERSION: "([^"]+)"\s*$`).FindStringSubmatch(workflow)
 		digest := regexp.MustCompile(`(?m)^  BUN_DIGEST: "(sha256:[0-9a-f]{64})"\s*$`).FindStringSubmatch(workflow)
@@ -156,7 +156,14 @@ func TestDevelopmentToolchainPins(t *testing.T) {
 		"go":            value(read("go.mod"), `(?m)^go ([0-9.]+)$`),
 		"bun":           value(workflow, `(?m)^  BUN_VERSION: "([0-9.]+)"$`),
 		"node":          value(workflow, `(?m)^  NODE_VERSION: "([0-9.]+)"$`),
-		"golangci-lint": value(workflow, `golangci-lint@v([0-9.]+)`),
+		"golangci-lint": value(workflow, `(?m)^      GOLANGCI_LINT_VERSION: "v([0-9.]+)"$`),
+	}
+	nightly := read(".github/workflows/nightly.yml")
+	for _, key := range []string{"BUN_VERSION", "BUN_DIGEST", "NODE_VERSION"} {
+		pattern := `(?m)^  ` + key + `: "([^"]+)"$`
+		if value(nightly, pattern) != value(workflow, pattern) {
+			t.Errorf("nightly %s differs from release build", key)
+		}
 	}
 	for name, want := range expected {
 		if got := value(local, `(?m)^`+regexp.QuoteMeta(name)+` = "([0-9.]+)"$`); got != want {
