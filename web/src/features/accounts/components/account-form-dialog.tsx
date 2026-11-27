@@ -1,36 +1,11 @@
-// metapi-go features/accounts/components — add/edit account form dialog.
-//
-// A Sheet side drawer with react-hook-form + zod, mirroring the keys
-// feature's `api-keys-mutate-drawer.tsx` structure: schema factory from
-// `lib/accounts-schema`, guarded one-time `form.reset` on open target,
-// inert-until-initialized, and a footer submit button bound to the form id.
-//
-// On create success the form fires the guided "next step: configure routes"
-// toast (account-created-toast.tsx) — step 2 of the site → account → route
-// chain — rather than a plain confirmation.
-
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, ChevronsUpDown, TriangleAlert } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  useForm,
-  type SubmitErrorHandler,
-  type UseFormReturn,
-} from 'react-hook-form'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { PlatformBadge } from '@/components/common/platform-badge'
 import { useReauthReplay } from '@/components/common/reauth-provider'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
 import {
   Form,
   FormControl,
@@ -41,11 +16,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -63,13 +33,8 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { useSiteInitializationPresets } from '@/features/sites'
-import {
-  getPlatformDefinition,
-  getPlatformDisplayName,
-} from '@/lib/platform-catalog'
+import { getPlatformDefinition } from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import {
@@ -77,10 +42,8 @@ import {
   useCreateAccount,
   useLoginAccount,
   useUpdateAccount,
-  useVerifyAccountToken,
 } from '../api'
 import {
-  buildAccountVerifyPayload,
   getAccountFormDefaultValues,
   getAccountFormSchema,
   transformAccountToFormValues,
@@ -93,6 +56,8 @@ import {
   showAccountCreatedToast,
   showAccountLoginToast,
 } from './account-created-toast'
+import { AccountCredentialFields } from './account-credential-fields'
+import { AccountSiteField } from './account-site-field'
 
 interface AccountFormDialogProps {
   open: boolean
@@ -105,43 +70,6 @@ interface AccountFormDialogProps {
    *  (`segment=apikey`) — applied as the create default only; the operator
    *  can switch tabs freely afterwards. Ignored in edit mode. */
   initialCredentialMode?: CredentialMode
-}
-
-// Inline verification state for the session/apikey credential fields. Resets
-// to idle whenever the operator changes site, mode, or credential so a stale
-// "verified" result can never be reattached to a different credential.
-type VerificationState =
-  | { status: 'idle' }
-  | { status: 'pending' }
-  | { status: 'verified'; tokenType: string; modelCount: number }
-  | { status: 'failed'; message: string }
-
-function resolveAxiosErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object') {
-    const response = (error as { response?: { data?: unknown } }).response
-    const data = response?.data
-    if (data && typeof data === 'object') {
-      const message = (data as { error?: unknown }).error
-      if (typeof message === 'string' && message.trim()) return message
-    }
-  }
-  return ''
-}
-
-function getSiteLabel(site: Site): string {
-  return site.name || site.url || `#${site.id}`
-}
-
-function getSiteSearchValue(site: Site): string {
-  return [
-    site.name,
-    site.url,
-    site.platform,
-    getPlatformDisplayName(site.platform),
-    String(site.id),
-  ]
-    .filter(Boolean)
-    .join(' ')
 }
 
 export function AccountFormDialog({
@@ -158,7 +86,6 @@ export function AccountFormDialog({
   const updateMutation = useUpdateAccount()
   const handleReauth = useReauthReplay()
   const loginMutation = useLoginAccount()
-  const verifyMutation = useVerifyAccountToken()
   const presets = useSiteInitializationPresets()
   const isEdit = mode === 'edit' && !!account
 
@@ -176,13 +103,11 @@ export function AccountFormDialog({
 
   const credentialMode = form.watch('credentialMode') as CredentialMode
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
-  const [siteSelectorOpen, setSiteSelectorOpen] = useState(false)
   const isInitialized = initializedFor !== null
 
   useEffect(() => {
     if (!open) {
       setInitializedFor(null)
-      setSiteSelectorOpen(false)
       return
     }
     const targetKey = isEdit && account ? `edit:${account.id}` : 'create'
@@ -217,22 +142,6 @@ export function AccountFormDialog({
     sites,
     form,
   ])
-
-  // Inline credential verification (session / apikey only). Password mode
-  // binds through the real login submit path, so it never verifies inline.
-  const [verification, setVerification] = useState<VerificationState>({
-    status: 'idle',
-  })
-  const verificationRequestId = useRef(0)
-  const siteSearchInputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (!siteSelectorOpen) return
-
-    const animationFrameId = window.requestAnimationFrame(() => {
-      siteSearchInputRef.current?.focus()
-    })
-    return () => window.cancelAnimationFrame(animationFrameId)
-  }, [siteSelectorOpen])
 
   const watchedSiteId = form.watch('siteId')
   const watchedPassword = form.watch('password')
@@ -281,57 +190,6 @@ export function AccountFormDialog({
       form.setValue('credentialMode', 'apikey')
     }
   }, [open, isInitialized, showPasswordMode, credentialMode, form])
-
-  const watchedAccessToken = form.watch('accessToken')
-  const watchedApiToken = form.watch('apiToken')
-  const watchedPlatformUserId = form.watch('platformUserId')
-  const watchedProxyUrl = form.watch('proxyUrl')
-  useEffect(() => {
-    verificationRequestId.current += 1
-    setVerification({ status: 'idle' })
-  }, [
-    open,
-    watchedSiteId,
-    credentialMode,
-    watchedAccessToken,
-    watchedApiToken,
-    watchedPlatformUserId,
-    watchedProxyUrl,
-  ])
-
-  const handleVerify = async () => {
-    const resolved = buildAccountVerifyPayload(form.getValues())
-    if (!resolved.ok) {
-      setVerification({
-        status: 'failed',
-        message: t(
-          resolved.error === 'site'
-            ? 'accounts.verify.siteRequired'
-            : 'accounts.verify.tokenRequired'
-        ),
-      })
-      return
-    }
-    const currentRequestId = verificationRequestId.current + 1
-    verificationRequestId.current = currentRequestId
-    setVerification({ status: 'pending' })
-    try {
-      const result = await verifyMutation.mutateAsync(resolved.payload)
-      if (verificationRequestId.current !== currentRequestId) return
-      setVerification({
-        status: 'verified',
-        tokenType: result.tokenType ?? 'unknown',
-        modelCount: result.modelCount ?? 0,
-      })
-    } catch (error) {
-      if (verificationRequestId.current !== currentRequestId) return
-      const backendMessage = resolveAxiosErrorMessage(error)
-      setVerification({
-        status: 'failed',
-        message: backendMessage || t('accounts.verify.failed'),
-      })
-    }
-  }
 
   const onSubmit = async (values: AccountFormValues) => {
     if (values.credentialMode === 'password') {
@@ -408,7 +266,6 @@ export function AccountFormDialog({
     createMutation.isPending ||
     updateMutation.isPending ||
     loginMutation.isPending
-  const siteOptions = sites
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -438,216 +295,18 @@ export function AccountFormDialog({
             aria-busy={!isInitialized}
             className='min-h-0 flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
           >
-            {/* Site selection */}
-            <FormField
-              control={form.control}
-              name='siteId'
-              render={({ field }) => {
-                const selectedSite = siteOptions.find(
-                  (site) => site.id === field.value
-                )
-                const hasSelection = field.value > 0
-                let selectedLabel = t('accounts.form.sitePlaceholder')
-                if (selectedSite) {
-                  selectedLabel = getSiteLabel(selectedSite)
-                } else if (hasSelection) {
-                  selectedLabel = `#${field.value}`
-                }
-
-                return (
-                  <FormItem>
-                    <FormLabel>{t('accounts.form.site')}</FormLabel>
-                    <Popover
-                      open={siteSelectorOpen}
-                      onOpenChange={(nextOpen) => {
-                        setSiteSelectorOpen(nextOpen)
-                        if (!nextOpen) field.onBlur()
-                      }}
-                    >
-                      <FormControl>
-                        <PopoverTrigger
-                          render={
-                            <Button
-                              type='button'
-                              variant='outline'
-                              role='combobox'
-                              aria-expanded={siteSelectorOpen}
-                              aria-haspopup='listbox'
-                              className='w-full justify-between font-normal'
-                            />
-                          }
-                        >
-                          <span
-                            className={
-                              hasSelection
-                                ? 'flex min-w-0 flex-1 items-center gap-2 text-left'
-                                : 'text-muted-foreground min-w-0 flex-1 truncate text-left'
-                            }
-                          >
-                            <span className='truncate'>{selectedLabel}</span>
-                            {selectedSite?.platform && (
-                              <PlatformBadge
-                                platform={selectedSite.platform}
-                                className='text-muted-foreground shrink-0 text-xs'
-                              />
-                            )}
-                          </span>
-                          <ChevronsUpDown
-                            aria-hidden='true'
-                            className='text-muted-foreground size-4 opacity-50'
-                          />
-                        </PopoverTrigger>
-                      </FormControl>
-                      <PopoverContent
-                        align='start'
-                        initialFocus={siteSearchInputRef}
-                        className='w-(--anchor-width) max-w-[calc(100vw-2rem)] p-0'
-                      >
-                        <Command>
-                          <CommandInput
-                            ref={siteSearchInputRef}
-                            placeholder={t('sites.toolbar.searchPlaceholder')}
-                          />
-                          <CommandList className='max-h-[min(20rem,var(--available-height))]'>
-                            <CommandEmpty>
-                              {siteOptions.length === 0
-                                ? t('accounts.form.siteEmpty')
-                                : t('No results found.')}
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {siteOptions.map((site) => {
-                                const label = getSiteLabel(site)
-                                const details = site.name ? site.url : ''
-
-                                return (
-                                  <CommandItem
-                                    key={site.id}
-                                    value={getSiteSearchValue(site)}
-                                    data-checked={field.value === site.id}
-                                    onSelect={() => {
-                                      if (
-                                        !isEdit &&
-                                        !form.getFieldState('credentialMode')
-                                          .isDirty &&
-                                        !form.getValues('accessToken') &&
-                                        !form.getValues('apiToken') &&
-                                        !form.getValues('password') &&
-                                        !initialCredentialMode
-                                      ) {
-                                        form.setValue(
-                                          'credentialMode',
-                                          getPlatformDefinition(site.platform)
-                                            ?.group === 'api'
-                                            ? 'apikey'
-                                            : 'session'
-                                        )
-                                      }
-                                      field.onChange(site.id)
-                                      field.onBlur()
-                                      setSiteSelectorOpen(false)
-                                    }}
-                                  >
-                                    <span className='min-w-0 flex-1'>
-                                      <span className='block truncate'>
-                                        {label}
-                                      </span>
-                                      {(site.platform || details) && (
-                                        <span className='text-muted-foreground flex min-w-0 items-center gap-2 text-xs'>
-                                          {site.platform && (
-                                            <PlatformBadge
-                                              platform={site.platform}
-                                              className='shrink-0'
-                                            />
-                                          )}
-                                          {details && (
-                                            <span className='truncate'>
-                                              {details}
-                                            </span>
-                                          )}
-                                        </span>
-                                      )}
-                                    </span>
-                                  </CommandItem>
-                                )
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )
-              }}
+            <AccountSiteField
+              form={form}
+              sites={sites}
+              open={open}
+              inferCredentialMode={!isEdit && !initialCredentialMode}
             />
-
-            {/* Credential mode toggle */}
-            <FormItem>
-              <FormLabel>{t('accounts.form.credentialMode')}</FormLabel>
-              <Tabs
-                value={credentialMode}
-                onValueChange={(value) =>
-                  form.setValue('credentialMode', value as CredentialMode, {
-                    shouldDirty: true,
-                  })
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value='session'>
-                    {t('accounts.form.modeSession')}
-                  </TabsTrigger>
-                  <TabsTrigger value='apikey'>
-                    {t('accounts.form.modeApiKey')}
-                  </TabsTrigger>
-                  {showPasswordMode && (
-                    <TabsTrigger value='password'>
-                      {t('accounts.form.modePassword')}
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-              </Tabs>
-            </FormItem>
-
-            {/* Connection name (optional) — hidden in password mode, where
-                username is the site login name collected by PasswordFields */}
-            {credentialMode !== 'password' && (
-              <FormField
-                control={form.control}
-                name='username'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('accounts.form.connectionName')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t(
-                          'accounts.form.connectionNamePlaceholder'
-                        )}
-                        {...field}
-                        value={field.value ?? ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {credentialMode === 'session' && (
-              <SessionFields
-                form={form}
-                verification={verification}
-                onVerify={handleVerify}
-              />
-            )}
-            {credentialMode === 'apikey' && (
-              <ApiKeyFields
-                form={form}
-                verification={verification}
-                onVerify={handleVerify}
-              />
-            )}
-            {credentialMode === 'password' && <PasswordFields form={form} />}
-
+            <AccountCredentialFields
+              form={form}
+              open={open}
+              credentialMode={credentialMode}
+              showPasswordMode={showPasswordMode}
+            />
             {/* Account-parameter fields (status / check-in / unit cost / proxy
                 / tags) only apply to session or api-key credentials: the
                 password login-bind endpoint force-sets status + check-in and
@@ -818,284 +477,5 @@ export function AccountFormDialog({
       </SheetContent>
       {guard}
     </Sheet>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Session-mode fields
-// ---------------------------------------------------------------------------
-
-function VerifyCredentialFeedback({
-  verification,
-  onVerify,
-}: {
-  verification: VerificationState
-  onVerify: () => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className='space-y-1.5'>
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        onClick={onVerify}
-        disabled={verification.status === 'pending'}
-      >
-        {verification.status === 'pending' ? (
-          <Spinner className='size-3.5' />
-        ) : null}
-        {t('accounts.verify.button')}
-      </Button>
-      {verification.status === 'verified' && (
-        <p className='text-success flex items-center gap-1.5 text-xs'>
-          <CheckCircle2 className='size-3.5' />
-          {t('accounts.verify.verified', {
-            tokenType: verification.tokenType,
-            modelCount: verification.modelCount,
-          })}
-        </p>
-      )}
-      {verification.status === 'failed' && (
-        <div className='text-destructive space-y-0.5 text-xs'>
-          <p className='flex items-center gap-1.5'>
-            <TriangleAlert className='size-3.5' />
-            {t('accounts.verify.failed')}
-          </p>
-          {verification.message && (
-            <p className='text-destructive/80'>{verification.message}</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-interface SessionFieldsProps {
-  form: UseFormReturn<AccountFormValues>
-  verification: VerificationState
-  onVerify: () => void
-}
-
-function SessionFields({ form, verification, onVerify }: SessionFieldsProps) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name='accessToken'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formSession.accessToken')}</FormLabel>
-            <FormControl>
-              <Textarea
-                rows={4}
-                placeholder={t('accounts.formSession.accessTokenPlaceholder')}
-                className='font-mono text-xs'
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormDescription>
-              {t('accounts.formSession.accessTokenHint')}
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <VerifyCredentialFeedback
-        verification={verification}
-        onVerify={onVerify}
-      />
-
-      <FormField
-        control={form.control}
-        name='platformUserId'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formSession.platformUserId')}</FormLabel>
-            <FormControl>
-              <Input
-                type='number'
-                placeholder={t(
-                  'accounts.formSession.platformUserIdPlaceholder'
-                )}
-                value={field.value ?? ''}
-                onChange={(event) =>
-                  field.onChange(
-                    event.target.value === ''
-                      ? undefined
-                      : Number(event.target.value)
-                  )
-                }
-                onBlur={field.onBlur}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name='refreshToken'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formSession.refreshToken')}</FormLabel>
-            <FormControl>
-              <Input
-                className='font-mono text-xs'
-                placeholder={t('accounts.formSession.refreshTokenPlaceholder')}
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name='tokenExpiresAt'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formSession.tokenExpiresAt')}</FormLabel>
-            <FormControl>
-              <Input
-                type='number'
-                placeholder={t(
-                  'accounts.formSession.tokenExpiresAtPlaceholder'
-                )}
-                value={field.value ?? ''}
-                onChange={(event) =>
-                  field.onChange(
-                    event.target.value === ''
-                      ? undefined
-                      : Number(event.target.value)
-                  )
-                }
-                onBlur={field.onBlur}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Password-mode fields — username+password sign-in, bound via the separate
-// POST /api/accounts/login endpoint (the backend fetches the session token
-// and stores autoRelogin config on the account).
-// ---------------------------------------------------------------------------
-
-function PasswordFields({ form }: { form: UseFormReturn<AccountFormValues> }) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name='username'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formPassword.username')}</FormLabel>
-            <FormControl>
-              <Input
-                autoComplete='username'
-                placeholder={t('accounts.formPassword.usernamePlaceholder')}
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name='password'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formPassword.password')}</FormLabel>
-            <FormControl>
-              <Input
-                type='password'
-                autoComplete='new-password'
-                placeholder={t('accounts.formPassword.passwordPlaceholder')}
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormDescription>{t('accounts.formPassword.hint')}</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// API-Key-mode fields
-// ---------------------------------------------------------------------------
-
-function ApiKeyFields({ form, verification, onVerify }: SessionFieldsProps) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name='apiToken'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('accounts.formApiKey.apiKey')}</FormLabel>
-            <FormControl>
-              <Textarea
-                rows={3}
-                placeholder={t('accounts.formApiKey.apiKeyPlaceholder')}
-                className='font-mono text-xs'
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <VerifyCredentialFeedback
-        verification={verification}
-        onVerify={onVerify}
-      />
-
-      <FormField
-        control={form.control}
-        name='skipModelFetch'
-        render={({ field }) => (
-          <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-            <div className='space-y-0.5'>
-              <FormLabel>{t('accounts.formApiKey.skipModelFetch')}</FormLabel>
-              <FormDescription>
-                {t('accounts.formApiKey.skipModelFetchHint')}
-              </FormDescription>
-            </div>
-            <FormControl>
-              <Switch
-                checked={field.value}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked)
-                  field.onBlur() // Remember explicit choices even when toggled back to the default.
-                }}
-              />
-            </FormControl>
-          </FormItem>
-        )}
-      />
-    </>
   )
 }

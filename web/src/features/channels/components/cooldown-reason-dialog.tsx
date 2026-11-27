@@ -188,12 +188,12 @@ export function CooldownReasonDialog({
             </div>
           )}
 
-          {open && channel.type !== 'oauth_unit' ? (
+          {open && (
             <ChannelInlineProbe
               channelId={channel.id}
               defaultModel={channel.models}
             />
-          ) : null}
+          )}
         </div>
 
         <DialogFooter className='sm:flex-row sm:items-center'>

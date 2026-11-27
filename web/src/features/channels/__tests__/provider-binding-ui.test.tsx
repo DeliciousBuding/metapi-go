@@ -9,7 +9,7 @@ import {
 } from '@testing-library/react'
 import i18n from 'i18next'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { assert, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import {
@@ -89,7 +89,7 @@ const wire: ChannelPlugin = {
     hooks: ['request'],
   },
 }
-const binding: ProviderBinding = {
+const binding = {
   key: provider.key,
   protocols: ['chat'],
   options: { mode: 'saved' },
@@ -98,8 +98,8 @@ const binding: ProviderBinding = {
     auth: 'x-api-key',
     cursorParameter: 'page',
   },
-}
-const imageProvider: ChannelPlugin = {
+} satisfies ProviderBinding
+const imageProvider = {
   ...provider,
   manifest: {
     apiVersion: 2,
@@ -121,8 +121,8 @@ const imageProvider: ChannelPlugin = {
       imageEdit: { response: { taskIdPath: '/id' } },
     },
   },
-}
-const imageBinding: ProviderBinding = {
+} satisfies ChannelPlugin
+const imageBinding = {
   key: provider.key,
   protocols: ['imageGeneration', 'imageEdit'],
   imageQueries: {
@@ -135,7 +135,7 @@ const imageBinding: ProviderBinding = {
       auth: 'none',
     },
   },
-}
+} satisfies ProviderBinding
 const detail: ImportedUpstreamDetail = {
   id: 7,
   name: 'Fixture channel',
@@ -243,12 +243,10 @@ describe('independent provider configuration', () => {
       screen.getByText(/declared asynchronous image submit\/query\/result/)
     ).toBeVisible()
     await waitFor(() => expect(generate).not.toBeDisabled())
-    expect(generate).toHaveValue(
-      imageBinding.imageQueries!.imageGeneration!.url
-    )
+    expect(generate).toHaveValue(imageBinding.imageQueries.imageGeneration.url)
     expect(
       screen.getByLabelText('Image edits task query URL template')
-    ).toHaveValue(imageBinding.imageQueries!.imageEdit!.url)
+    ).toHaveValue(imageBinding.imageQueries.imageEdit.url)
     const auth = screen.getAllByRole('combobox', {
       name: 'Task query authentication',
     })
@@ -258,7 +256,9 @@ describe('independent provider configuration', () => {
     fireEvent.change(generate, {
       target: { value: 'https://fixture.invalid/custom/{taskId}' },
     })
-    fireEvent.click(auth[0]!)
+    const [generateAuth] = auth
+    assert.isDefined(generateAuth)
+    fireEvent.click(generateAuth)
     activateOption(await screen.findByRole('option', { name: 'none' }))
     expect(changed).toHaveBeenLastCalledWith({
       ...imageBinding,
@@ -326,8 +326,6 @@ describe('independent provider configuration', () => {
       />
     )
     await screen.findByLabelText('Image generation task query URL template')
-    if (imageProvider.manifest?.apiVersion !== 2)
-      throw new Error('fixture manifest')
     const manifest = imageProvider.manifest
     act(() =>
       client.setQueryData(channelPluginQueryKey, {
@@ -341,7 +339,7 @@ describe('independent provider configuration', () => {
                 imageGeneration: {
                   query: { path: '/new-default/{taskId}', auth: 'bearer' },
                 },
-                imageEdit: manifest.imageTasks!.imageEdit,
+                imageEdit: manifest.imageTasks.imageEdit,
               },
             },
           },
@@ -350,7 +348,7 @@ describe('independent provider configuration', () => {
     )
     expect(
       screen.getByLabelText('Image generation task query URL template')
-    ).toHaveValue(imageBinding.imageQueries!.imageGeneration!.url)
+    ).toHaveValue(imageBinding.imageQueries.imageGeneration.url)
     expect(changed).not.toHaveBeenCalled()
     await act(async () => {
       await i18n.changeLanguage('zhCN')
@@ -381,7 +379,7 @@ describe('independent provider configuration', () => {
     await screen.findByText(/saved provider is unavailable/)
     expect(
       screen.getByLabelText('Image generation task query URL template')
-    ).toHaveValue(imageBinding.imageQueries!.imageGeneration!.url)
+    ).toHaveValue(imageBinding.imageQueries.imageGeneration.url)
     expect(changed).not.toHaveBeenCalled()
   })
   it('validates the matching image origin before PATCH and preserves a failed-save draft', async () => {
@@ -533,7 +531,7 @@ describe('independent provider configuration', () => {
       <ChannelProviderBinding
         value={{
           ...binding,
-          catalog: { url: binding.catalog!.url, auth: 'none' },
+          catalog: { url: binding.catalog.url, auth: 'none' },
         }}
         onChange={changed}
         protocols={['chat']}
@@ -623,7 +621,7 @@ describe('independent provider configuration', () => {
       await screen.findByText(/saved provider is unavailable/)
     ).toBeVisible()
     expect(screen.getByLabelText('Model catalog URL')).toHaveValue(
-      binding.catalog!.url
+      binding.catalog.url
     )
     expect(changed).not.toHaveBeenCalled()
     await waitFor(() =>
@@ -657,7 +655,7 @@ describe('independent provider configuration', () => {
       expect(screen.getByLabelText('Provider mode')).toHaveValue('saved')
     )
     expect(screen.getByLabelText('Model catalog URL')).toHaveValue(
-      binding.catalog!.url
+      binding.catalog.url
     )
     expect(changed).not.toHaveBeenCalled()
   })
@@ -771,7 +769,7 @@ describe('independent provider configuration', () => {
       screen.getByRole('button', { name: 'Customize model discovery' })
     )
     fireEvent.change(screen.getByLabelText('Model catalog URL'), {
-      target: { value: binding.catalog!.url },
+      target: { value: binding.catalog.url },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
     await waitFor(() =>
@@ -783,7 +781,7 @@ describe('independent provider configuration', () => {
         providerBinding: {
           key: provider.key,
           protocols: ['chat'],
-          catalog: { url: binding.catalog!.url, auth: 'bearer' },
+          catalog: { url: binding.catalog.url, auth: 'bearer' },
         },
       })
     )
