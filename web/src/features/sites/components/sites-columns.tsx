@@ -9,8 +9,10 @@ import { Link } from '@tanstack/react-router'
 // phone card list without a parallel layout file.
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  CheckCircle2 as CheckCircle2Icon,
   Eye as EyeIcon,
   MoreHorizontal as MoreHorizontalIcon,
+  PauseCircle as PauseCircleIcon,
   Pencil as PencilIcon,
   Pin as PinIcon,
   PinOff as PinOffIcon,
@@ -60,8 +62,10 @@ const STATUS_LABEL_KEY: Record<SiteStatus, string> = {
 function StatusBadge({ status }: { status: SiteStatus | undefined }) {
   const { t } = useTranslation()
   const resolved: SiteStatus = status === 'disabled' ? 'disabled' : 'active'
+  const Icon = resolved === 'active' ? CheckCircle2Icon : PauseCircleIcon
   return (
     <Badge variant={resolved === 'active' ? 'success' : 'secondary'}>
+      <Icon className='size-3' aria-hidden='true' />
       {t(STATUS_LABEL_KEY[resolved])}
     </Badge>
   )
@@ -229,12 +233,12 @@ export function useSitesColumns(
           resolved = activeFromSubscription
         }
         return resolved === null ? (
-          <span>—</span>
+          <span className='text-muted-foreground'>—</span>
         ) : (
           <Link
             to='/accounts'
             search={{ site: row.original.id }}
-            className='text-primary hover:bg-accent inline-flex items-center rounded-md border px-2 py-1 text-xs tabular-nums'
+            className='text-primary hover:bg-accent border-border/80 bg-muted/30 inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium tabular-nums transition-colors'
             aria-label={t('sites.page.viewAccounts', {
               name: row.original.name,
               count: resolved,
@@ -260,7 +264,7 @@ export function useSitesColumns(
         />
       ),
       cell: ({ row }) => (
-        <span className='text-sm tabular-nums'>
+        <span className='text-sm font-medium tabular-nums'>
           {formatCurrency(resolveSiteBalanceUsd(row.original))}
         </span>
       ),

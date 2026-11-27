@@ -66,7 +66,7 @@ func TestMessagesChatBridgeDoesNotCompleteMalformedOrTruncatedInput(t *testing.T
 
 func TestMessagesProxyStreamErrorIsNativeAndTerminal(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if err := writeSSEStreamError(rec, "/v1/messages", "upstream stream interrupted", "upstream_error", time.Second); err != nil {
+	if err := writeSSEStreamError(rec, "/v1/messages", "upstream stream interrupted", "upstream_error", time.Second, 0); err != nil {
 		t.Fatalf("writeSSEStreamError: %v", err)
 	}
 	body := rec.Body.String()

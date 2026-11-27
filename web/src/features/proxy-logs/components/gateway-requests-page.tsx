@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { DateRangePresets } from '@/components/common/date-range-presets'
 import { ModelPill } from '@/components/common/model-pill'
 import { PageHeader } from '@/components/common/page-header'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
 import {
   DataTablePage,
   DataTableRow,
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import { toBcp47 } from '@/i18n/languages'
 import type { GatewayRequest, GatewayRequestStatus } from '@/lib/api'
 import { gatewayRequestStatusSchema } from '@/lib/api/gateway-requests'
@@ -169,6 +171,7 @@ export function GatewayRequestsPage({
     ]
   )
   const query = useGatewayRequests(params, intervalMs)
+  const showRefreshSpin = useDelayedSpin(query.isFetching)
   const columns = useMemo<ColumnDef<GatewayRequest>[]>(
     () => [
       {
@@ -329,6 +332,10 @@ export function GatewayRequestsPage({
     getRowId: (row) => row.id,
     totalCount: query.data?.total ?? 0,
   })
+  const items = query.data?.items ?? []
+  const selectedIndex = filters.requestId
+    ? items.findIndex((item) => item.id === filters.requestId)
+    : -1
   const summary = query.data?.summary
   const reset = () =>
     updateUrlState({
@@ -342,6 +349,11 @@ export function GatewayRequestsPage({
         title={t(kind === 'access' ? 'auditLogs.title' : 'requestLogs.title')}
         actions={
           <>
+            <QuietRefreshStatus
+              updatedAt={query.dataUpdatedAt}
+              hasError={query.isError}
+              className='hidden sm:inline'
+            />
             <ProxyLogsAutoRefreshToggle
               intervalMs={intervalMs}
               setIntervalMs={setIntervalMs}
@@ -352,7 +364,11 @@ export function GatewayRequestsPage({
               disabled={query.isFetching}
               onClick={() => void query.refetch()}
             >
-              <RefreshCw className='size-3.5' />
+              <RefreshCw
+                className={
+                  showRefreshSpin ? 'size-3.5 animate-spin' : 'size-3.5'
+                }
+              />
               {t('proxyLogs.page.refresh')}
             </Button>
           </>
@@ -551,6 +567,22 @@ export function GatewayRequestsPage({
       <GatewayRequestDetailSheet
         id={filters.requestId || null}
         onClose={() => updateUrlState({ filters: { requestId: '' } })}
+        hasPrev={selectedIndex > 0}
+        hasNext={selectedIndex >= 0 && selectedIndex < items.length - 1}
+        onNavigatePrev={() => {
+          if (selectedIndex > 0) {
+            updateUrlState({
+              filters: { requestId: items[selectedIndex - 1].id },
+            })
+          }
+        }}
+        onNavigateNext={() => {
+          if (selectedIndex >= 0 && selectedIndex < items.length - 1) {
+            updateUrlState({
+              filters: { requestId: items[selectedIndex + 1].id },
+            })
+          }
+        }}
       />
     </div>
   )

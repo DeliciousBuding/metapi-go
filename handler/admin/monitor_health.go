@@ -26,7 +26,11 @@ type monitorHealthHandler struct {
 // health is the read-only projection endpoint backing the observability
 // Health section (site/account health + breaker/cooldown aggregation).
 func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
-	runtimeHealth := routing.SnapshotRuntimeHealth()
+	runtimeHealth, err := h.namedRuntimeHealth(routing.SnapshotRuntimeHealth())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load breaker site names")
+		return
+	}
 
 	cooldown, err := h.aggregateCooldown()
 	if err != nil {
@@ -53,6 +57,42 @@ func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type namedBreaker struct {
+	routing.RuntimeHealthBreaker
+	SiteName string `json:"siteName"`
+}
+
+type namedRuntimeHealth struct {
+	routing.RuntimeHealthSnapshot
+	OpenBreakers []namedBreaker `json:"openBreakers"`
+}
+
+func (h *monitorHealthHandler) namedRuntimeHealth(snapshot routing.RuntimeHealthSnapshot) (namedRuntimeHealth, error) {
+	result := namedRuntimeHealth{RuntimeHealthSnapshot: snapshot, OpenBreakers: make([]namedBreaker, 0, len(snapshot.OpenBreakers))}
+	if len(snapshot.OpenBreakers) == 0 {
+		return result, nil
+	}
+	names := make(map[int64]string)
+	var ids []any
+	for _, breaker := range snapshot.OpenBreakers {
+		if _, seen := names[breaker.SiteID]; !seen {
+			ids = append(ids, breaker.SiteID)
+			names[breaker.SiteID] = ""
+		}
+	}
+	rows, err := queryRowsErr(h.db, "SELECT id,name FROM sites WHERE id IN ("+sqlPlaceholders(len(ids))+")", ids...)
+	if err != nil {
+		return result, err
+	}
+	for _, row := range rows {
+		names[coerceInt64(row["id"])] = coerceString(row["name"])
+	}
+	for _, breaker := range snapshot.OpenBreakers {
+		result.OpenBreakers = append(result.OpenBreakers, namedBreaker{breaker, names[breaker.SiteID]})
+	}
+	return result, nil
+}
+
 // aggregateCooldown projects route_channels cooldown/failure state without
 // writing anything. Cooling means cooldownUntil is still in the future;
 // recently-failed means failCount>0 with a lastFailAt inside the configured
@@ -68,6 +108,7 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 			rc.fail_count AS fail_count,
 			rc.last_fail_at AS last_fail_at,
 			rc.cooldown_until AS cooldown_until,
+			rc.cooldown_reason_code, rc.cooldown_reason,
 			s.id AS site_id,
 			COALESCE(s.name, '') AS site_name
 		FROM route_channels rc
@@ -103,12 +144,14 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 		if routing.IsCooldownActive(cooldownUntil, nowISO) {
 			channelsCooling++
 			cooling = append(cooling, map[string]any{
-				"channelId":     coerceInt64(row["id"]),
-				"accountId":     coerceInt64(row["accountId"]),
-				"siteId":        coerceInt64(row["siteId"]),
-				"siteName":      coerceString(row["siteName"]),
-				"failCount":     failCount,
-				"cooldownUntil": coerceString(row["cooldownUntil"]),
+				"cooldownReasonCode": row["cooldownReasonCode"],
+				"cooldownReason":     row["cooldownReason"],
+				"channelId":          coerceInt64(row["id"]),
+				"accountId":          coerceInt64(row["accountId"]),
+				"siteId":             coerceInt64(row["siteId"]),
+				"siteName":           coerceString(row["siteName"]),
+				"failCount":          failCount,
+				"cooldownUntil":      coerceString(row["cooldownUntil"]),
 			})
 		}
 	}

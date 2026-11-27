@@ -1702,3 +1702,35 @@ func TestWarnMissingStreamUsage_RecordsMetric(t *testing.T) {
 		t.Fatalf("usable usage should not increment, got %q", got)
 	}
 }
+
+func TestObservedResponseFailureDoesNotReplay(t *testing.T) {
+	for _, status := range []int{200, 404, 502} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			cfg, rt, up := config.GetSafe(), config.RuntimeSafe(), getUpstreamConfig()
+			config.Set(&config.Config{ProxyMaxChannelAttempts: 2})
+			config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyErrorKeywords = []string{"fixture-content-rejection"} })
+			t.Cleanup(func() { config.Set(cfg); config.SetRuntime(rt); SetUpstreamConfig(up) })
+			var first, second atomic.Int32
+			a := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				first.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				io.WriteString(w, `{"error":{"message":"unsupported endpoint, please use /v1/chat/completions"},"choices":[{"message":{"content":"fixture-content-rejection"}}],"usage":{"total_tokens":7}}`)
+			}))
+			defer a.Close()
+			b := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { second.Add(1); io.WriteString(w, `{}`) }))
+			defer b.Close()
+			selected := routing.SelectedChannel{Channel: store.RouteChannel{ID: 1, Enabled: true}, Account: store.Account{ID: 1, Status: "active"}, Site: store.Site{ID: 1, URL: a.URL, Platform: "new-api", Status: "active"}, TokenValue: "fixture", ActualModel: "fixture"}
+			next := selected
+			next.Channel.ID = 2
+			next.Site.URL = b.URL
+			var logs []proxy.ProxyLogEntry
+			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: selected, next: &next}, LogProxy: func(_ context.Context, e proxy.ProxyLogEntry) error { logs = append(logs, e); return nil }})
+			w := httptest.NewRecorder()
+			HandleClaudeMessages(w, makeProxyReq("POST", "/v1/messages", `{"model":"fixture","messages":[{"role":"user","content":"hi"}],"max_tokens":8}`))
+			if w.Code < 400 || first.Load() != 1 || second.Load() != 0 || len(logs) != 1 || logs[0].Status != "failed" || logs[0].TotalTokens == nil || *logs[0].TotalTokens != 7 {
+				t.Fatalf("status=%d hits=%d/%d logs=%+v", w.Code, first.Load(), second.Load(), logs)
+			}
+		})
+	}
+}

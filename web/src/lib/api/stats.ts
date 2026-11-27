@@ -5,6 +5,7 @@ import type {
   OverviewPeriod,
   OverviewReport,
   SchedulerRunStatus,
+  TrafficFlowResponse,
   TriggerModelProbeResponse,
   ModelCostDistributionResponse,
   LatencyHistogramResponse,
@@ -82,6 +83,13 @@ export const statsApi = {
     minLatencyMs?: number
     hours?: number
   }) => request(`/api/stats/slow-requests${buildQueryString(params)}`),
+  getTrafficFlow: (params?: { period?: OverviewPeriod; topN?: number }) =>
+    request<TrafficFlowResponse>(
+      `/api/stats/flow${buildQueryString({
+        period: params?.period ?? '24h',
+        topN: params?.topN ?? 20,
+      })}`
+    ),
   getSiteDistribution: () => request('/api/stats/site-distribution'),
   getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
   getBalanceHistory: (accountId: number, days = 30) =>

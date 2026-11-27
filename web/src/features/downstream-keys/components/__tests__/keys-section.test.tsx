@@ -514,6 +514,29 @@ describe('KeySheetForm — create mode', () => {
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
     expect(onCreated).not.toHaveBeenCalled()
   })
+
+  it('applies a non-sensitive client policy preset without touching the secret key and clears empty-model warnings', async () => {
+    renderKeySheetForm({ editingKey: null })
+
+    expect(
+      screen.getByTestId('key-policy-intersection-warnings')
+    ).toHaveTextContent(
+      'Model access list is empty (all models denied unless route grants exist).'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Policy presets' }))
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Restricted sandbox' })
+    )
+
+    expect(screen.getByLabelText('Key')).toHaveValue('')
+    expect(screen.getByLabelText('Max requests')).toHaveValue(100)
+    expect(screen.getByLabelText('Max cost')).toHaveValue(1)
+    expect(screen.getByText('gpt-4o-mini')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('key-policy-intersection-warnings')
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('KeySheetForm — dirty reporting', () => {

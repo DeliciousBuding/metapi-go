@@ -57,6 +57,15 @@ export function UsageCell({
           {cacheRead}
         </span>
       )}
+      {cacheCreation && (
+        <span
+          className='text-muted-foreground text-2xs whitespace-nowrap'
+          data-testid='usage-cache-creation'
+        >
+          <span className='sr-only'>{t('proxyLogs.usage.cacheCreation')} </span>
+          {t('proxyLogs.usage.cacheCreationShort', { count: cacheCreation })}
+        </span>
+      )}
     </div>
   )
 }

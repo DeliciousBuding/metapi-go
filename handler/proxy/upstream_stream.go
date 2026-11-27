@@ -1,6 +1,8 @@
 package proxyhandler
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -155,7 +157,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	// clients carry no whole-request timeout for streams precisely so this
 	// per-chunk timer — not total elapsed time — governs stream liveness.
 	idleTimeout := streamIdleTimeout()
-	idleBody := &streamIdleBody{ReadCloser: resp.Body}
+	timing := streamTimingFromContext(r.Context())
+	idleBody := &streamIdleBody{ReadCloser: resp.Body, timing: timing}
 	idleBody.guard = newStreamIdleGuard(idleTimeout, idleBody.closeUnderlying)
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
@@ -236,16 +239,50 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			messageBridge.outputAnalysis = analyzer
 		}
 	}
+	if timing != nil && bodyReadable {
+		if messageBridge != nil {
+			messageBridge.original.timing = timing
+		} else if native, ok := resp.Body.(*nativeTerminalBody); ok {
+			native.timing = timing
+		} else {
+			analyzer.timing = timing
+		}
+	}
 	sawStreamBytes := false
 	var streamedBytes int64
 	outcome := streamEndedNormally
 	buf := make([]byte, 4096)
 
+	readChunk := func() ([]byte, error) {
+		n, err := resp.Body.Read(buf)
+		return buf[:n], err
+	}
+	var responsesFrames *responsesFrameReader
+	if endpoint, _ := proxy.EndpointFromPath(r.URL.Path); relayStream != nil && endpoint == proxy.EndpointResponses && messageBridge != nil && !codexImage && !imageTaskStream {
+		// Apply the output budget after conversion and public model mapping.
+		// Reserve complete frames so truncation cannot splice an error into JSON.
+		responsesFrames = &responsesFrameReader{reader: bufio.NewReader(resp.Body), remaining: maxStreamBytes}
+		readChunk = responsesFrames.readFrame
+	}
+
 	// emitStreamError attempts the single terminal error event that abnormal
 	// endings share. A client that stopped reading is bounded by one write
 	// window here too; a failure is logged and never retried.
 	emitStreamError := func(message string) {
-		if err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget); err != nil {
+		if responsesFrames != nil {
+			if terminal := messageBridge.ResponsesFailureEvents(message, responsesFrames.delivered); len(terminal) != 0 {
+				if err := writeDownstreamChunk(w, terminal, writeBudget); err != nil {
+					slog.Debug("SSE terminal error event not delivered", "err", err, "latency_ms", latencyMs, "streamed_bytes", streamedBytes)
+				}
+				return
+			}
+		}
+		var sequence int64
+		if native, ok := resp.Body.(*nativeTerminalBody); ok {
+			sequence = native.nextSequence
+		}
+		err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget, sequence)
+		if err != nil {
 			slog.Debug("SSE terminal error event not delivered",
 				"err", err,
 				"latency_ms", latencyMs,
@@ -264,7 +301,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		// Post-stream SSE analysis uses bounded incremental state instead of
 		// retaining the complete upstream body.
 		result := analyzer.Result()
-		if native, ok := resp.Body.(*nativeTerminalBody); ok && native.original != nil {
+		native, _ := resp.Body.(*nativeTerminalBody)
+		if native != nil && native.original != nil {
 			result.Usage = native.original.Result().Usage
 		}
 		if messageBridge != nil {
@@ -304,6 +342,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			// partial) — never invent tokens.
 			return result.Usage, end, nil
 		}
+		// A native incomplete terminal can legitimately have zero output.
+		if native != nil && native.responseIncomplete && !native.terminalFailed && end == streamEndedNormally && !result.HasErrorEvent {
+			return result.Usage, end, nil
+		}
 		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
 		return result.Usage, end, &verdict
 	}
@@ -323,9 +365,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		default:
 		}
 
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			chunk := buf[:n]
+		chunk, err := readChunk()
+		if len(chunk) > 0 {
 			remaining := maxStreamBytes - streamedBytes
 			if remaining <= 0 {
 				emitStreamError("stream response exceeded configured byte limit")
@@ -409,6 +450,9 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 						"streamed_bytes", streamedBytes,
 					)
 					outcome = streamEndedClientDisconnect
+				case errors.Is(err, errResponsesOutputLimit):
+					emitStreamError(errResponsesOutputLimit.Error())
+					outcome = streamEndedTruncated
 				case errors.Is(err, errMessagesChatStreamLimit) || errors.Is(err, ollama.ErrStreamLimit):
 					emitStreamError("upstream stream exceeded configured byte limit")
 					outcome = streamEndedTruncated
@@ -427,6 +471,42 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	}
 
 	return endStream(outcome, sawStreamBytes)
+}
+
+var errResponsesOutputLimit = errors.New("stream response exceeded configured byte limit")
+
+// RelayKit emits LF-delimited SSE events. Inspect bounded line fragments so
+// even a single oversized JSON payload is charged before it is buffered.
+type responsesFrameReader struct {
+	reader    *bufio.Reader
+	remaining int64
+	delivered int
+}
+
+func (r *responsesFrameReader) readFrame() ([]byte, error) {
+	var frame []byte
+	for {
+		fragment, err := r.reader.ReadSlice('\n')
+		r.remaining -= int64(len(fragment))
+		if r.remaining < 0 {
+			return nil, errResponsesOutputLimit
+		}
+		frame = append(frame, fragment...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err != nil {
+			if err == io.EOF && len(frame) > 0 {
+				r.delivered++
+				return frame, nil
+			}
+			return nil, err
+		}
+		if bytes.HasSuffix(frame, []byte("\n\n")) || bytes.HasSuffix(frame, []byte("\r\n\r\n")) {
+			r.delivered++
+			return frame, nil
+		}
+	}
 }
 
 // judgeStreamContent feeds the streaming path parsed facts into the same pure
@@ -498,11 +578,11 @@ func streamResponseByteLimit() int64 {
 }
 
 // writeSSEStreamError writes one terminal SSE error event (plus [DONE] on
-// OpenAI-shaped endpoints). The whole sequence shares a single downstream
+// Chat Completions and legacy endpoints). The whole sequence shares a single downstream
 // write window so a client that stopped reading cannot hold the relay past
 // the budget, and a stale deadline from an earlier chunk cannot make these
 // writes fail instantly.
-func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration) error {
+func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration, sequence int64) error {
 	clear := armStreamWriteDeadline(w, budget)
 	defer clear()
 
@@ -517,7 +597,10 @@ func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budge
 			"type":    typ,
 		},
 	}
-	if endpoint == proxy.EndpointMessages {
+	if endpoint == proxy.EndpointResponses {
+		body = map[string]any{"code": typ, "message": message, "param": nil, "sequence_number": sequence}
+	}
+	if endpoint == proxy.EndpointMessages || endpoint == proxy.EndpointResponses {
 		body["type"] = "error"
 		if _, err := w.Write([]byte("event: error\n")); err != nil {
 			return err
@@ -527,7 +610,7 @@ func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budge
 	if _, err := w.Write(sseEvent(string(payload))); err != nil {
 		return err
 	}
-	if endpoint != proxy.EndpointMessages {
+	if endpoint != proxy.EndpointMessages && endpoint != proxy.EndpointResponses {
 		if _, err := w.Write(sseDone()); err != nil {
 			return err
 		}
@@ -650,6 +733,7 @@ func isDownstreamWriteTimeout(err error) bool {
 // the guard's fired flag.
 type streamIdleBody struct {
 	io.ReadCloser
+	timing    *attemptStreamTiming
 	guard     *streamIdleGuard
 	closeOnce sync.Once
 	closeErr  error
@@ -658,6 +742,9 @@ type streamIdleBody struct {
 func (b *streamIdleBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if n > 0 {
+		if b.timing != nil {
+			b.timing.arrival = time.Now()
+		}
 		b.guard.reset()
 	}
 	return n, err

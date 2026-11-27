@@ -60,8 +60,11 @@ func (s *ResponsesStream) identity(obj bridgeObject) error {
 	} else if err := bridgeIdentity(&s.model, model); err != nil {
 		return err
 	}
-	if s.created == nil {
-		s.created = obj["created_at"]
+	if s.created == nil && obj["created_at"] != nil {
+		s.created, err = bridgeCreatedAt(obj["created_at"])
+		if err != nil {
+			return err
+		}
 	}
 	if s.id == "" || s.model == "" {
 		return fmt.Errorf("Responses/Chat bridge: stream lacks response identity")
@@ -153,7 +156,7 @@ func (s *ResponsesStream) addItem(obj bridgeObject, out *bytes.Buffer) error {
 			}
 		}
 	case "function_call":
-		if err = bridgeFields(raw, "id", "type", "status", "call_id", "name", "arguments"); err != nil {
+		if err = bridgeFields(raw, "id", "type", "status", "call_id", "name", "arguments", "reasoning_content"); err != nil {
 			return err
 		}
 		item.callID, err = bridgeID(raw["call_id"], "call_id")
@@ -177,6 +180,9 @@ func (s *ResponsesStream) addItem(obj bridgeObject, out *bytes.Buffer) error {
 			return err
 		}
 		item.arguments.WriteString(args)
+		if err := s.callReasoning(raw, item, out); err != nil {
+			return err
+		}
 		s.toolIndices[index] = len(s.toolIndices)
 		s.chunk(out, bridgeObject{"tool_calls": []any{bridgeObject{"index": s.toolIndices[index], "id": item.callID, "type": "function", "function": bridgeObject{"name": item.name, "arguments": args}}}}, nil)
 	default:
@@ -187,6 +193,29 @@ func (s *ResponsesStream) addItem(obj bridgeObject, out *bytes.Buffer) error {
 	}
 	s.items[index] = item
 	s.order = append(s.order, index)
+	return nil
+}
+
+// Compatible providers can attach the same plain reasoning to multiple call
+// snapshots. Emit it once, and reject a snapshot that revises emitted text.
+func (s *ResponsesStream) callReasoning(raw bridgeObject, item *bridgeItem, out *bytes.Buffer) error {
+	if item.kind != "function_call" || raw["reasoning_content"] == nil {
+		return nil
+	}
+	text, err := bridgeReasoningParts(raw["reasoning_content"], "reasoning_text")
+	if err != nil {
+		return err
+	}
+	if item.callReasoning != "" && text != item.callReasoning {
+		return fmt.Errorf("Responses/Chat bridge: tool reasoning changed")
+	}
+	if text != item.callReasoning {
+		if err := s.retain(len(text)); err != nil {
+			return err
+		}
+		item.callReasoning = text
+		s.chunk(out, bridgeObject{"reasoning_content": text}, nil)
+	}
 	return nil
 }
 
@@ -212,7 +241,7 @@ func bridgeItemMatches(raw any, item *bridgeItem) bool {
 		return false
 	}
 	if item.kind == "function_call" {
-		if bridgeFields(obj, "id", "type", "call_id", "name", "arguments", "status") != nil {
+		if bridgeFields(obj, "id", "type", "call_id", "name", "arguments", "status", "reasoning_content") != nil {
 			return false
 		}
 		return obj["call_id"] == item.callID && obj["name"] == item.name && obj["arguments"] == item.arguments.String()
@@ -447,6 +476,9 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 		if !bridgeItemMatches(obj["item"], item) {
 			return nil, fmt.Errorf("Responses/Chat bridge: output item done contradicts content")
 		}
+		if err := s.callReasoning(bridgeMap(obj["item"]), item, &out); err != nil {
+			return nil, err
+		}
 		item.done = true
 	case "response.completed", "response.incomplete":
 		return s.complete(obj, typ)
@@ -474,11 +506,8 @@ func (s *ResponsesStream) complete(obj bridgeObject, event string) ([]byte, erro
 	if err := s.identity(response); err != nil {
 		return nil, err
 	}
-	if event != "response."+bridgeString(response["status"]) {
+	if event == "response.incomplete" && response["status"] != "incomplete" {
 		return nil, fmt.Errorf("Responses/Chat bridge: terminal event/status mismatch")
-	}
-	if len(s.items) == 0 {
-		return nil, fmt.Errorf("Responses/Chat bridge: terminal without output")
 	}
 	for _, index := range s.order {
 		item := s.items[index]
@@ -486,7 +515,7 @@ func (s *ResponsesStream) complete(obj bridgeObject, event string) ([]byte, erro
 			return nil, fmt.Errorf("Responses/Chat bridge: terminal before output item done")
 		}
 	}
-	_, tools, err := bridgeResponsesOutput(response["output"])
+	_, tools, err := bridgeResponsesOutput(response)
 	if err != nil {
 		return nil, err
 	}
@@ -494,9 +523,13 @@ func (s *ResponsesStream) complete(obj bridgeObject, event string) ([]byte, erro
 	if !ok || len(finalItems) != len(s.order) {
 		return nil, fmt.Errorf("Responses/Chat bridge: terminal item mismatch")
 	}
+	var out bytes.Buffer
 	for i, index := range s.order {
 		if !bridgeItemMatches(finalItems[i], s.items[index]) {
 			return nil, fmt.Errorf("Responses/Chat bridge: terminal item identity mismatch")
+		}
+		if err := s.callReasoning(bridgeMap(finalItems[i]), s.items[index], &out); err != nil {
+			return nil, err
 		}
 	}
 	reason, err := bridgeFinishReason(response, tools)
@@ -507,7 +540,6 @@ func (s *ResponsesStream) complete(obj bridgeObject, event string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	var out bytes.Buffer
 	s.chunk(&out, bridgeObject{}, reason)
 	if usage != nil {
 		chunk := bridgeObject{"id": s.id, "object": "chat.completion.chunk", "model": s.model, "choices": []any{}, "usage": usage}

@@ -270,4 +270,26 @@ describe('channel plugin management and bindings', () => {
     )
     expect(screen.queryByText('No plugins installed')).not.toBeInTheDocument()
   })
+
+  it('shows a live static manifest preview beside the editor without executing code', async () => {
+    mount(<ChannelPluginManager />)
+    fireEvent.click(screen.getByRole('button', { name: 'Install plugin' }))
+    const preview = await screen.findByRole('complementary', {
+      name: 'Static manifest & permissions preview',
+    })
+    expect(
+      within(preview).getByText('Manifest schema valid')
+    ).toBeInTheDocument()
+    expect(within(preview).getByText('v1 · Wire hook')).toBeInTheDocument()
+
+    const source = screen.getByLabelText('JavaScript module')
+    fireEvent.change(source, {
+      target: {
+        value: `export const meta = { apiVersion: 1, key: globalThis.evil(), name: "Bad", version: "1.0.0", protocols: ["chat"], hooks: ["request"] };`,
+      },
+    })
+    expect(
+      await within(preview).findByText(/cannot be statically previewed/i)
+    ).toBeInTheDocument()
+  })
 })

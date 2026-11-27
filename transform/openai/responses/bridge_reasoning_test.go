@@ -399,3 +399,118 @@ func TestChatReasoningOnlyLimitAndBoundedAccumulation(t *testing.T) {
 		t.Fatal("Finish repaired overflow")
 	}
 }
+
+func TestSanitizedToolReasoningReplaysToChat(t *testing.T) {
+	for _, reason := range []string{`"check id"`, `[{"type":"reasoning_text","text":"check "},{"type":"reasoning_text","text":"id"}]`} {
+		item := `{"type":"function_call","name":"lookup","call_id":"c","arguments":"{\"id\":9007199254740993}","reasoning_content":` + reason + `}`
+		request := bridgeTestObject(t, []byte(`{"model":"m","input":[`+item+`]}`))
+		sanitized, _, err := SanitizeResponsesRequestBody(request, ContinuityPolicyInput{Protocol: ProtocolResponses})
+		if err != nil {
+			t.Fatal(err)
+		}
+		chat, err := ToChatRequest(bridgeTestJSON(t, sanitized))
+		reply, respErr := ToChatResponse([]byte(`{"model":"m","id":"r","object":"response","status":"completed","output":[` + item + `]}`))
+		for _, wire := range [][]byte{chat, reply} {
+			if !bytes.Contains(wire, []byte(`"reasoning_content":"check id"`)) || !bytes.Contains(wire, []byte(`9007199254740993`)) {
+				t.Fatalf("lost call or reasoning: %s %v %v", wire, err, respErr)
+			}
+		}
+	}
+}
+
+func TestSanitizedMultipartSummaryReplaysToChat(t *testing.T) {
+	body := bridgeTestObject(t, []byte(`{"model":"m","input":[{"type":"reasoning","summary":[{"type":"summary_text","text":"First "},{"type":"summary_text","text":"step."}]}]}`))
+	sanitized, _, err := SanitizeResponsesRequestBody(body, ContinuityPolicyInput{Protocol: ProtocolResponses})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chat, err := ToChatRequest(bridgeTestJSON(t, sanitized))
+	if err != nil || !bytes.Contains(chat, []byte(`"reasoning_content":"First step."`)) {
+		t.Fatalf("replay: %s %v", chat, err)
+	}
+}
+
+func TestResponsesToolStreamReasoning(t *testing.T) {
+	for _, conflict := range []bool{false, true} {
+		start := bridgeObject{"id": "fc", "type": "function_call", "call_id": "c", "name": "f", "arguments": "", "reasoning_content": "check id"}
+		end := bridgeTestObject(t, bridgeTestJSON(t, start))
+		end["arguments"] = `{"id":9007199254740993}`
+		end["reasoning_content"] = []any{bridgeObject{"type": "reasoning_text", "text": "check id"}}
+		if conflict {
+			end["reasoning_content"] = "different"
+		}
+		events := []bridgeObject{
+			bridgeResponsesFixture(t)[0],
+			{"type": "response.output_item.added", "output_index": 0, "item": start},
+			{"type": "response.function_call_arguments.delta", "output_index": 0, "item_id": "fc", "delta": end["arguments"]},
+			{"type": "response.function_call_arguments.done", "output_index": 0, "item_id": "fc", "arguments": end["arguments"]},
+			{"type": "response.output_item.done", "output_index": 0, "item": end},
+			{"type": "response.completed", "response": bridgeObject{"id": "resp_1", "model": "m", "status": "completed", "output": []any{end}}},
+		}
+		s := NewResponsesStream("m")
+		var wire bytes.Buffer
+		var err error
+		for _, e := range events {
+			var chunk []byte
+			chunk, err = s.TransformEvent(bridgeTestFrame(t, e))
+			wire.Write(chunk)
+			if err != nil {
+				break
+			}
+		}
+		if conflict {
+			if err == nil || bytes.Contains(wire.Bytes(), []byte("[DONE]")) {
+				t.Fatal("conflicting reasoning succeeded")
+			}
+			continue
+		}
+		if err != nil || bytes.Count(wire.Bytes(), []byte(`"reasoning_content":"check id"`)) != 1 || !bytes.Contains(wire.Bytes(), []byte(`"finish_reason":"tool_calls"`)) {
+			t.Fatalf("stream: %s %v", wire.Bytes(), err)
+		}
+	}
+}
+
+func TestResponsesEmptyLimitedOutput(t *testing.T) {
+	for _, reason := range []string{"max_output_tokens", "content_filter"} {
+		frames := bridgeResponsesFixture(t)
+		final := frames[len(frames)-1]
+		src := bridgeMap(final["response"])
+		src["output"] = []any{}
+		src["status"] = "incomplete"
+		src["incomplete_details"] = bridgeObject{"reason": reason}
+		final["type"] = "response.incomplete"
+		body, err := ToChatResponse(bridgeTestJSON(t, src))
+		s := NewResponsesStream("m")
+		if _, e := s.TransformEvent(bridgeTestFrame(t, frames[0])); e != nil {
+			t.Fatal(e)
+		}
+		tail, streamErr := s.TransformEvent(bridgeTestFrame(t, final))
+		want := reason
+		if want == "max_output_tokens" {
+			want = "length"
+		}
+		for _, raw := range [][]byte{body, tail} {
+			if !bytes.Contains(raw, []byte(`"finish_reason":"`+want+`"`)) {
+				t.Fatalf("limited output: %s %v %v", raw, err, streamErr)
+			}
+		}
+	}
+}
+
+func TestSanitizeKeepsOpaqueToolReasoningOnNativeWire(t *testing.T) {
+	body := bridgeTestObject(t, []byte(`{"model":"m","input":[{"type":"function_call","call_id":"c","name":"f","arguments":"{\"id\":9007199254740993}","reasoning_content":"check","encrypted_content":"opaque"},{"type":"reasoning","encrypted_content":"opaque","summary":[{"type":"summary_text","text":"a"},{"type":"summary_text","text":"b"}]}],"metadata":{"id":9007199254740993}}`))
+	sanitized, _, err := SanitizeResponsesRequestBody(body, ContinuityPolicyInput{Protocol: ProtocolResponses})
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := sanitized["input"].([]any)
+	if !bytes.Equal(bridgeTestJSON(t, items[0]), bridgeTestJSON(t, body["input"].([]any)[0])) || bridgeMap(items[1])["encrypted_content"] != "opaque" || bridgeMap(sanitized["metadata"])["id"] != json.Number("9007199254740993") {
+		t.Fatalf("native history changed: %s", bridgeTestJSON(t, sanitized))
+	}
+	for _, item := range items {
+		request := bridgeObject{"model": "m", "input": []any{item}}
+		if out, err := ToChatRequest(bridgeTestJSON(t, request)); err == nil || out != nil {
+			t.Fatalf("opaque reasoning converted to Chat: %s", out)
+		}
+	}
+}

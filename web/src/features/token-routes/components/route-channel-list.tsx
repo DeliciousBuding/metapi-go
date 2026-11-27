@@ -27,6 +27,10 @@ import {
   PriceGradeBadge,
   type PriceCompareItem,
 } from '@/features/models'
+import {
+  formatRemainingCooldown,
+  useCooldownClock,
+} from '@/hooks/use-cooldown-clock'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt, formatPrice } from '@/lib/format'
 import { getPlatformDefinition } from '@/lib/platform-catalog'
@@ -120,9 +124,11 @@ const CHANNEL_STATUS_BADGE_VARIANT = {
 function ChannelStatusBadge({
   state,
   title,
+  remaining,
 }: {
   state: ChannelState
   title?: string
+  remaining?: string | null
 }) {
   const { t } = useTranslation()
   const label = t(CHANNEL_STATUS_LABEL_KEY[state])
@@ -131,10 +137,13 @@ function ChannelStatusBadge({
       data-testid='channel-status'
       variant={CHANNEL_STATUS_BADGE_VARIANT[state]}
       title={title ?? label}
-      className='gap-1'
+      className='gap-1 tabular-nums'
     >
       <ChannelStatusIcon state={state} />
       <span>{label}</span>
+      {state === 'cooling' && remaining ? (
+        <span className='font-mono'>({remaining})</span>
+      ) : null}
     </Badge>
   )
 }
@@ -152,6 +161,9 @@ export function RouteChannelList({
     route.kind === 'zero_channel' ? null : route.id
   )
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
+  const cooldownNow = useCooldownClock(
+    useMemo(() => channels.map((channel) => channel.cooldownUntil), [channels])
+  )
   const concreteModels = useMemo(
     () => resolveDistinctConcreteModels(route, channels),
     [route, channels]
@@ -307,6 +319,7 @@ export function RouteChannelList({
               priceTruth={view.priceTruth}
               showSourceModel={view.showSourceModel}
               priceQueryState={view.priceQueryState}
+              cooldownNow={cooldownNow}
             />
           ))}
         </ul>
@@ -438,6 +451,7 @@ function ChannelRow({
   priceTruth,
   showSourceModel,
   priceQueryState,
+  cooldownNow,
 }: {
   channel: RouteChannel
   state: ChannelState
@@ -445,6 +459,7 @@ function ChannelRow({
   priceTruth: RouteChannelPriceTruth
   showSourceModel: boolean
   priceQueryState: PriceQueryState | undefined
+  cooldownNow: number
 }) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -651,7 +666,15 @@ function ChannelRow({
           </span>
         </div>
 
-        <ChannelStatusBadge state={state} title={statusTitle} />
+        <ChannelStatusBadge
+          state={state}
+          title={statusTitle}
+          remaining={
+            state === 'cooling'
+              ? formatRemainingCooldown(channel.cooldownUntil, cooldownNow)
+              : null
+          }
+        />
       </div>
     </li>
   )

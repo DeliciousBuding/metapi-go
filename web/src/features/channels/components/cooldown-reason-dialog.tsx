@@ -27,6 +27,7 @@ import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime } from '@/lib/format'
 
 import { channelsKeys, type ChannelRow } from '../types'
+import { ChannelInlineProbe } from './channel-inline-probe'
 
 type CooldownReasonDialogProps = {
   channel: ChannelRow | null
@@ -186,6 +187,13 @@ export function CooldownReasonDialog({
               </p>
             </div>
           )}
+
+          {open && channel.type !== 'oauth_unit' ? (
+            <ChannelInlineProbe
+              channelId={channel.id}
+              defaultModel={channel.models}
+            />
+          ) : null}
         </div>
 
         <DialogFooter className='sm:flex-row sm:items-center'>

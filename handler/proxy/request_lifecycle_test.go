@@ -349,7 +349,7 @@ func TestGatewayLifecycleNativeWSAttemptObserver(t *testing.T) {
 	}{
 		{"normal", upstream.URL, map[string]any{"model": "m", "input": []any{}}, 1, false},
 		{"recovery", upstream.URL, map[string]any{"model": "m", "previous_response_id": "missing", "input": []any{}}, 2, false},
-		{"dial", "http://127.0.0.1:1", map[string]any{"model": "m"}, 1, true},
+		{"dial", "http://127.0.0.1:1", map[string]any{"model": "m"}, 0, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			id := "lifecycle-" + test.name
@@ -450,5 +450,53 @@ func TestGatewayLifecycleNativeWSTurns(t *testing.T) {
 		case <-ctx.Done():
 			t.Fatal("missing native turn")
 		}
+	}
+}
+
+func TestLegacyCodexWSDispatchBoundary(t *testing.T) {
+	for _, reject := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disconnect", true: "upgrade-rejected"}[reject], func(t *testing.T) {
+			var upgrades, creates, posts, logs atomic.Int32
+			previous, prior := config.RuntimeSafe(), getUpstreamConfig()
+			config.UpdateRuntime(func(cfg *config.RuntimeSettings) { cfg.CodexUpstreamWebsocketEnabled = true })
+			t.Cleanup(func() { config.SetRuntime(previous); SetUpstreamConfig(prior) })
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "POST" {
+					posts.Add(1)
+					w.Header().Set("Content-Type", "text/event-stream")
+					io.WriteString(w, "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[]}}\n\n")
+					return
+				}
+				upgrades.Add(1)
+				if reject {
+					http.Error(w, "upgrade rejected", 400)
+					return
+				}
+				conn, err := websocket.Accept(w, r, nil)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer conn.CloseNow()
+				_, raw, err := conn.Read(r.Context())
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				var frame map[string]any
+				if json.Unmarshal(raw, &frame) != nil || frame["type"] != "response.create" {
+					t.Errorf("create: %s", raw)
+				}
+				creates.Add(1)
+			}))
+			defer upstream.Close()
+			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: upstream.URL, Platform: "codex", Status: "active"}, TokenValue: "synthetic", ActualModel: "m"}}, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { logs.Add(1); return nil }})
+			ctx, conn := dialConditionalWS(t, nil)
+			writeWSMessage(t, ctx, conn, `{"type":"response.create","model":"m","input":[{"role":"user","content":"hello"}]}`)
+			terminal := readAssociationWSTerminal(t, ctx, conn)
+			if upgrades.Load() != 1 || logs.Load() != 1 || reject && (posts.Load() != 1 || creates.Load() != 0 || terminal != "response.completed") || !reject && (posts.Load() != 0 || creates.Load() != 1 || terminal != "error") {
+				t.Fatalf("upgrade=%d create=%d HTTP=%d attempts=%d terminal=%s", upgrades.Load(), creates.Load(), posts.Load(), logs.Load(), terminal)
+			}
+		})
 	}
 }

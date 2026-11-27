@@ -45,6 +45,7 @@
   --color-neutral: var(--neutral);
   --color-neutral-foreground: var(--neutral-foreground);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-focus-ring: var(--focus-ring);
@@ -123,13 +124,15 @@
   --neutral: oklch(0.556 0 0);
   --neutral-foreground: oklch(0.985 0 0);
   --border: oklch(0.918 0.003 262);
+  --border-subtle: oklch(0.946 0.003 262);
   --input: oklch(0.918 0.003 262);
   --ring: oklch(0.6 0.15 262);
   /* Focus-ring ink: darker than --ring so the indicator clears WCAG 1.4.11
    * (3:1 non-text) on the light surfaces it is drawn on. */
   --focus-ring: oklch(0.5 0.16 262);
   --overlay: oklch(0 0 0 / 0.12);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.06);
+  --shadow-card-hover:
+    0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.06);
   /* Chart series double as HttpStatusBadge text foregrounds
    * (text-chart-N), so each is solved for AA 4.5:1 text contrast on the
    * card, not the 3:1 non-text floor. Hues: brand indigo plus a 60-degree
@@ -221,12 +224,14 @@
   --neutral: oklch(0.7 0.004 262);
   --neutral-foreground: oklch(0.21 0.03 262);
   --border: oklch(1 0 0 / 0.11);
+  --border-subtle: oklch(1 0 0 / 0.07);
   --input: oklch(1 0 0 / 0.18);
   --ring: oklch(0.64 0.13 262);
   /* Lifted lighter than --ring to clear 3:1 on the dark canvas. */
   --focus-ring: oklch(0.71 0.13 262);
   --overlay: oklch(0 0 0 / 0.34);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.3);
+  --shadow-card-hover:
+    0 1px 2px oklch(0 0 0 / 0.24), 0 4px 12px oklch(0 0 0 / 0.3);
   --chart-1: oklch(0.745 0.125 262);
   --chart-2: oklch(0.745 0.125 200);
   --chart-3: oklch(0.745 0.125 320);

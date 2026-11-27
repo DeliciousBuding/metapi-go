@@ -104,3 +104,55 @@ func TestCollectorEnforcesAggregateByteLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectorWrappedIncomplete(t *testing.T) {
+	c, _ := New("responses", 4096)
+	err := c.Add("response.completed", []byte(`{"type":"response.completed","response":{"status":"incomplete","incomplete_details":{"reason":"content_filter"},"output":[]}}`))
+	body, resultErr := c.Result()
+	if err != nil || resultErr != nil || !strings.Contains(string(body), `"status":"incomplete"`) {
+		t.Fatalf("terminal: %s %v %v", body, err, resultErr)
+	}
+}
+
+func TestCollectorNativeToolFramesPreserveIntegers(t *testing.T) {
+	for _, tc := range []struct {
+		protocol string
+		frames   []string
+	}{
+		{"messages", []string{
+			`{"type":"message_start","message":{"id":"m","content":[]}}`,
+			`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"c","name":"f","input":{}}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"id\":900719"}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"9254740993}"}}`,
+			`{"type":"content_block_stop","index":0}`,
+			`{"type":"message_delta","delta":{"stop_reason":"tool_use"}}`,
+			`{"type":"message_stop"}`,
+		}},
+		{"gemini", []string{
+			`{"candidates":[{"content":{"parts":[{"text":"checking"}]}}]}`,
+			`{"candidates":[{"content":{"parts":[{"functionCall":{"name":"f","args":{"id":9007199254740993}}}]}}]}`,
+			`{"candidates":[{"finishReason":"STOP"}]}`,
+		}},
+	} {
+		t.Run(tc.protocol, func(t *testing.T) {
+			for n := 1; n <= len(tc.frames); n++ {
+				c, _ := New(tc.protocol, 4096)
+				for _, frame := range tc.frames[:n] {
+					if err := c.Add("", []byte(frame)); err != nil {
+						t.Fatal(err)
+					}
+				}
+				wire, err := c.Result()
+				if n < len(tc.frames) {
+					if err == nil || wire != nil {
+						t.Fatalf("accepted EOF after %d frames: %s", n, wire)
+					}
+					continue
+				}
+				if err != nil || !strings.Contains(string(wire), `"id":9007199254740993`) {
+					t.Fatalf("tool arguments: %s %v", wire, err)
+				}
+			}
+		})
+	}
+}

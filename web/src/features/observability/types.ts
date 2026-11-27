@@ -1,10 +1,12 @@
 // metapi-go/features/observability — shared types for the Observability
-// workspace (Overview / Health / Proxy Logs). The sections own their data
+// workspace (Overview / Health / Flow). The sections own their data
 // fetching; these types describe the backend wire contracts they consume.
 
 import type { ReactNode } from 'react'
 
-export type ObservabilitySectionId = 'overview' | 'health'
+import type { OverviewPeriod } from '@/lib/api'
+
+export type ObservabilitySectionId = 'overview' | 'health' | 'flow'
 
 export type ObservabilitySection = {
   id: ObservabilitySectionId
@@ -41,9 +43,13 @@ export type SlowRequestItem = {
   model: string
   status: string
   latencyMs: number
-  firstByteLatencyMs: number
+  firstByteLatencyMs: number | null
+  firstOutputLatencyMs?: number | null
   httpStatus: number
   requestId: string
+  gatewayRequestId?: string | null
+  isStream?: boolean | null
+  downstreamPath?: string | null
   accountId: number | null
   siteId: number | null
   siteName: string
@@ -63,6 +69,7 @@ export type SlowRequestsResponse = {
 
 export type RuntimeHealthBreaker = {
   siteId: number
+  siteName?: string
   model: string
   breakerLevel: number
   breakerUntilMs?: number | null
@@ -83,6 +90,8 @@ export type CooldownChannel = {
   siteName: string
   failCount: number
   cooldownUntil: string
+  cooldownReasonCode?: string | null
+  cooldownReason?: string | null
 }
 
 export type MonitorHealthResponse = {
@@ -114,4 +123,6 @@ export const observabilityKeys = {
     hours?: number
   }) => [...observabilityKeys.all, 'slow-requests', params] as const,
   monitorHealth: () => [...observabilityKeys.all, 'monitor-health'] as const,
+  trafficFlow: (params: { period?: OverviewPeriod; topN?: number }) =>
+    [...observabilityKeys.all, 'traffic-flow', params] as const,
 }

@@ -5,6 +5,14 @@
 export type BackupWebdavExportType = 'all' | 'accounts' | 'preferences'
 
 export type OverviewPeriod = '24h' | '7d' | '30d' | 'all'
+
+export type OverviewSiteSample = {
+  bucketTs: string
+  total: number
+  success: number
+  avgLatencyMs: number | null
+}
+
 export type OverviewReport = {
   period: OverviewPeriod
   window: { from?: string; to: string }
@@ -15,6 +23,7 @@ export type OverviewReport = {
     totalTokensAll: number
     totalCost: number
     averageLatencyMs: number | null
+    averageFirstByteMs?: number | null
   }
   requestSummary: {
     totalCount: number
@@ -61,8 +70,34 @@ export type OverviewReport = {
     successCount: number
     failedCount: number
     averageLatencyMs: number | null
+    averageFirstByteMs?: number | null
+    recentSamples?: OverviewSiteSample[]
   }>
   models: Array<{ model: string; calls: number; tokens: number; cost: number }>
+}
+
+export type TrafficFlowEdge = {
+  downstreamKeyId: number | null
+  downstreamKeyName: string | null
+  model: string
+  siteId: number | null
+  siteName: string | null
+  channelId: number | null
+  requests: number
+  failedCount: number
+  totalTokens: number
+  totalCost: number
+  averageLatencyMs: number | null
+}
+
+export type TrafficFlowResponse = {
+  period: OverviewPeriod
+  window: { from?: string; to: string }
+  totalRequests: number
+  totalFailed: number
+  totalTokens: number
+  totalCost: number
+  edges: TrafficFlowEdge[]
 }
 
 type BackupWebdavConfig = {
@@ -448,6 +483,58 @@ export type ProxyLogStatusFilter = 'all' | 'success' | 'failed'
 type ProxyLogClientConfidence = 'exact' | 'heuristic' | 'unknown' | null
 type ProxyLogUsageSource = 'upstream' | 'self-log' | 'unknown' | null
 
+type ProxyLogConversionDiagnostic = {
+  phase: string
+  code: string
+  severity: 'warning' | 'error' | 'unknown' | string
+  fieldClass: string
+}
+
+export type ProxyLogConversion = {
+  sourceProtocol?: string | null
+  upstreamProtocol?: string | null
+  owner?: string | null
+  quality?: string | null
+  requestSteps?: string[] | null
+  responseSteps?: string[] | null
+  diagnostics?: ProxyLogConversionDiagnostic[] | null
+}
+
+export type ProxyLogStreamTiming = {
+  headerMs?: number | null
+  firstReasoningMs?: number | null
+  firstTextMs?: number | null
+  lastContentMs?: number | null
+  maxContentGapMs?: number | null
+  reasoningEvidence?:
+    | 'none'
+    | 'visible'
+    | 'hidden'
+    | 'summaryOnly'
+    | string
+    | null
+  decodeTokens?: number | null
+  decodeWindowMs?: number | null
+  decodeTps?: number | null
+  decodeStatus?:
+    | 'measured'
+    | 'bufferedBurst'
+    | 'hiddenReasoning'
+    | 'insufficientEvidence'
+    | 'interrupted'
+    | string
+    | null
+}
+
+export type ProxyLogBillingToolSurcharge = {
+  tool: string
+  unit: string
+  quantity: number
+  source?: string | null
+  unitPrice?: number | null
+  cost: number
+}
+
 export type ProxyLogBillingDetails = {
   quotaType: number
   usage: {
@@ -456,6 +543,9 @@ export type ProxyLogBillingDetails = {
     totalTokens: number
     cacheReadTokens: number
     cacheCreationTokens: number
+    cacheCreation5mTokens?: number
+    cacheCreation1hTokens?: number
+    cacheCreation12hTokens?: number
     billablePromptTokens: number
     promptTokensIncludeCache: boolean | null
   }
@@ -475,6 +565,10 @@ export type ProxyLogBillingDetails = {
     outputCost: number
     cacheReadCost: number
     cacheCreationCost: number
+    cacheCreation5mCost?: number
+    cacheCreation1hCost?: number
+    cacheCreation12hCost?: number
+    toolSurcharges?: ProxyLogBillingToolSurcharge[]
     totalCost: number
   }
 } | null
@@ -526,6 +620,8 @@ export type ProxyLogDetail = ProxyLogListItem & {
   channelId?: number | null
   httpStatus?: number | null
   billingDetails?: ProxyLogBillingDetails
+  conversion?: ProxyLogConversion | null
+  streamTiming?: ProxyLogStreamTiming | null
   requestAttempts?: ProxyLogRequestAttempts
 }
 

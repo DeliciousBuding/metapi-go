@@ -79,6 +79,11 @@ func TestConfigureProxyUpstreamWiresPricingCatalogResolver(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
+	bill := proxyhandler.EstimateBillingCostFromUsage("gpt-real", "openai", proxyhandler.ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 1000})
+	if bill.EstimatedCost != 0.0125 {
+		t.Fatalf("loaded catalog cost = %v, want 0.0125", bill.EstimatedCost)
+	}
+
 	var siteID int64
 	if err := db.QueryRow(`SELECT id FROM sites`).Scan(&siteID); err != nil {
 		t.Fatalf("load seeded site: %v", err)

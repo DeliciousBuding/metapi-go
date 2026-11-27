@@ -2,8 +2,15 @@ package proxyhandler
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 
 	generate_content "github.com/deliciousbuding/metapi-go/transform/gemini/generate_content"
 )
@@ -271,4 +278,51 @@ func mapKeys(m map[string]any) string {
 		keys = append(keys, k)
 	}
 	return strings.Join(keys, ",")
+}
+
+func TestSiteSanitizedToolNumberOnWire(t *testing.T) {
+	for _, test := range []struct {
+		path, platform, model, body string
+		handler                     http.HandlerFunc
+	}{
+		{"/v1beta/models/gemini-3-flash:generateContent", "gemini", "gemini-3-flash", `{"contents":[{"role":"model","parts":[{"functionCall":{"name":"lookup","args":{"id":9007199254740993}}}]}]}`, HandleGeminiGenerateContent},
+		{"/v1/responses", "openai", "fixture", `{"model":"fixture","input":[{"role":"user","content":"hello"}],"tools":[{"type":"function","name":"lookup","parameters":{"properties":{"id":{"const":9007199254740993}}}}]}`, func(w http.ResponseWriter, r *http.Request) { HandleResponses(w, r, r.URL.Path) }},
+	} {
+		t.Run(test.platform, func(t *testing.T) {
+			observed := make(chan string, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				b, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Error(err)
+				}
+				observed <- string(b)
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(w, `{"id":"resp","output":[]}`)
+			}))
+			defer server.Close()
+			previous := getUpstreamConfig()
+			t.Cleanup(func() { SetUpstreamConfig(previous) })
+			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: server.URL, Platform: test.platform, Status: "active"}, ActualModel: test.model, TokenValue: "synthetic"}}})
+			out := httptest.NewRecorder()
+			test.handler(out, makeProxyReq("POST", test.path, test.body))
+			select {
+			case got := <-observed:
+				if !strings.Contains(got, "9007199254740993") {
+					t.Fatalf("tool integer changed: %s", got)
+				}
+			default:
+				t.Fatalf("no dispatch: %d %s", out.Code, out.Body.String())
+			}
+		})
+	}
+}
+
+func TestSanitizePreservesInvalidTrailingJSON(t *testing.T) {
+	for _, tail := range []string{" {}", " false", " trailing"} {
+		raw := `{"input":"hello","model":"fixture"}` + tail
+		got, err := sanitizeUpstreamJSONBody([]byte(raw), "openai", "/v1/responses", "fixture")
+		if err != nil || string(got) != raw {
+			t.Fatalf("invalid body truncated: %s, %v", got, err)
+		}
+	}
 }

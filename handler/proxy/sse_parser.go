@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/internal/toolusage"
 )
 
 const maxIncrementalSsePendingBytes = 1 << 20
@@ -39,6 +41,8 @@ type incrementalSseAnalysisResult struct {
 }
 
 type incrementalSseAnalyzer struct {
+	timing                *attemptStreamTiming
+	tools                 toolusage.Tracker
 	onEvent               func(SseEvent)
 	onFirstOutput         func()
 	pending               string
@@ -90,6 +94,7 @@ func (a *incrementalSseAnalyzer) Result() incrementalSseAnalysisResult {
 	result.PendingBytes = len(a.pending)
 	result.DroppedOversizedEvent = a.droppedOversizedEvent
 	result.Usage = a.usage
+	result.Usage.ToolUsage = a.tools.Snapshot()
 	if result.DroppedOversizedEvent {
 		result.Usage.invalidForUserBudget = true
 	}
@@ -147,6 +152,9 @@ func nextSseBoundary(s string) (int, int) {
 }
 
 func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
+	if a.timing != nil {
+		a.timing.observe(ev)
+	}
 	if a.onEvent != nil {
 		a.onEvent(ev)
 	}
@@ -163,7 +171,7 @@ func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
 		// Best-effort usage extraction without retaining full stream bodies.
 		// Later events with usage win (stream-end usage / message_delta / response.completed).
 		if looksLikeJSONObject(ev.Data) {
-			got := ParseUsageFromBody([]byte(ev.Data))
+			got := parseUsageWithTracker([]byte(ev.Data), &a.tools)
 			a.usage = mergeUsagePreferLater(a.usage, got)
 		}
 	}

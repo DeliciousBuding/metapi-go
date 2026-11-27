@@ -2,6 +2,7 @@ import { ArrowDown, MessageSquare, Copy, Check } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { formatInt, formatLatency } from '@/lib/format'
@@ -85,16 +86,32 @@ function TurnBlock({ message }: { message: ChatMessage }) {
     (response.promptTokens !== undefined ||
       response.completionTokens !== undefined ||
       response.totalTokens !== undefined)
+  const reportedModel = response?.upstreamReportedModel?.trim() || null
+  const requestedModel = message.model?.trim() || null
+  const hasModelMismatch =
+    Boolean(reportedModel) &&
+    Boolean(requestedModel) &&
+    reportedModel !== requestedModel
 
   return (
     <Message from={message.role}>
-      <div className='text-muted-foreground flex min-w-0 items-center gap-2 text-xs'>
+      <div className='text-muted-foreground flex min-w-0 flex-wrap items-center gap-2 text-xs'>
         <span className='font-medium'>
           {message.role === 'user'
             ? t('modelTester.viewer.roleYou')
             : t('modelTester.viewer.roleAssistant')}
         </span>
         {message.model && <span className='truncate'>{message.model}</span>}
+        {hasModelMismatch && reportedModel && (
+          <SoftToneBadge
+            tone='info'
+            title={t('modelTester.viewer.upstreamReportedModelHint')}
+          >
+            {t('modelTester.viewer.upstreamReportedModel', {
+              model: reportedModel,
+            })}
+          </SoftToneBadge>
+        )}
       </div>
       <MessageContent>
         {message.role === 'user' ? (
@@ -161,6 +178,13 @@ function TurnBlock({ message }: { message: ChatMessage }) {
                   value: formatLatency(response.latencyMs),
                 })}
               </span>
+              {response.firstByteLatencyMs != null && (
+                <span>
+                  {t('modelTester.viewer.firstByteLatency', {
+                    value: formatLatency(response.firstByteLatencyMs),
+                  })}
+                </span>
+              )}
               {hasUsage && (
                 <span>
                   {t('modelTester.viewer.usage', {
@@ -177,6 +201,9 @@ function TurnBlock({ message }: { message: ChatMessage }) {
                 <div className='mt-2 space-y-2 border-l-2 pl-3'>
                   <p>
                     HTTP {response.statusCode}
+                    {reportedModel
+                      ? ` · ${t('modelTester.viewer.upstreamReportedModel', { model: reportedModel })}`
+                      : ''}
                     {!response.doneReceived && !response.error
                       ? ` · ${t('modelTester.viewer.noDone')}`
                       : ''}

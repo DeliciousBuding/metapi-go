@@ -8,10 +8,24 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
+
+func TestNativeTimingPreservesUsageAfterOversizedFrame(t *testing.T) {
+	const path = "/v1/chat/completions"
+	req := httptest.NewRequest(http.MethodPost, path, nil)
+	req = req.WithContext(startAttemptStreamTiming(req.Context(), path, time.Now()))
+	frames := "data: " + strings.Repeat("x", maxIncrementalSsePendingBytes+10) + "\n\n" +
+		`data: {"usage":{"prompt_tokens":7,"completion_tokens":3}}` + "\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(frames))}
+	usage, _, _ := handleStreamUpstream(httptest.NewRecorder(), req, resp, 0)
+	if !usage.invalidForUserBudget || usage.TotalTokens != 10 {
+		t.Fatalf("lost oversized-frame or later usage evidence: %+v", usage)
+	}
+}
 
 const wireToolResponse = `{"id":"chat-1","object":"chat.completion","model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":null,"reasoning_content":"reason","tool_calls":[{"id":"call-1","type":"function","function":{"name":"echo","arguments":"{}"}}]},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13}}`
 const wireMessageTool = `{"id":"msg-1","type":"message","role":"assistant","model":"test-model","content":[{"type":"tool_use","id":"call-1","name":"echo","input":{}}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":3}}`

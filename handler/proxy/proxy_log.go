@@ -49,7 +49,7 @@ const proxyLogInsertColumns = `route_id, channel_id, upstream_channel_id, upstre
 			model_requested, model_actual, status, http_status, is_stream,
 			first_byte_latency_ms, first_output_latency_ms, upstream_reported_model, latency_ms,
 			prompt_tokens, completion_tokens, total_tokens,
-			estimated_cost, billing_details,
+			estimated_cost, billing_details, conversion_details, stream_timing,
 			client_family, client_app_id, client_app_name, client_confidence,
 			error_message, retry_count, request_id, created_at, downstream_path, gateway_request_id, owner_user_id, user_group_id`
 
@@ -60,9 +60,21 @@ const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?, ?, ?,
 			?, ?, ?, ?, ?,
 			?, ?, ?, ?,
 			?, ?, ?,
-			?, ?,
+			?, ?, ?, ?,
 			?, ?, ?, ?,
 			?, ?, ?, ?, ?, ?, ?, ?)`
+
+// Drop oversized observations without losing the accounting row.
+func encodeProxyObservation(value any) any {
+	if value == nil {
+		return nil
+	}
+	b, err := json.Marshal(value)
+	if err != nil || len(b) > 8192 || len(b) == 0 || b[0] != '{' {
+		return nil
+	}
+	return string(b)
+}
 
 // proxyLogEntryArgs builds the positional args for one proxy_logs INSERT row,
 // matching proxyLogInsertColumns order. Shared by InsertProxyLog (single) and
@@ -101,7 +113,7 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		nullInt64(entry.CompletionTokens),
 		nullInt64(entry.TotalTokens),
 		entry.EstimatedCost,
-		billingDetails,
+		billingDetails, encodeProxyObservation(entry.ConversionDetails), encodeProxyObservation(entry.StreamTiming),
 		nullString(strPtrOrEmpty(entry.ClientFamily)),
 		nullString(strPtrOrEmpty(entry.ClientAppID)),
 		nullString(strPtrOrEmpty(entry.ClientAppName)),
@@ -185,6 +197,9 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	}
 	if pac := auth.GetProxyAuth(ctx); pac != nil {
 		entry.OwnerUserID, entry.UserGroupID = pac.OwnerUserID, pac.UserGroupID
+	}
+	if wire := directProviderWireFromContext(ctx); wire != nil && wire.ProtocolSession != nil {
+		entry.ConversionDetails = wire.ProtocolSession.ConversionDetails()
 	}
 	requestLifecycleFromContext(ctx).recordAttempt(ctx, &entry)
 	// Prefer explicit entry.RequestID; otherwise inherit chi/Metapi request id.
@@ -331,11 +346,10 @@ func writeSuccessProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := selectedBillingPlatform(selected)
 	// Billing attribution uses the requested (canonical) name so a
 	// redirect/rewrite to the upstream actual name never changes cost
 	// accounting — ratio lookups stay on the canonical model.
-	billing := directVideoBillingResult(requestedModel, platformName, usage)
+	billing := directVideoBillingResult(ctx, requestedModel, selected, usage)
 	entry := proxy.ProxyLogEntry{
 		DownstreamPath:        proxyLogDownstreamPath(proxyCtx),
 		RouteID:               routeIDPtr,
@@ -358,6 +372,7 @@ func writeSuccessProxyLog(
 		TotalTokens:           observedUsageCount(usage.Found, usage.TotalTokens),
 		EstimatedCost:         billing.EstimatedCost,
 		BillingDetails:        billing.BillingDetails,
+		StreamTiming:          attemptTimingSnapshot(ctx, isStream, usage, false),
 		ClientFamily:          clientFamily,
 		ClientAppID:           clientAppID,
 		ClientAppName:         clientAppName,
@@ -461,14 +476,13 @@ func writeFailureProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := selectedBillingPlatform(selected)
 	// Only attach cost when usage was found; avoid inventing spend on pure
 	// network/timeout failures with zero tokens. Attribution name, not the
 	// upstream rewritten name.
 	var estimatedCost float64
 	var billingDetails any
-	if usage.Found || usage.videoAccounting != nil {
-		billing := directVideoBillingResult(requestedModel, platformName, usage)
+	if usage.Found || len(usage.ToolUsage) > 0 || usage.videoAccounting != nil {
+		billing := directVideoBillingResult(ctx, requestedModel, selected, usage)
 		estimatedCost = billing.EstimatedCost
 		billingDetails = billing.BillingDetails
 	}
@@ -499,6 +513,7 @@ func writeFailureProxyLog(
 		TotalTokens:           observedUsageCount(usage.Found, usage.TotalTokens),
 		EstimatedCost:         estimatedCost,
 		BillingDetails:        billingDetails,
+		StreamTiming:          attemptTimingSnapshot(ctx, isStream, usage, true),
 		ClientFamily:          clientFamily,
 		ClientAppID:           clientAppID,
 		ClientAppName:         clientAppName,

@@ -95,12 +95,16 @@ describe('diagnostic candidate inventory', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Reset candidate filters' })
     )
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 candidates' }))
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
-  it('preserves server order and labels priority and weight as configuration, with a known route repair entry', () => {
+  it('preserves server order, collapses blocked bucket by default, and labels priority/weight with repair entry', () => {
     const onEditRoute = vi.fn()
     show(decision, onEditRoute)
+    expect(screen.queryByText('Beta · backup')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 candidates' }))
     const rows = screen.getAllByRole('listitem')
     expect(within(rows[0]).getByText('Alpha · primary')).toBeInTheDocument()
     expect(
@@ -114,6 +118,53 @@ describe('diagnostic candidate inventory', () => {
     )
     expect(onEditRoute).toHaveBeenCalledWith(9)
     expect(screen.queryByText(/0\.0%/)).not.toBeInTheDocument()
+  })
+
+  it('shows live MM:SS countdown in the Cooling bucket and collapses >=3 same-platform siblings', () => {
+    const future = new Date(Date.now() + 95_000).toISOString()
+    show({
+      ...decision,
+      candidates: [
+        {
+          candidateRef: { kind: 'account', id: 101, siteId: 1 },
+          siteName: 'OpenAI Pool',
+          label: 'OpenAI · a',
+          eligibility: 'eligible',
+          blockers: [],
+        },
+        {
+          candidateRef: { kind: 'account', id: 102, siteId: 1 },
+          siteName: 'OpenAI Pool',
+          label: 'OpenAI · b',
+          eligibility: 'eligible',
+          blockers: [],
+        },
+        {
+          candidateRef: { kind: 'account', id: 103, siteId: 1 },
+          siteName: 'OpenAI Pool',
+          label: 'OpenAI · c',
+          eligibility: 'eligible',
+          blockers: [],
+        },
+        {
+          channelId: 55,
+          candidateRef: { kind: 'account', id: 104, siteId: 2 },
+          siteName: 'Cooling Site',
+          label: 'Cooling · x',
+          eligibility: 'blocked',
+          blockers: [{ code: 'cooldown', message: 'cooling' }],
+          cooldownUntil: future,
+        },
+      ],
+    })
+    expect(
+      screen.getByText('OpenAI Pool · 3 No candidate-filter blocker siblings')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('OpenAI · a')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
+    expect(screen.getByText('OpenAI · a')).toBeInTheDocument()
+    expect(screen.getByText('Cooling · x')).toBeInTheDocument()
+    expect(screen.getByText(/\d{2}:\d{2} remaining/)).toBeInTheDocument()
   })
 
   it('keeps protocol-unknown eligible candidates in the unevaluated category and hides unsafe repair targets', () => {

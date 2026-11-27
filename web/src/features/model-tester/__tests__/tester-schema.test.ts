@@ -251,6 +251,11 @@ describe('TESTER_FORM_DEFAULT_VALUES', () => {
       temperature: 0.7,
       topP: 1,
       maxTokens: 1024,
+      enabledParams: {
+        temperature: false,
+        topP: false,
+        maxTokens: false,
+      },
     })
   })
 

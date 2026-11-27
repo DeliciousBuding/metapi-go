@@ -44,6 +44,9 @@ type ChatTestHarnessEnvelope = {
   success: boolean
   statusCode: number
   latencyMs: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   truncatedBody: string
   error: string | null
   bodyTruncated?: boolean
@@ -80,14 +83,21 @@ export function buildChatPayload(
     messages.push({ role: message.role, content: message.content })
   }
   messages.push({ role: 'user', content: values.prompt })
+  const enabled = values.enabledParams ?? {
+    temperature: true,
+    topP: true,
+    maxTokens: true,
+  }
   return {
     model: values.model,
     messages,
     ...(values.channelId ? { channelId: values.channelId } : {}),
     targetFormat: values.targetFormat,
-    temperature: values.temperature,
-    top_p: values.topP,
-    max_tokens: values.maxTokens > 0 ? values.maxTokens : undefined,
+    ...(enabled.temperature ? { temperature: values.temperature } : {}),
+    ...(enabled.topP ? { top_p: values.topP } : {}),
+    ...(enabled.maxTokens && values.maxTokens > 0
+      ? { max_tokens: values.maxTokens }
+      : {}),
   }
 }
 
@@ -131,10 +141,31 @@ function parseChatTestHarnessEnvelope(
     throw new Error('Invalid chat test harness response')
   }
 
+  const firstByteLatencyMs =
+    typeof record.firstByteLatencyMs === 'number' &&
+    Number.isFinite(record.firstByteLatencyMs)
+      ? record.firstByteLatencyMs
+      : record.firstByteLatencyMs === null
+        ? null
+        : undefined
+  const upstreamReportedModel =
+    typeof record.upstreamReportedModel === 'string'
+      ? record.upstreamReportedModel.trim() || null
+      : record.upstreamReportedModel === null
+        ? null
+        : undefined
+  const basis =
+    typeof record.basis === 'string' && record.basis.trim().length > 0
+      ? record.basis.trim()
+      : undefined
+
   return {
     success: record.success,
     statusCode: record.statusCode,
     latencyMs: record.latencyMs,
+    ...(firstByteLatencyMs !== undefined ? { firstByteLatencyMs } : {}),
+    ...(upstreamReportedModel !== undefined ? { upstreamReportedModel } : {}),
+    ...(basis !== undefined ? { basis } : {}),
     truncatedBody: record.truncatedBody,
     error: record.error as string | null,
     bodyTruncated: record.bodyTruncated === true,
@@ -509,6 +540,13 @@ export async function runChatProbe(
     doneReceived: upstreamBody.doneReceived,
     statusCode: envelope.statusCode,
     latencyMs: envelope.latencyMs,
+    ...(envelope.firstByteLatencyMs !== undefined
+      ? { firstByteLatencyMs: envelope.firstByteLatencyMs }
+      : {}),
+    ...(envelope.upstreamReportedModel !== undefined
+      ? { upstreamReportedModel: envelope.upstreamReportedModel }
+      : {}),
+    ...(envelope.basis !== undefined ? { basis: envelope.basis } : {}),
     rawEvents: upstreamBody.rawEvents,
     empty: !upstreamBody.content && !upstreamBody.reasoningContent,
     error,
@@ -562,7 +600,11 @@ export async function runBatchComparison(
     channelId: number
     run: (signal?: AbortSignal) => Promise<TestResponse>
   }>,
-  options: { concurrency?: number; signal?: AbortSignal } = {}
+  options: {
+    concurrency?: number
+    signal?: AbortSignal
+    onResult?: (result: BatchProbeResult, index: number) => void
+  } = {}
 ): Promise<BatchProbeResult[]> {
   const concurrency = Math.max(1, options.concurrency ?? 3)
   const results: BatchProbeResult[] = Array.from({ length: probes.length })
@@ -573,11 +615,13 @@ export async function runBatchComparison(
       const index = nextIndex
       nextIndex += 1
       const probe = probes[index]
-      results[index] = await settleProbe(
+      const settled = await settleProbe(
         probe.channelId,
         probe.run,
         options.signal
       )
+      results[index] = settled
+      options.onResult?.(settled, index)
     }
   }
 
@@ -599,7 +643,21 @@ async function settleProbe(
         status: 'failure',
         statusCode: summary.statusCode,
         latencyMs: summary.latencyMs,
+        ...(summary.firstByteLatencyMs !== undefined
+          ? { firstByteLatencyMs: summary.firstByteLatencyMs }
+          : {}),
+        ...(summary.upstreamReportedModel !== undefined
+          ? { upstreamReportedModel: summary.upstreamReportedModel }
+          : {}),
+        ...(summary.basis !== undefined ? { basis: summary.basis } : {}),
         error: summary.error,
+        content: summary.content,
+        reasoningContent: summary.reasoningContent,
+        rawEvents: summary.rawEvents,
+        promptTokens: summary.promptTokens,
+        completionTokens: summary.completionTokens,
+        totalTokens: summary.totalTokens,
+        bodyTruncated: summary.bodyTruncated,
       }
     }
     return {
@@ -607,6 +665,20 @@ async function settleProbe(
       status: 'success',
       statusCode: summary.statusCode,
       latencyMs: summary.latencyMs,
+      ...(summary.firstByteLatencyMs !== undefined
+        ? { firstByteLatencyMs: summary.firstByteLatencyMs }
+        : {}),
+      ...(summary.upstreamReportedModel !== undefined
+        ? { upstreamReportedModel: summary.upstreamReportedModel }
+        : {}),
+      ...(summary.basis !== undefined ? { basis: summary.basis } : {}),
+      content: summary.content,
+      reasoningContent: summary.reasoningContent,
+      rawEvents: summary.rawEvents,
+      promptTokens: summary.promptTokens,
+      completionTokens: summary.completionTokens,
+      totalTokens: summary.totalTokens,
+      bodyTruncated: summary.bodyTruncated,
     }
   } catch (error) {
     if (isAbortError(error)) return { channelId, status: 'aborted' }

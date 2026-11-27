@@ -31,6 +31,7 @@ import {
   ProbeHealthBar,
   type ProbeHistoryMap,
 } from '@/components/common/probe-health-bar'
+import { RowDisclosureTrigger } from '@/components/common/row-disclosure'
 import { SafeExternalLink } from '@/components/common/safe-external-link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -301,13 +302,20 @@ export const AccountsRowActions = memo(function AccountsRowActions({
 // Columns hook
 // ---------------------------------------------------------------------------
 
+export interface AccountsRowDisclosureOptions {
+  expandedIds: ReadonlySet<number>
+  toggle: (id: number) => void
+  getContentId: (id: number) => string
+}
+
 export function useAccountsColumns(
   actions: AccountRowActions,
   pendingStatusId: number | null = null,
   pendingCheckinId: number | null = null,
   pendingPinId: number | null = null,
   pendingManualCheckinId: number | null = null,
-  probeHistory?: ProbeHistoryMap
+  probeHistory?: ProbeHistoryMap,
+  disclosure?: AccountsRowDisclosureOptions
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -348,9 +356,19 @@ export function useAccountsColumns(
         cell: ({ row }) => {
           const account = row.original
           const displayName = resolveDisplayName(account)
+          const isExpanded = disclosure?.expandedIds.has(account.id) ?? false
           return (
             <div className='flex flex-col gap-1'>
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1.5'>
+                {disclosure && (
+                  <RowDisclosureTrigger
+                    expanded={isExpanded}
+                    controls={disclosure.getContentId(account.id)}
+                    aria-label={displayName}
+                    className='text-muted-foreground hover:text-foreground size-6 shrink-0 justify-center p-0'
+                    onClick={() => disclosure.toggle(account.id)}
+                  />
+                )}
                 <button
                   type='button'
                   data-slot='account-name'
@@ -489,16 +507,29 @@ export function useAccountsColumns(
         header: t('accounts.columns.balance'),
         cell: ({ row }) => {
           const account = row.original
+          const hasReward =
+            typeof account.todayReward === 'number' && account.todayReward > 0
+          const hasSpend =
+            typeof account.todaySpend === 'number' && account.todaySpend > 0
           return (
-            <div className='flex flex-col'>
-              <span className='tabular-nums'>
+            <div className='flex flex-col gap-0.5'>
+              <span className='font-medium tabular-nums'>
                 {formatCurrency(account.balance)}
               </span>
-              {account.todayReward ? (
-                <span className='text-success text-2xs'>
-                  +{formatCurrency(account.todayReward)}
-                </span>
-              ) : null}
+              {(hasReward || hasSpend) && (
+                <div className='text-2xs flex flex-wrap items-center gap-1.5 tabular-nums'>
+                  {hasReward && (
+                    <span className='text-success-soft-fg'>
+                      +{formatCurrency(account.todayReward)}
+                    </span>
+                  )}
+                  {hasSpend && (
+                    <span className='text-muted-foreground'>
+                      -{formatCurrency(account.todaySpend)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )
         },
@@ -622,6 +653,7 @@ export function useAccountsColumns(
       resolveDisplayName,
       t,
       probeHistory,
+      disclosure,
     ]
   )
 }

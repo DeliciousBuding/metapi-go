@@ -56,10 +56,10 @@ export function NavGroup({ title, items }: NavGroupProps) {
 
   return (
     <SidebarGroup className='px-2 py-1'>
-      <SidebarGroupLabel className='text-muted-foreground px-2 text-xs font-semibold tracking-normal'>
+      <SidebarGroupLabel className='text-muted-foreground/90 h-7 px-2 text-xs font-medium tracking-normal'>
         {t(title)}
       </SidebarGroupLabel>
-      <SidebarMenu>
+      <SidebarMenu className='gap-0.5'>
         {items.map((item) => {
           const key = `${item.title}-${item.url}`
 
@@ -183,11 +183,13 @@ function SidebarNavLink({
  */
 function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
   const { t } = useTranslation()
+  const isActive = checkIsActive(href, item)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        isActive={checkIsActive(href, item)}
+        isActive={isActive}
         tooltip={t(item.title)}
+        className='rounded-lg transition-colors data-active:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_18%,transparent)]'
         render={(props) => (
           <SidebarNavLink
             to={item.url}
@@ -196,7 +198,16 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
           />
         )}
       >
-        {item.icon && <item.icon className='shrink-0' />}
+        {item.icon && (
+          <item.icon
+            className={cn(
+              'shrink-0 transition-colors',
+              isActive
+                ? 'text-sidebar-accent-foreground'
+                : 'text-muted-foreground'
+            )}
+          />
+        )}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
         {item.badge && <NavBadge labelKey={item.badge} />}
       </SidebarMenuButton>

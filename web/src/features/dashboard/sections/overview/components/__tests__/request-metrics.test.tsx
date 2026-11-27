@@ -166,4 +166,43 @@ describe('operator request metrics', () => {
     ).toHaveTextContent('—')
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
   })
+
+  it('displays average latency and average first-byte latency, showing dashes on zero traffic', async () => {
+    vi.mocked(api.getOverviewReport).mockResolvedValue(
+      reportFixture({
+        summary: {
+          totalCount: 25,
+          successCount: 24,
+          failedCount: 1,
+          totalCost: 0.42,
+          totalTokensAll: 5000,
+          averageLatencyMs: 1450,
+          averageFirstByteMs: 320,
+        },
+      })
+    )
+    const { unmount } = renderMetrics()
+    expect(await screen.findByText('1.4 s')).toBeInTheDocument()
+    expect(screen.getByText('320 ms')).toBeInTheDocument()
+    unmount()
+
+    vi.mocked(api.getOverviewReport).mockResolvedValue(
+      reportFixture({
+        summary: {
+          totalCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          totalCost: 0,
+          totalTokensAll: 0,
+          averageLatencyMs: 0,
+          averageFirstByteMs: 0,
+        },
+      })
+    )
+    renderMetrics()
+    await screen.findByText(
+      'No request-level records with requestId in this period'
+    )
+    expect(screen.queryByText('0 ms')).not.toBeInTheDocument()
+  })
 })

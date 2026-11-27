@@ -9,7 +9,9 @@
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight as ArrowRightIcon,
+  CheckCircle2 as CheckCircle2Icon,
   ExternalLink as ExternalLinkIcon,
+  PauseCircle as PauseCircleIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -104,8 +106,13 @@ export function SiteDetailSheet({
         </SheetHeader>
 
         <div className='flex flex-col gap-4 overflow-y-auto px-4 pb-4'>
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
             <Badge variant={status === 'active' ? 'success' : 'secondary'}>
+              {status === 'active' ? (
+                <CheckCircle2Icon className='size-3' aria-hidden='true' />
+              ) : (
+                <PauseCircleIcon className='size-3' aria-hidden='true' />
+              )}
               {t(STATUS_LABEL_KEY[status])}
             </Badge>
             {site.isPinned && (

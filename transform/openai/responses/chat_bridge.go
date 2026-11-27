@@ -358,7 +358,7 @@ func ToChatRequest(body []byte) ([]byte, error) {
 					messages = append(messages, bridgeObject{"role": role, "content": content})
 				}
 			case "function_call":
-				if err = bridgeFields(item, "type", "call_id", "name", "arguments", "id", "status"); err != nil {
+				if err = bridgeFields(item, "type", "call_id", "name", "arguments", "id", "status", "reasoning_content"); err != nil {
 					return nil, err
 				}
 				call, err := bridgeFunctionCall(item, false)
@@ -376,6 +376,13 @@ func ToChatRequest(body []byte) ([]byte, error) {
 				if msg == nil {
 					msg = bridgeObject{"role": "assistant", "content": nil}
 					messages = append(messages, msg)
+				}
+				thought, err := bridgeReasoningParts(item["reasoning_content"], "reasoning_text")
+				if err != nil {
+					return nil, err
+				}
+				if thought != "" {
+					msg["reasoning_content"] = bridgeString(msg["reasoning_content"]) + thought
 				}
 				calls, _ := msg["tool_calls"].([]any)
 				msg["tool_calls"] = append(calls, call)

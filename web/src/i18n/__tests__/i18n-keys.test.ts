@@ -79,20 +79,19 @@ interface Usage {
   kind: UsageKind
 }
 
-/** Flatten a translation object into dotted leaf keys (`translation.` prefix excluded). */
-function flattenLeaves(node: TranslationNode, prefix = ''): Set<string> {
-  const leaves = new Set<string>()
+/** Keep literal dotted keys and their values together when walking translations. */
+function* flattenLeaves(
+  node: TranslationNode,
+  prefix = ''
+): Generator<[string, unknown]> {
   for (const [segment, value] of Object.entries(node)) {
     const key = prefix ? `${prefix}.${segment}` : segment
     if (value !== null && typeof value === 'object') {
-      for (const leaf of flattenLeaves(value as TranslationNode, key)) {
-        leaves.add(leaf)
-      }
+      yield* flattenLeaves(value as TranslationNode, key)
     } else {
-      leaves.add(key)
+      yield [key, value]
     }
   }
-  return leaves
 }
 
 /** Walk dotted segments and return the node if it exists (object or leaf). */
@@ -279,12 +278,64 @@ function normalizeKey(rawKey: string, root: TranslationNode): string | null {
 describe('i18n key coverage', () => {
   const enRoot = en.translation as TranslationNode
   const zhRoot = zhCN.translation as TranslationNode
-  const enKeys = flattenLeaves(enRoot)
-  const zhKeys = flattenLeaves(zhRoot)
+  const enLeaves = [...flattenLeaves(enRoot)]
+  const zhLeaves = [...flattenLeaves(zhRoot)]
+  const enKeys = new Set(enLeaves.map(([key]) => key))
+  const zhKeys = new Set(zhLeaves.map(([key]) => key))
   const sourceFiles = collectSourceFiles()
   const tCallUsages = extractTCallUsages(sourceFiles)
   const indirectUsages = extractIndirectUsages(sourceFiles)
   const usages = [...tCallUsages, ...indirectUsages]
+
+  for (const locale of ['en', 'zh-CN'] as const) {
+    it(`${locale}.json has unique keys within each object`, () => {
+      const raw = readFileSync(
+        join(SRC_ROOT, 'i18n', 'locales', `${locale}.json`),
+        'utf8'
+      )
+      // The JSON imports validate syntax. Consume whole strings so braces and
+      // colons in a translation cannot be mistaken for object syntax.
+      const objects: Set<string>[] = []
+      const duplicates = []
+      let keysRead = 0
+      for (const token of raw.matchAll(/([{}])|("(?:[^"\\]|\\.)*")(\s*:)?/g)) {
+        if (token[1] === '{') objects.push(new Set())
+        else if (token[1] === '}') objects.pop()
+        else if (token[2] && token[3]) {
+          const key: string = JSON.parse(token[2])
+          const keys = objects.at(-1)
+          if (!keys)
+            throw new Error(`${locale}: key outside object at ${token.index}`)
+          if (keys.has(key))
+            duplicates.push(`${key} at line ${lineOfOffset(raw, token.index)}`)
+          keys.add(key)
+          keysRead++
+        }
+      }
+      expect(keysRead).toBeGreaterThan(0)
+      expect(duplicates).toEqual([])
+    })
+
+    it(`${locale}.json has nonblank translation strings`, () => {
+      const leaves = locale === 'en' ? enLeaves : zhLeaves
+      expect(
+        leaves.filter(([, value]) => typeof value !== 'string' || !value.trim())
+      ).toEqual([])
+    })
+  }
+
+  it('en.json uses CJK only for the native language name', () => {
+    const cjk =
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
+    expect(
+      enLeaves.filter(
+        ([key, value]) =>
+          typeof value === 'string' &&
+          cjk.test(value) &&
+          !(key === 'common.languageName.zhCN' && value === '简体中文')
+      )
+    ).toEqual([])
+  })
 
   it('scans a meaningful number of t() call sites (no vacuous pass)', () => {
     expect(tCallUsages.length).toBeGreaterThan(1000)

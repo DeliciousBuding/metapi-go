@@ -121,6 +121,9 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 			if out.Code < 400 || strings.Contains(out.Body.String(), "private-partial") || strings.Contains(out.Body.String(), "data:") || calls.Load() != 1 || len(logs) != 1 || logs[0].Status == "success" {
 				t.Fatalf("partial success status=%d calls=%d logs=%d body=%s", out.Code, calls.Load(), len(logs), out.Body.String())
 			}
+			if logs[0].StreamTiming != nil {
+				t.Fatal("aggregated response reported a downstream stream measurement")
+			}
 			if limiter.ActiveCount(credentialID) != 0 {
 				t.Fatal("aggregate failure leaked credential slot")
 			}
@@ -183,7 +186,12 @@ func (b *cancelAfterFrameBody) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func TestDirectRequiredStreamRetriesBeforeCommitting(t *testing.T) {
+func TestExecutedResponseFailureDoesNotReplay(t *testing.T) {
+	t.Run("json", func(t *testing.T) { testExecutedResponseFailure(t, false) })
+	t.Run("aggregate", func(t *testing.T) { testExecutedResponseFailure(t, true) })
+}
+
+func testExecutedResponseFailure(t *testing.T, aggregate bool) {
 	previous := config.GetSafe()
 	cfg := *config.Get()
 	cfg.ProxyMaxChannelAttempts = 2
@@ -197,6 +205,11 @@ func TestDirectRequiredStreamRetriesBeforeCommitting(t *testing.T) {
 			calls[index].Add(1)
 			var body map[string]json.RawMessage
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			if !aggregate {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, `{"id":"c","model":"provider-model","choices":[{"index":0,"message":{"role":"assistant","content":"answer"},"finish_reason":"invalid_reason"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
+				return
+			}
 			if string(body["stream"]) != "true" {
 				t.Error("retry lost required stream")
 			}
@@ -214,14 +227,21 @@ func TestDirectRequiredStreamRetriesBeforeCommitting(t *testing.T) {
 	}
 	db := installDirectMediaRuntime(t, store.DialectSQLite, store.DirectEndpoints{Chat: &store.DirectEndpoint{URL: servers[0].URL, Auth: store.DirectAuthBearer}}, store.DirectProtocolChat, "")
 	payload := fmt.Sprintf(`{"version":"1.4","channels":[{"id":1,"type":"qiniu","name":"First","base_url":%q,"credentials":{"apiKey":"synthetic-one"},"supported_models":["provider-model"],"policies":{"stream":"require"}},{"id":2,"type":"qiniu","name":"Second","base_url":%q,"credentials":{"apiKey":"synthetic-two"},"supported_models":["provider-model"],"policies":{"stream":"require"}}],"models":[{"id":1,"model_id":"client-alias","settings":{"associations":[{"type":"channel_model","priority":1,"channelModel":{"channelId":1,"modelId":"provider-model"}},{"type":"channel_model","priority":2,"channelModel":{"channelId":2,"modelId":"provider-model"}}]}}]}`, servers[0].URL, servers[1].URL)
+	if !aggregate {
+		payload = strings.ReplaceAll(payload, `,"policies":{"stream":"require"}`, "")
+	}
 	if _, err := backup.ImportAxonHubV14(db, []byte(payload), "media-fixture", false); err != nil {
 		t.Fatal(err)
 	}
 	var logs []proxy.ProxyLogEntry
 	getUpstreamConfig().LogProxy = func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }
 	out := httptest.NewRecorder()
-	HandleChatCompletions(out, makeProxyReq("POST", "/v1/chat/completions", `{"model":"client-alias","messages":[{"role":"user","content":"hello"}]}`))
-	if out.Code != 200 || calls[0].Load() != 1 || calls[1].Load() != 1 || len(logs) != 2 || logs[0].Status == "success" || logs[1].Status != "success" || strings.Contains(out.Body.String(), "discarded-partial") || !strings.Contains(out.Body.String(), "final-answer") {
+	if aggregate {
+		HandleChatCompletions(out, makeProxyReq("POST", "/v1/chat/completions", `{"model":"client-alias","messages":[{"role":"user","content":"hello"}]}`))
+	} else {
+		HandleClaudeMessages(out, makeProxyReq("POST", "/v1/messages", `{"model":"client-alias","max_tokens":32,"messages":[{"role":"user","content":"hello"}]}`))
+	}
+	if out.Code != 502 || calls[0].Load() != 1 || calls[1].Load() != 0 || len(logs) != 1 || logs[0].Status != "failed" || strings.Contains(out.Body.String(), "discarded-partial") || strings.Contains(out.Body.String(), "final-answer") {
 		t.Fatalf("retry status=%d attempts=%d/%d logs=%d body=%s", out.Code, calls[0].Load(), calls[1].Load(), len(logs), out.Body.String())
 	}
 	for _, entry := range logs {

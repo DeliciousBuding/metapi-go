@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Puzzle, RefreshCw } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useDeferredValue, useEffect, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -45,6 +45,7 @@ import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { ChannelPluginHistory } from './channel-plugin-history'
+import { ChannelPluginMetaPreview } from './channel-plugin-meta-preview'
 
 const sourceSchema = z.object({
   key: z
@@ -289,10 +290,13 @@ function ChannelPluginEditor(props: {
     toast.success(t('channels.plugins.saved'))
     props.onClose()
   }
+  const watchedSource = useWatch({ control: form.control, name: 'source' })
+  const watchedKey = useWatch({ control: form.control, name: 'key' })
+  const deferredSource = useDeferredValue(watchedSource ?? '')
   return (
     <>
       <Sheet open onOpenChange={handleOpenChange}>
-        <SheetContent className='w-full sm:max-w-3xl'>
+        <SheetContent className='w-full sm:max-w-5xl'>
           <SheetHeader>
             <SheetTitle>
               {t(
@@ -316,88 +320,98 @@ function ChannelPluginEditor(props: {
               <p role='status'>{t('common.loading')}</p>
             ) : (
               !loadError && (
-                <Form {...form}>
-                  <form
-                    className='space-y-5'
-                    onSubmit={form.handleSubmit((values) =>
-                      save(values).catch(() => {})
-                    )}
-                  >
-                    <FormField
-                      control={form.control}
-                      name='key'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('channels.plugins.key')}</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              disabled={!!props.pluginKey || pending}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                <div className='grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,1fr)]'>
+                  <Form {...form}>
+                    <form
+                      className='space-y-5'
+                      onSubmit={form.handleSubmit((values) =>
+                        save(values).catch(() => {})
                       )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name='source'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('channels.plugins.source')}</FormLabel>
-                          <FormDescription>
-                            {t('channels.plugins.sourceLimits')}
-                          </FormDescription>
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              spellCheck={false}
-                              autoComplete='off'
-                              className='min-h-72 font-mono text-xs'
-                              disabled={pending}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name='enabled'
-                      render={({ field }) => (
-                        <FormItem className='flex items-center gap-3'>
-                          <FormLabel>{t('channels.plugins.enabled')}</FormLabel>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={pending}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <div className='flex justify-end gap-2'>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        disabled={pending}
-                        onClick={() => handleOpenChange(false)}
-                      >
-                        {t('common.cancel')}
-                      </Button>
-                      <Button
-                        type='submit'
-                        disabled={
-                          pending ||
-                          (!form.formState.isDirty && !!props.pluginKey)
-                        }
-                      >
-                        {t('common.save')}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
+                    >
+                      <FormField
+                        control={form.control}
+                        name='key'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('channels.plugins.key')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                disabled={!!props.pluginKey || pending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='source'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('channels.plugins.source')}
+                            </FormLabel>
+                            <FormDescription>
+                              {t('channels.plugins.sourceLimits')}
+                            </FormDescription>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                spellCheck={false}
+                                autoComplete='off'
+                                className='min-h-72 font-mono text-xs'
+                                disabled={pending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='enabled'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center gap-3'>
+                            <FormLabel>
+                              {t('channels.plugins.enabled')}
+                            </FormLabel>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={pending}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <div className='flex justify-end gap-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          disabled={pending}
+                          onClick={() => handleOpenChange(false)}
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                        <Button
+                          type='submit'
+                          disabled={
+                            pending ||
+                            (!form.formState.isDirty && !!props.pluginKey)
+                          }
+                        >
+                          {t('common.save')}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                  <ChannelPluginMetaPreview
+                    source={deferredSource}
+                    pluginKey={watchedKey ?? ''}
+                  />
+                </div>
               )
             )}
           </div>

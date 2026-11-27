@@ -3,6 +3,8 @@ package proxyhandler
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,6 +13,46 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
 )
+
+func TestAttemptObservationBatch(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		t.Run(dialect, func(t *testing.T) {
+			var db *store.DB
+			if dialect == store.DialectSQLite {
+				db = sqlitetest.Open(t)
+			} else {
+				dsn := os.Getenv("PG_TEST_DSN")
+				if dsn == "" {
+					t.Skip("PG_TEST_DSN not set")
+				}
+				var err error
+				db, err = store.Open(dialect, dsn, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer db.Close()
+				if err = store.AutoMigrate(db); err != nil {
+					t.Fatal(err)
+				}
+			}
+			first := sampleBatchEntry(1)
+			first.RequestID = fmt.Sprintf("attempt-batch-%d", time.Now().UnixNano())
+			first.StreamTiming = map[string]string{"decodeStatus": "interrupted"}
+			first.ConversionDetails = map[string]string{"owner": "relaykit"}
+			second := first
+			second.RequestID += "-oversize"
+			second.StreamTiming = map[string]string{"invalid": strings.Repeat("x", 8192)}
+			second.ConversionDetails = nil
+			if err := batchInsertProxyLogs(t.Context(), db, []proxy.ProxyLogEntry{first, second}); err != nil {
+				t.Fatal(err)
+			}
+			var count int
+			if err := db.Get(&count, `SELECT COUNT(*) FROM proxy_logs WHERE (request_id=? AND conversion_details=? AND stream_timing=?) OR (request_id=? AND conversion_details IS NULL AND stream_timing IS NULL)`, first.RequestID, `{"owner":"relaykit"}`, `{"decodeStatus":"interrupted"}`, second.RequestID); err != nil || count != 2 {
+				t.Fatal(count, err)
+			}
+		})
+	}
+}
 
 // setupBatchTestDB opens an isolated migrated in-memory SQLite DB and
 // overrides the process-global store DB so the batch writer (which resolves

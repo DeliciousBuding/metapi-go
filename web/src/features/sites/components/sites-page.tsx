@@ -503,7 +503,13 @@ export function SitesPage() {
               {value === 'all'
                 ? t('sites.page.allSites')
                 : statusFilters.find((option) => option.value === value)?.label}
-              <span className='bg-background/15 rounded px-1.5 text-xs tabular-nums'>
+              <span
+                className={
+                  pressed
+                    ? 'bg-primary-foreground/20 rounded-full px-1.5 text-xs tabular-nums'
+                    : 'bg-muted text-muted-foreground rounded-full px-1.5 text-xs tabular-nums'
+                }
+              >
                 {sitesQuery.isLoading || sitesQuery.error ? '—' : count}
               </span>
             </Button>

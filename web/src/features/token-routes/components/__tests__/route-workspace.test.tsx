@@ -20,12 +20,14 @@ vi.mock('@/lib/api', () => ({
     getDownstreamApiKeys: vi.fn(),
     getRouteDecision: vi.fn(),
     getRouteDecisionKeyContext: vi.fn(),
+    getModelsMarketplace: vi.fn(),
   },
 }))
 
 const getKeys = vi.mocked(api.getDownstreamApiKeys)
 const getDecision = vi.mocked(api.getRouteDecision)
 const getKeyDecision = vi.mocked(api.getRouteDecisionKeyContext)
+const getModelsMarketplace = vi.mocked(api.getModelsMarketplace)
 
 const route: RouteDecision = {
   mode: 'adminPreview',
@@ -106,9 +108,26 @@ function renderWorkspace(
 }
 
 beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  Element.prototype.scrollIntoView = vi.fn()
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
   getKeys.mockReset().mockResolvedValue({
     items: [{ id: 7, name: 'prod', enabled: true }],
   } as never)
+  getModelsMarketplace
+    .mockReset()
+    .mockResolvedValue({ models: [{ name: 'gpt-4o' }] } as never)
   getDecision.mockReset()
   getKeyDecision.mockReset()
 })
@@ -213,6 +232,29 @@ describe('RouteWorkspace', () => {
     expect(screen.queryByText('Primary account')).not.toBeInTheDocument()
     expect(getKeyDecision).toHaveBeenCalledTimes(2)
     expect(getDecision).not.toHaveBeenCalled()
+  })
+
+  it('allows selecting a custom wildcard or unlisted model via ModelPicker and shows two-column headings', async () => {
+    getKeyDecision.mockResolvedValue(keyContextResult as never)
+    renderWorkspace({ keyId: '7' })
+    expect(
+      await screen.findByRole('heading', { name: '① Downstream admission' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '② Candidate routing topology' })
+    ).toBeInTheDocument()
+
+    const modelPicker = screen.getByRole('combobox', { name: 'Client model' })
+    fireEvent.click(modelPicker)
+    const search = await screen.findByRole('combobox', {
+      name: 'Search models or providers…',
+    })
+    fireEvent.change(search, { target: { value: 'claude-*' } })
+    const customOption = await screen.findByRole('option', {
+      name: /Use custom model \/ pattern "claude-\*"/,
+    })
+    fireEvent.click(customOption)
+    expect(modelPicker).toHaveTextContent('claude-*')
   })
 
   it('disables empty submissions without starting either disabled query', async () => {

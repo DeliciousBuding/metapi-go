@@ -134,6 +134,49 @@ it('opens the tester with the selected model name intact', async () => {
   })
 })
 
+it('navigates to route workspace with workspaceModel and shows four-tier pricing matrix', async () => {
+  const onOpenChange = vi.fn()
+  const pricedModel: ModelRow = {
+    ...model,
+    name: 'claude-3-7-sonnet',
+    pricingSources: [
+      {
+        siteId: 1,
+        siteName: 'Primary Relay',
+        accountId: 10,
+        username: 'ops',
+        ownerBy: null,
+        enableGroups: ['default'],
+        groupPricing: {
+          default: {
+            quotaType: 0,
+            inputPerMillion: 3,
+            outputPerMillion: 15,
+            cacheReadPerMillion: 0.3,
+          },
+        },
+      },
+    ],
+  }
+  render(
+    <ModelDetailSheet open model={pricedModel} onOpenChange={onOpenChange} />
+  )
+
+  expect(await screen.findByText('Anthropic')).toBeInTheDocument()
+  expect(screen.getByText('$3.00/M')).toBeInTheDocument()
+  expect(screen.getByText('$15.00/M')).toBeInTheDocument()
+  expect(screen.getByText('$0.30/M')).toBeInTheDocument()
+  // Missing cache write stays honest unknown '—'.
+  expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1)
+
+  const routeBtn = screen.getByRole('button', { name: '路由工作区' })
+  fireEvent.click(routeBtn)
+  expect(onOpenChange).toHaveBeenCalledWith(false)
+  expect(mocks.navigate).toHaveBeenCalledExactlyOnceWith({
+    href: `/token-routes?${new URLSearchParams({ workspaceModel: pricedModel.name })}`,
+  })
+})
+
 it('lets readers expand and collapse long descriptions', async () => {
   const description = '模型能力与使用限制。'.repeat(25)
   render(

@@ -2,10 +2,12 @@ package admin
 
 import (
 	"encoding/json"
-	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/go-chi/chi/v5"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestStats_OverviewWindows(t *testing.T) {
@@ -173,4 +175,67 @@ func TestStats_OverviewRequestLevelMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func bothStatsDatabases(t *testing.T, check func(*testing.T, *store.DB, chi.Router)) {
+	t.Helper()
+	for _, tc := range []struct {
+		name  string
+		setup func(*testing.T) (*store.DB, chi.Router)
+	}{{"sqlite", setupStatsSQLiteTest}, {"postgres", setupStatsPostgresTest}} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, r := tc.setup(t)
+			check(t, db, r)
+		})
+	}
+}
+
+func TestOverviewObservedHours(t *testing.T) {
+	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
+		if db.Dialect == store.DialectPostgres {
+			db.SetMaxOpenConns(1)
+			mustExec(t, db, `SET TIME ZONE 'Asia/Hong_Kong'`)
+		}
+		mustExec(t, db, `INSERT INTO sites (id, name, url, platform, status) VALUES (1,'busy','https://busy.example','openai','active'), (2,'idle','https://idle.example','openai','active')`)
+		mustExec(t, db, `INSERT INTO accounts (id, site_id, access_token) VALUES (1,1,'fixture')`)
+		get := func() map[string]any { return catalogCall(t, r, "GET", "/api/stats/overview?period=7d", nil, 200) }
+		empty := get()["summary"].(map[string]any)
+		if v, ok := empty["averageFirstByteMs"]; !ok || v != nil {
+			t.Errorf("empty first byte = %#v", empty)
+		}
+		hour := time.Now().UTC().Truncate(time.Hour).Add(-time.Hour)
+		add := func(ago int, account, firstByte, latency any, status string) {
+			mustExec(t, db, `INSERT INTO proxy_logs (account_id, status, first_byte_latency_ms, latency_ms, created_at) VALUES (?,?,?,?,?)`, account, status, firstByte, latency, hour.Add(-time.Duration(ago)*time.Hour).Format(time.RFC3339))
+		}
+		for i := 0; i < 25; i++ {
+			add(2*i, 1, nil, nil, "success")
+		}
+		add(0, 1, 12, 80, "failed")
+		add(0, 1, 0, 40, "success")
+		add(1, nil, 24, nil, "failed")
+		add(200, 1, 400, 100, "failed")
+		out := get()
+		summary := out["summary"].(map[string]any)
+		sites := out["siteAvailability"].([]any)
+		busy, idle := sites[0].(map[string]any), sites[1].(map[string]any)
+		if summary["averageFirstByteMs"] != float64(18) || busy["averageFirstByteMs"] != float64(12) {
+			t.Errorf("first byte summary=%v busy=%v", summary, busy)
+		}
+		if v, ok := idle["averageFirstByteMs"]; !ok || v != nil || !reflect.DeepEqual(idle["recentSamples"], []any{}) {
+			t.Errorf("idle = %v", idle)
+		}
+		samples, ok := busy["recentSamples"].([]any)
+		if !ok || len(samples) != 24 {
+			t.Fatalf("recentSamples = %v", busy["recentSamples"])
+		}
+		for i, raw := range samples {
+			want := map[string]any{"bucketTs": hour.Add(-time.Duration(2*(23-i)) * time.Hour).Format(time.RFC3339), "total": float64(1), "success": float64(1), "avgLatencyMs": nil}
+			if i == 23 {
+				want["total"], want["success"], want["avgLatencyMs"] = float64(3), float64(2), float64(60)
+			}
+			if !reflect.DeepEqual(raw, want) {
+				t.Errorf("sample %d=%v want %v", i, raw, want)
+			}
+		}
+	})
 }

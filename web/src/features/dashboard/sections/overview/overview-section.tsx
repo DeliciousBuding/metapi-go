@@ -5,7 +5,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
 import { Button } from '@/components/ui/button'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import { api, type OverviewPeriod } from '@/lib/api'
 import { formatCurrency, formatInt } from '@/lib/format'
 
@@ -64,6 +66,13 @@ export function OverviewSection() {
     queryFn: () => api.getDashboardSnapshot() as Promise<ResourceSnapshot>,
     refetchInterval: 30_000,
   })
+  const isRefreshing = report.isFetching || snapshot.isFetching
+  const showRefreshSpin = useDelayedSpin(isRefreshing)
+  const updatedAt = Math.max(
+    report.dataUpdatedAt ?? 0,
+    snapshot.dataUpdatedAt ?? 0
+  )
+  const hasRefreshError = Boolean(report.isError || snapshot.isError)
   const data = snapshot.data
   const accounts = data?.totalAccounts ?? data?.accountCount
   return (
@@ -74,7 +83,7 @@ export function OverviewSection() {
         accountCount={accounts ?? undefined}
         upstreamChannelCount={data?.upstreamChannelCount ?? undefined}
       />
-      <div className='flex min-w-0 items-center gap-2'>
+      <div className='flex min-w-0 flex-wrap items-center gap-2'>
         <div
           role='group'
           aria-label={t('dashboard.operations.rangeLabel')}
@@ -97,13 +106,17 @@ export function OverviewSection() {
           variant='outline'
           size='icon'
           aria-label={t('dashboard.operations.refresh')}
-          disabled={report.isFetching}
-          onClick={() => void report.refetch()}
+          disabled={isRefreshing}
+          onClick={() => {
+            void report.refetch()
+            void snapshot.refetch()
+          }}
         >
           <RefreshCw
-            className={report.isFetching ? 'size-4 animate-spin' : 'size-4'}
+            className={showRefreshSpin ? 'size-4 animate-spin' : 'size-4'}
           />
         </Button>
+        <QuietRefreshStatus updatedAt={updatedAt} hasError={hasRefreshError} />
       </div>
       <RequestMetrics period={period} />
       <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]'>

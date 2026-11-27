@@ -198,8 +198,7 @@ func (h *statsHandler) gatewayRequestDetail(w http.ResponseWriter, r *http.Reque
 		attempts = []map[string]any{}
 	}
 	for _, attempt := range attempts {
-		attempt["billingDetails"] = decodeProxyLogBilling(attempt["billingDetails"])
-		normalizeProxyLogRow(attempt)
+		projectProxyAttemptDetail(attempt)
 	}
 	writeJSON(w, 200, struct {
 		store.GatewayRequest

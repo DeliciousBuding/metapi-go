@@ -4,6 +4,8 @@ import (
 	"math"
 	"strings"
 	"sync/atomic"
+
+	"github.com/deliciousbuding/metapi-go/internal/toolusage"
 )
 
 // Claude / Anthropic official prompt-cache multipliers used when an upstream
@@ -20,6 +22,8 @@ import (
 // Non-Claude models keep the original Metapi fallback of 1.0 so we do not
 // invent vendor-specific multipliers without evidence.
 const (
+	cacheWrite1hWeight  = 1.6
+	cacheWrite12hWeight = 2
 	// DefaultCacheRatio is the historical Metapi fallback when cache_ratio is
 	// missing for non-Claude models (input × 1.0).
 	DefaultCacheRatio = 1.0
@@ -76,14 +80,19 @@ func overriddenOr(p *atomic.Pointer[float64], fallback float64) float64 {
 // PricingModel is a normalized upstream pricing row used for cost estimation.
 // Pointer ratios distinguish "missing" from an explicit zero.
 type PricingModel struct {
-	ModelName          string
-	QuotaType          int // 0 = token-based, 1 = per-call
-	ModelRatio         float64
-	CompletionRatio    float64
-	CacheRatio         *float64
-	CacheCreationRatio *float64
-	ModelPrice         *ModelPrice
-	EnableGroups       []string
+	ModelName             string
+	QuotaType             int // 0 = token-based, 1 = per-call
+	ModelRatio            float64
+	CompletionRatio       float64
+	CacheRatio            *float64
+	CacheCreationRatio    *float64
+	CacheCreation1hRatio  *float64
+	CacheCreation12hRatio *float64
+	// ToolUnitPrices is currency per single unit, keyed by "tool.unit"
+	// (e.g. "grounding.queries"). Group pricing applies once at settlement.
+	ToolUnitPrices map[string]float64
+	ModelPrice     *ModelPrice
+	EnableGroups   []string
 }
 
 // ModelPrice is either a flat per-call price or input/output pair.
@@ -98,15 +107,29 @@ type ModelPrice struct {
 
 // UsageForCost is token usage for a single request cost estimate.
 type UsageForCost struct {
-	PromptTokens        int64
-	CompletionTokens    int64
-	TotalTokens         int64
-	CacheReadTokens     int64
-	CacheCreationTokens int64
+	PromptTokens           int64
+	CompletionTokens       int64
+	TotalTokens            int64
+	CacheReadTokens        int64
+	CacheCreationTokens    int64
+	CacheCreation5mTokens  int64
+	CacheCreation1hTokens  int64
+	CacheCreation12hTokens int64
+	ToolUsage              []ToolUsageChargeInput
 	// PromptTokensIncludeCache:
 	// true/nil → prompt tokens already include cache tokens (subtract for billable input)
 	// false → prompt tokens are exclusive of cache tokens
 	PromptTokensIncludeCache *bool
+}
+
+// ToolUsageChargeInput accepts Tracker.Snapshot() without a conversion.
+type ToolUsageChargeInput = toolusage.ToolUsageItem
+
+type ProxyToolSurcharge struct {
+	ToolUsageChargeInput
+	// Nil denotes an unpriced observation; a pointer to zero denotes free use.
+	UnitPrice *float64 `json:"unitPrice,omitempty"`
+	Cost      float64  `json:"cost"`
 }
 
 // ProxyBillingDetails mirrors the TS ProxyBillingDetails shape (camelCase JSON).
@@ -124,6 +147,9 @@ type ProxyBillingUsage struct {
 	TotalTokens              int64 `json:"totalTokens"`
 	CacheReadTokens          int64 `json:"cacheReadTokens"`
 	CacheCreationTokens      int64 `json:"cacheCreationTokens"`
+	CacheCreation5mTokens    int64 `json:"cacheCreation5mTokens,omitempty"`
+	CacheCreation1hTokens    int64 `json:"cacheCreation1hTokens,omitempty"`
+	CacheCreation12hTokens   int64 `json:"cacheCreation12hTokens,omitempty"`
 	BillablePromptTokens     int64 `json:"billablePromptTokens"`
 	PromptTokensIncludeCache *bool `json:"promptTokensIncludeCache"`
 }
@@ -139,15 +165,19 @@ type ProxyBillingPricing struct {
 
 // ProxyBillingBreakdown is the money breakdown of billing details.
 type ProxyBillingBreakdown struct {
-	InputPerMillion         float64 `json:"inputPerMillion"`
-	OutputPerMillion        float64 `json:"outputPerMillion"`
-	CacheReadPerMillion     float64 `json:"cacheReadPerMillion"`
-	CacheCreationPerMillion float64 `json:"cacheCreationPerMillion"`
-	InputCost               float64 `json:"inputCost"`
-	OutputCost              float64 `json:"outputCost"`
-	CacheReadCost           float64 `json:"cacheReadCost"`
-	CacheCreationCost       float64 `json:"cacheCreationCost"`
-	TotalCost               float64 `json:"totalCost"`
+	InputPerMillion         float64              `json:"inputPerMillion"`
+	OutputPerMillion        float64              `json:"outputPerMillion"`
+	CacheReadPerMillion     float64              `json:"cacheReadPerMillion"`
+	CacheCreationPerMillion float64              `json:"cacheCreationPerMillion"`
+	InputCost               float64              `json:"inputCost"`
+	OutputCost              float64              `json:"outputCost"`
+	CacheReadCost           float64              `json:"cacheReadCost"`
+	CacheCreationCost       float64              `json:"cacheCreationCost"`
+	CacheCreation5mCost     float64              `json:"cacheCreation5mCost,omitempty"`
+	CacheCreation1hCost     float64              `json:"cacheCreation1hCost,omitempty"`
+	CacheCreation12hCost    float64              `json:"cacheCreation12hCost,omitempty"`
+	ToolSurcharges          []ProxyToolSurcharge `json:"toolSurcharges,omitempty"`
+	TotalCost               float64              `json:"totalCost"`
 }
 
 // IsClaudeModel reports whether modelName belongs to the Claude / Anthropic
@@ -228,10 +258,8 @@ func CalculateModelUsageBreakdown(
 	inputCost := roundCost((float64(normalized.BillablePromptTokens) / 1_000_000) * inputPerMillion)
 	outputCost := roundCost((float64(normalized.CompletionTokens) / 1_000_000) * outputPerMillion)
 	cacheReadCost := roundCost((float64(normalized.CacheReadTokens) / 1_000_000) * cacheReadPerMillion)
-	cacheCreationCost := roundCost((float64(normalized.CacheCreationTokens) / 1_000_000) * cacheCreationPerMillion)
-	totalCost := roundCost(inputCost + outputCost + cacheReadCost + cacheCreationCost)
 
-	return &ProxyBillingDetails{
+	details := &ProxyBillingDetails{
 		QuotaType: model.QuotaType,
 		Usage:     normalized,
 		Pricing: ProxyBillingPricing{
@@ -249,10 +277,66 @@ func CalculateModelUsageBreakdown(
 			InputCost:               inputCost,
 			OutputCost:              outputCost,
 			CacheReadCost:           cacheReadCost,
-			CacheCreationCost:       cacheCreationCost,
-			TotalCost:               totalCost,
 		},
 	}
+	b := &details.Breakdown
+	b.priceCacheWrites(normalized, model, modelRatio, multiplier, cacheCreationRatio)
+	b.TotalCost = roundCost(inputCost + outputCost + cacheReadCost + b.CacheCreationCost)
+	b.addToolSurcharges(model, usage.ToolUsage, multiplier)
+	return details
+}
+
+func (b *ProxyBillingBreakdown) priceCacheWrites(u ProxyBillingUsage, model PricingModel, modelRatio, multiplier, baseRatio float64) {
+	ordinary := u.CacheCreationTokens - u.CacheCreation5mTokens - u.CacheCreation1hTokens - u.CacheCreation12hTokens
+	price := func(tokens int64, rate float64) float64 { return float64(tokens) / 1_000_000 * rate }
+	if ordinary == u.CacheCreationTokens {
+		b.CacheCreationCost = roundCost(price(ordinary, b.CacheCreationPerMillion))
+		return
+	}
+	tierRate := func(override *float64, fallback float64) float64 {
+		ratio := fallback
+		if override != nil && isFiniteNonNeg(*override) {
+			ratio = *override
+		}
+		return roundCost(modelRatio * ratio * 2 * multiplier)
+	}
+	five := price(u.CacheCreation5mTokens, b.CacheCreationPerMillion)
+	hour := price(u.CacheCreation1hTokens, tierRate(model.CacheCreation1hRatio, baseRatio*cacheWrite1hWeight))
+	long := price(u.CacheCreation12hTokens, tierRate(model.CacheCreation12hRatio, baseRatio*cacheWrite12hWeight))
+	b.CacheCreation5mCost = roundCost(five)
+	b.CacheCreation1hCost = roundCost(hour)
+	b.CacheCreation12hCost = roundCost(long)
+	// Round the aggregate once, including sub-microcurrency tier quantities.
+	b.CacheCreationCost = roundCost(price(ordinary, b.CacheCreationPerMillion) + five + hour + long)
+}
+
+// PriceCatalogCacheWrites applies an absolute write rate (including free use)
+// to the normalized token split using the same TTL weights as ratio pricing.
+func (b *ProxyBillingBreakdown) PriceCatalogCacheWrites(u ProxyBillingUsage, rate float64) {
+	ordinary := u.CacheCreationTokens - u.CacheCreation5mTokens - u.CacheCreation1hTokens - u.CacheCreation12hTokens
+	b.CacheCreation5mCost = float64(u.CacheCreation5mTokens) * rate / 1e6
+	b.CacheCreation1hCost = float64(u.CacheCreation1hTokens) * rate * cacheWrite1hWeight / 1e6
+	b.CacheCreation12hCost = float64(u.CacheCreation12hTokens) * rate * cacheWrite12hWeight / 1e6
+	b.CacheCreationCost = float64(ordinary)*rate/1e6 + b.CacheCreation5mCost + b.CacheCreation1hCost + b.CacheCreation12hCost
+}
+
+func (b *ProxyBillingBreakdown) addToolSurcharges(model PricingModel, items []ToolUsageChargeInput, multiplier float64) {
+	if len(items) == 0 {
+		return
+	}
+	for _, item := range items {
+		if item.Quantity < 0 || item.Quantity > toolusage.MaxCount {
+			continue
+		}
+		line := ProxyToolSurcharge{ToolUsageChargeInput: item}
+		if price, ok := model.ToolUnitPrices[item.Tool+"."+item.Unit]; ok && isFiniteNonNeg(price) {
+			line.UnitPrice = &price
+			line.Cost = roundCost(float64(item.Quantity) * price * multiplier)
+			b.TotalCost += line.Cost
+		}
+		b.ToolSurcharges = append(b.ToolSurcharges, line)
+	}
+	b.TotalCost = roundCost(b.TotalCost)
 }
 
 // CalculateModelUsageFullPrice bills the no-cache-detail tier: every input
@@ -304,7 +388,7 @@ func CalculateModelUsageFullPrice(
 		completionRatio = 1
 	}
 
-	return &ProxyBillingDetails{
+	details := &ProxyBillingDetails{
 		QuotaType: model.QuotaType,
 		Usage:     normalized,
 		Pricing: ProxyBillingPricing{
@@ -326,6 +410,8 @@ func CalculateModelUsageFullPrice(
 			TotalCost:               totalCost,
 		},
 	}
+	details.Breakdown.addToolSurcharges(model, usage.ToolUsage, multiplier)
+	return details
 }
 
 // CalculateModelUsageCost returns the estimated cost for a model + usage.
@@ -336,7 +422,9 @@ func CalculateModelUsageCost(
 ) float64 {
 	multiplier := resolveGroupMultiplier(model, groupRatio)
 	if model.QuotaType == 1 {
-		return roundCost(calculatePerCallCost(model.ModelPrice, multiplier))
+		b := ProxyBillingBreakdown{TotalCost: roundCost(calculatePerCallCost(model.ModelPrice, multiplier))}
+		b.addToolSurcharges(model, usage.ToolUsage, multiplier)
+		return b.TotalCost
 	}
 	detail := CalculateModelUsageBreakdown(model, usage, groupRatio)
 	if detail == nil {
@@ -395,6 +483,16 @@ func normalizeUsageBreakdownInput(usage UsageForCost) ProxyBillingUsage {
 	}
 	cacheReadTokens := toPositiveInt64(usage.CacheReadTokens)
 	cacheCreationTokens := toPositiveInt64(usage.CacheCreationTokens)
+	// Each TTL is a subset of the write total; ordinary writes are the rest.
+	subset := func(n, remaining int64) int64 {
+		if n < 0 || n > toolusage.MaxCount {
+			return 0
+		}
+		return min(n, remaining)
+	}
+	long := subset(usage.CacheCreation12hTokens, cacheCreationTokens)
+	hour := subset(usage.CacheCreation1hTokens, cacheCreationTokens-long)
+	five := subset(usage.CacheCreation5mTokens, cacheCreationTokens-long-hour)
 	promptTokensIncludeCache := usage.PromptTokensIncludeCache
 
 	hasSplit := promptTokens > 0 || completionTokens > 0
@@ -420,6 +518,9 @@ func normalizeUsageBreakdownInput(usage UsageForCost) ProxyBillingUsage {
 		TotalTokens:              totalTokens,
 		CacheReadTokens:          cacheReadTokens,
 		CacheCreationTokens:      cacheCreationTokens,
+		CacheCreation5mTokens:    five,
+		CacheCreation1hTokens:    hour,
+		CacheCreation12hTokens:   long,
 		BillablePromptTokens:     billablePromptTokens,
 		PromptTokensIncludeCache: promptTokensIncludeCache,
 	}

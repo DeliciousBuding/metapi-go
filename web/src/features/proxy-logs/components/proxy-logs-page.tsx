@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { DateRangePresets } from '@/components/common/date-range-presets'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
 import {
   DataTablePage,
   DataTableRow,
@@ -410,6 +411,14 @@ export function ProxyLogsPage() {
 
   const hasLatencyFilter = latencyMin !== null || latencyMax !== null
   const slowOnly = latencyMin === 2000 && latencyMax === null
+  const detailIndex = detailLog
+    ? items.findIndex((item) => item.id === detailLog.id)
+    : -1
+  const updatedAt = Math.max(
+    logsQuery.dataUpdatedAt ?? 0,
+    metaQuery.dataUpdatedAt ?? 0
+  )
+  const hasRefreshError = Boolean(logsQuery.isError || metaQuery.isError)
 
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
@@ -417,6 +426,11 @@ export function ProxyLogsPage() {
         title={t('requestLogs.title')}
         actions={
           <>
+            <QuietRefreshStatus
+              updatedAt={updatedAt}
+              hasError={hasRefreshError}
+              className='hidden sm:inline'
+            />
             <ProxyLogsAutoRefreshToggle
               intervalMs={intervalMs}
               setIntervalMs={setIntervalMs}
@@ -792,6 +806,16 @@ export function ProxyLogsPage() {
         log={detailLog}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        hasPrev={detailIndex > 0}
+        hasNext={detailIndex >= 0 && detailIndex < items.length - 1}
+        onNavigatePrev={() => {
+          if (detailIndex > 0) setDetailLog(items[detailIndex - 1])
+        }}
+        onNavigateNext={() => {
+          if (detailIndex >= 0 && detailIndex < items.length - 1) {
+            setDetailLog(items[detailIndex + 1])
+          }
+        }}
         onViewAttempt={(attempt) =>
           setDetailLog((prev) =>
             prev

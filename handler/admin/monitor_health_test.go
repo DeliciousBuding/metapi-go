@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -374,4 +375,56 @@ func TestMonitorHealth_ExpiredCooldownNotInCoolingList(t *testing.T) {
 	if len(cooling) != 0 {
 		t.Fatalf("cooling length = %d, want 0 (expired cooldown)", len(cooling))
 	}
+}
+
+func TestMonitorNamedBreakersAndCooldownReasons(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{TokenRouterFailureCooldownMaxSec: 86400})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
+		RegisterMonitorHealthRoute(r, db.DB)
+		routing.ResetSiteRuntimeHealthState()
+		t.Cleanup(routing.ResetSiteRuntimeHealthState)
+		mustExec(t, db, `INSERT INTO sites (id,name,url,platform) VALUES (12,'named-site','https://site.example','openai')`)
+		mustExec(t, db, `INSERT INTO accounts (id,site_id,access_token) VALUES (1,12,'fixture')`)
+		mustExec(t, db, `INSERT INTO token_routes (id,model_pattern) VALUES (1,'model')`)
+		future := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+		mustExec(t, db, `INSERT INTO route_channels (id,account_id,route_id,cooldown_until,cooldown_reason_code,cooldown_reason) VALUES (1,1,1,?,'rate_limit','429'),(2,1,1,?,NULL,NULL)`, future, future)
+		status := 500
+		model := "test-model"
+		for range routing.SiteRuntimeBreakerStreakThreshold {
+			routing.RecordSiteRuntimeFailure(12, routing.SiteRuntimeFailureContext{Status: &status, ModelName: &model})
+			routing.RecordSiteRuntimeFailure(99, routing.SiteRuntimeFailureContext{Status: &status})
+		}
+		out := catalogCall(t, r, "GET", "/api/monitor/health", nil, 200)
+		breakers := out["runtimeHealth"].(map[string]any)["openBreakers"].([]any)
+		if len(breakers) != 3 {
+			t.Fatalf("breakers=%v", breakers)
+		}
+		for _, raw := range breakers {
+			row := raw.(map[string]any)
+			want := "named-site"
+			if row["siteId"] == float64(99) {
+				want = ""
+			}
+			if row["siteName"] != want || row["breakerUntilMs"] == nil {
+				t.Errorf("breaker=%v", row)
+			}
+		}
+		rows := out["cooldown"].(map[string]any)["cooling"].([]any)
+		if len(rows) != 2 {
+			t.Fatalf("cooling=%v", rows)
+		}
+		for _, raw := range rows {
+			row := raw.(map[string]any)
+			var code, reason any
+			if row["channelId"] == float64(1) {
+				code, reason = "rate_limit", "429"
+			}
+			c, ok := row["cooldownReasonCode"]
+			v, exists := row["cooldownReason"]
+			if !ok || !exists || c != code || v != reason {
+				t.Errorf("cooling=%v", row)
+			}
+		}
+	})
 }

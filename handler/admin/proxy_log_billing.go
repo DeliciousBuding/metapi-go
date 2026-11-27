@@ -15,6 +15,31 @@ func normalizeProxyLogRow(row map[string]any) {
 	projectProxyLogCacheUsage(row, billing)
 }
 
+func omitProxyAttemptDetail(row map[string]any) {
+	delete(row, "conversionDetails")
+	delete(row, "streamTiming")
+}
+
+func projectProxyAttemptDetail(row map[string]any) {
+	row["billingDetails"] = decodeProxyLogBilling(row["billingDetails"])
+	normalizeProxyLogRow(row)
+	row["conversion"] = decodeAttemptObservation(row["conversionDetails"])
+	delete(row, "conversionDetails")
+	row["streamTiming"] = decodeAttemptObservation(row["streamTiming"])
+}
+
+func decodeAttemptObservation(raw any) map[string]any {
+	text, ok := raw.(string)
+	if !ok || len(text) > 8192 {
+		return nil
+	}
+	var obj map[string]any
+	if json.Unmarshal([]byte(text), &obj) != nil {
+		return nil
+	}
+	return obj
+}
+
 // Billing is application-owned JSON. Legacy writers used snake_case inside
 // these three sections; expose the same camelCase contract as current writers.
 func decodeProxyLogBilling(raw any) any {

@@ -54,6 +54,39 @@ export const gatewayRequestsResponseSchema = z.object({
   coverageStartedAt: z.string().nullable(),
 })
 
+const proxyLogConversionDiagnosticSchema = z.object({
+  phase: z.string(),
+  code: z.string(),
+  severity: z.string(),
+  fieldClass: z.string(),
+})
+
+const proxyLogConversionSchema = z.object({
+  sourceProtocol: z.string().nullable().optional(),
+  upstreamProtocol: z.string().nullable().optional(),
+  owner: z.string().nullable().optional(),
+  quality: z.string().nullable().optional(),
+  requestSteps: z.array(z.string()).nullable().optional(),
+  responseSteps: z.array(z.string()).nullable().optional(),
+  diagnostics: z
+    .array(proxyLogConversionDiagnosticSchema)
+    .nullable()
+    .optional(),
+})
+
+const proxyLogStreamTimingSchema = z.object({
+  headerMs: z.number().nullable().optional(),
+  firstReasoningMs: z.number().nullable().optional(),
+  firstTextMs: z.number().nullable().optional(),
+  lastContentMs: z.number().nullable().optional(),
+  maxContentGapMs: z.number().nullable().optional(),
+  reasoningEvidence: z.string().nullable().optional(),
+  decodeTokens: z.number().nullable().optional(),
+  decodeWindowMs: z.number().nullable().optional(),
+  decodeTps: z.number().nullable().optional(),
+  decodeStatus: z.string().nullable().optional(),
+})
+
 // Attempt rows keep their existing wire vocabulary. Validate the fields this
 // view consumes; missing measurements stay unknown rather than becoming zero.
 const gatewayRequestAttemptSchema = z.object({
@@ -77,6 +110,8 @@ const gatewayRequestAttemptSchema = z.object({
   siteName: z.string().nullable().optional(),
   username: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
+  conversion: proxyLogConversionSchema.nullable().optional(),
+  streamTiming: proxyLogStreamTimingSchema.nullable().optional(),
 })
 
 export const gatewayRequestDetailSchema = gatewayRequestSchema.extend({

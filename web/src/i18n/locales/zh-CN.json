@@ -441,8 +441,8 @@
       "partialUsage": "用量或费用记录不完整；已知值仅为部分合计。",
       "title": "使用日志",
       "description": "每次模型调用一条记录，包含失败、取消与准入拒绝；上游重试、协议和接口见详情。普通 API 访问在审计日志中查看。",
-      "history": "尝试记录",
-      "requestView": "模型调用",
+      "history": "尝试明细",
+      "requestView": "请求结果",
       "viewsLabel": "日志视图",
       "viewHelp": "记录口径说明",
       "historyHint": "尝试记录不代表请求终态。未关联的历史记录，其请求结果未知。",
@@ -507,6 +507,16 @@
         "rejected_no_route": "无可用路由",
         "rejected_policy": "准入拒绝",
         "gateway_failed": "网关失败"
+      },
+      "reproduceInTester": "在 Model Tester 中复现",
+      "prevRecord": "上一条",
+      "nextRecord": "下一条",
+      "waterfall": {
+        "ttfb": "首字节 (响应头)",
+        "firstOutput": "首输出",
+        "generation": "正文传输",
+        "unknownBoundary": "分段边界缺失或不一致，仅显示总耗时",
+        "unknownTotal": "总耗时未知"
       }
     },
     "platforms": {
@@ -704,7 +714,13 @@
       "sessionExpired": "会话已过期！",
       "tokenInvalid": "当前管理员令牌已失效，请重新登录。",
       "requestFailed": "请求失败",
-      "requestTimeout": "请求超时（{{seconds}}s）"
+      "requestTimeout": "请求超时（{{seconds}}s）",
+      "freshness": {
+        "justNow": "刚刚更新",
+        "secondsAgo": "{{count}} 秒前更新",
+        "minutesAgo": "{{count}} 分钟前更新",
+        "hoursAgo": "{{count}} 小时前更新"
+      }
     },
     "about": {
       "title": "关于",
@@ -908,7 +924,10 @@
         "channelHintForced": "选择本次测试使用的上游渠道。",
         "advanced": "设置 · 模板、系统提示词与采样",
         "settings": "对话设置",
-        "settingsHint": "选择测试渠道、协议，调整系统提示词与采样参数。"
+        "settingsHint": "选择测试渠道、协议，调整系统提示词与采样参数。",
+        "paramEnabled": "启用 {{param}}",
+        "paramDisabledHint": "未启用 — 不会写入请求体（兼容不支持采样参数的推理模型）。",
+        "activeParamsBadge": "{{count}} 项采样参数"
       },
       "toast": {
         "empty": "响应为空。",
@@ -934,6 +953,9 @@
         "empty": "空响应",
         "done": "完成",
         "latency": "延迟：{{value}}",
+        "firstByteLatency": "首字延迟：{{value}}",
+        "upstreamReportedModel": "上游实际模型：{{model}}",
+        "upstreamReportedModelHint": "上游响应体中实际返回的模型标识。",
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
         "truncated": "响应超过大小限制，原始数据已截断。",
@@ -966,7 +988,17 @@
         "statusFailure": "失败",
         "statusAborted": "已停止",
         "rerunRow": "重跑「{{channel}}」的探测",
-        "disableFailed": "禁用失败渠道"
+        "disableFailed": "禁用失败渠道",
+        "progress": "已完成 {{completed}} / {{total}} 个渠道",
+        "details": "详情",
+        "detailsAria": "查看 {{channel}} 对比详情",
+        "detailTitle": "渠道探针详情 · {{channel}}",
+        "detailDescription": "当前会话内存中的只读诊断快照。",
+        "httpStatus": "HTTP 状态",
+        "firstByte": "首字延迟（TTFB）",
+        "upstreamReportedModel": "上游实际模型",
+        "responseSummary": "模型返回摘要",
+        "rawEvents": "原始事件 / 响应体"
       },
       "page": {
         "title": "渠道诊断",
@@ -1706,6 +1738,11 @@
         "failed": "失败",
         "successRate": "成功率",
         "latency": "平均耗时",
+        "firstByte": "首字 {{value}}",
+        "recentSamples": "近 24h 样本",
+        "samplesEmpty": "暂无样本",
+        "samplesAria": "{{name}}：共 {{count}} 个有请求的 UTC 小时样本",
+        "sampleTooltip": "{{bucket}} · 成功 {{success}}/{{total}} · 均耗 {{latency}}",
         "failedLink": "{{name}}：{{count}} 次失败请求",
         "modelTitle": "模型消耗排行",
         "modelDescription": "按估算成本排序 · 同时展示请求与 Token 用量",
@@ -1736,6 +1773,8 @@
         "requestLegacyAttempts": "另有 {{count}} 条旧尝试缺少 requestId，未计入请求级统计",
         "tokensHint": "按请求日志记录的有效 Token 汇总",
         "costHint": "调用费用估算，不代表营收",
+        "avgLatency": "平均延迟",
+        "avgFirstByte": "平均首字延迟",
         "loadError": "请求数据加载失败：{{message}}",
         "trend": "调用量与成功率趋势",
         "trendScope": "最近 7 个 UTC 自然日 · 含今天",
@@ -2324,6 +2363,23 @@
               "ip": "IP",
               "rate": "速率"
             }
+          },
+          "presets": {
+            "label": "策略预设",
+            "hint": "一键填充非敏感的推荐模型规则与限额草案，填充后仍可自由编辑。",
+            "claudeCode": "Claude Code (Messages)",
+            "codexCli": "Codex CLI (Responses)",
+            "geminiCli": "Gemini CLI",
+            "sandbox": "受限体验沙盒",
+            "applied": "已填充策略预设：{{name}}"
+          },
+          "warnings": {
+            "title": "检测到潜在空交集 / 全拒绝策略",
+            "emptyModels": "模型规则为空（若无路由授权，将拒绝所有模型调用）。",
+            "emptyDirectChannels": "已限制仅允许指定直连渠道，但未选择任何渠道（全部直连渠道将被拒绝）。",
+            "credentialConflict": "允许凭据与排除凭据完全冲突（允许列表中的所有凭据均被排除）。",
+            "modelIntersectionEmpty": "访问策略中指定的精确模型与上方模型放行规则无任何交集。",
+            "zeroQuota": "限额包含 0 值上限，将直接拒绝请求。"
           }
         }
       },
@@ -3310,7 +3366,10 @@
         "routeResult": "路由与候选",
         "openRoute": "打开路由",
         "openLogs": "查看 Key 日志",
-        "editKey": "编辑 Key"
+        "editKey": "编辑 Key",
+        "admissionHeading": "① 下游准入判定",
+        "topologyHeading": "② 候选路由拓扑",
+        "adminAdmissionNote": "管理员预览模式未指定下游 Key，已跳过下游准入判定。"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -3478,7 +3537,17 @@
           "priority": "配置优先级：{{value}}",
           "weight": "配置权重：{{value}}",
           "editRoute": "编辑路由配置",
-          "showMore": "再显示 {{count}} 个候选"
+          "showMore": "再显示 {{count}} 个候选",
+          "bucketEligible": "可用候选 ({{count}})",
+          "bucketCooling": "冷却中 ({{count}})",
+          "bucketBlocked": "被阻断 ({{count}})",
+          "bucketNotEvaluated": "未评估 ({{count}})",
+          "expandBucket": "展开 {{count}} 个候选",
+          "collapseBucket": "收起",
+          "blockedCollapsedHint": "默认折叠以减少噪声，点击展开查看 {{count}} 个被阻断候选",
+          "siblingGroup": "{{platform}} · {{count}} 个同态候选 ({{state}})",
+          "expandGroup": "展开",
+          "collapseGroup": "收起"
         },
         "probability": "已计算的选择概率",
         "kind": {
@@ -3502,7 +3571,8 @@
           "credential_excluded": "凭据被下游策略排除。",
           "credential_not_allowed": "凭据不在下游允许列表中。",
           "site_excluded": "站点被下游策略排除。"
-        }
+        },
+        "cooldownRemaining": "剩余 {{remaining}}"
       },
       "detail": {
         "badgeGroup": "分组",
@@ -3930,11 +4000,80 @@
         "output": "输出",
         "cacheRead": "缓存读取",
         "cacheCreation": "缓存写入",
+        "cacheCreationShort": "写 {{count}}",
+        "cacheCreation5m": "缓存写入 (5m)",
+        "cacheCreation1h": "缓存写入 (1h)",
+        "cacheCreation12h": "缓存写入 (12h)",
+        "cacheCreationStandard": "缓存写入 (普通)",
+        "toolSurchargesTitle": "托管工具附加费",
+        "tools": {
+          "web_search": "Web 搜索",
+          "file_search": "文件检索",
+          "grounding": "联网溯源 (Grounding)"
+        },
+        "toolSource": {
+          "provider": "供应商上报",
+          "inferred": "响应推算"
+        },
+        "toolPriceMissing": "缺价",
+        "toolPriceFree": "免费 $0",
         "billableInput": "计费输入",
         "stream": "流式",
         "nonStream": "非流式",
         "rawBilling": "原始计费数据",
         "totalCost": "费用合计"
+      },
+      "telemetry": {
+        "streamTiming": {
+          "title": "流式分段计时与生成速度",
+          "decodeTps": "生成速度",
+          "tpsValue": "{{value}} tok/s",
+          "decodeTokens": "生成 Token / 窗口",
+          "decodeDetailTooltip": "{{tokens}} tokens / {{window}}",
+          "maxGap": "最长内容间隔",
+          "stage": {
+            "header": "响应头",
+            "firstReasoning": "首推理",
+            "firstText": "首正文",
+            "streaming": "流式生成"
+          },
+          "status": {
+            "measured": "实测有效",
+            "bufferedBurst": "缓冲突释，速率仅供参考",
+            "hiddenReasoning": "隐藏推理，未计入推理段速率",
+            "interrupted": "中途断流",
+            "insufficientEvidence": "证据不足",
+            "unknown": "状态未知"
+          },
+          "reasoningEvidence": {
+            "visible": "可见推理",
+            "hidden": "隐藏推理",
+            "summaryOnly": "仅推理摘要"
+          }
+        },
+        "conversion": {
+          "title": "协议转换轨迹",
+          "nativePassthrough": "原生透传 · 无协议转换损耗",
+          "responsePath": "响应链路",
+          "diagnosticsTitle": "转换诊断（{{count}}）",
+          "diagnosticMeta": "{{phase}} · {{fieldClass}}",
+          "owner": {
+            "native": "原生",
+            "relaykit": "RelayKit",
+            "specialized": "专用适配器"
+          },
+          "quality": {
+            "good": "高保真",
+            "fair": "中等兼容",
+            "discouraged": "不推荐桥接",
+            "native": "原生"
+          },
+          "severity": {
+            "warning": "警告",
+            "error": "错误",
+            "unknown": "提示"
+          }
+        }
       },
       "timing": {
         "firstOutput": "首输出",
@@ -4093,7 +4232,8 @@
         "label": "自动刷新",
         "interval15s": "15秒",
         "interval30s": "30秒",
-        "intervalOff": "关闭"
+        "intervalOff": "关闭",
+        "refreshNow": "立即刷新"
       },
       "error": {
         "loadFailed": "数据加载失败。",
@@ -4107,6 +4247,10 @@
         "health": {
           "title": "健康",
           "description": "站点/账号健康以及路由熔断与冷却状态。"
+        },
+        "flow": {
+          "title": "流量流向",
+          "description": "下游 Key → 请求模型 → 上游站点/渠道的流量拓扑。"
         }
       },
       "overview": {
@@ -4119,9 +4263,13 @@
           "colSite": "站点",
           "colLatency": "延迟",
           "colFirstByte": "首字节",
+          "firstOutput": "首输出 {{value}}",
+          "firstOutputTooltip": "首个输出 Token/分片到达耗时",
           "colHttp": "HTTP",
           "colStatus": "状态",
-          "colTime": "时间"
+          "colTime": "时间",
+          "colActions": "日志",
+          "viewInLogs": "在日志中查看"
         },
         "heatmap": {
           "title": "用量热力图",
@@ -4150,7 +4298,12 @@
           "colSite": "站点",
           "colModel": "模型",
           "colLevel": "级别",
-          "colUntil": "截至"
+          "colUntil": "截至",
+          "colPenalty": "罚分",
+          "colActions": "操作",
+          "inspectLogs": "日志",
+          "inspectRoute": "路由",
+          "levelTooltip": "熔断级别 {{level}}，当前罚分 {{score}}"
         },
         "cooldown": {
           "title": "通道冷却",
@@ -4161,8 +4314,11 @@
           "empty": "当前没有处于冷却的通道。",
           "colSite": "站点",
           "colChannel": "通道",
+          "colReason": "原因",
           "colFailCount": "失败数",
-          "colUntil": "截至"
+          "colUntil": "截至",
+          "colActions": "操作",
+          "remaining": "剩余 {{remaining}}"
         },
         "inventory": {
           "title": "资源清单",
@@ -4173,6 +4329,46 @@
           "active": "活跃",
           "disabled": "停用",
           "other": "其他"
+        }
+      },
+      "flow": {
+        "periodLabel": "流量统计时段",
+        "metricLabel": "流量统计维度",
+        "metric": {
+          "requests": "请求数",
+          "cost": "估算费用",
+          "tokens": "Token 量"
+        },
+        "failedOnly": "仅看含失败链路",
+        "loadFailed": "流量流向数据加载失败。",
+        "cardTitle": "流量流向拓扑",
+        "cardDescription": "点击或键盘选中任意 Key、模型或上游节点，高亮关联链路并跳转对应日志。",
+        "clearSelection": "清除选择",
+        "empty": "当前时间窗内暂无流量流向数据。",
+        "emptyFailedFilter": "当前时间窗内没有包含失败请求的链路。",
+        "unassignedKey": "未归属 Key",
+        "unknownModel": "未知模型",
+        "unassignedUpstream": "未归属上游",
+        "channelPrefix": "渠道#",
+        "failedCountTitle": "失败 {{count}} 次",
+        "columns": {
+          "key": "下游 Key",
+          "model": "请求模型",
+          "upstream": "上游站点 / 渠道"
+        },
+        "summary": {
+          "requests": "总请求数",
+          "failed": "失败数",
+          "successRate": "成功 {{rate}}",
+          "tokens": "总 Token",
+          "cost": "估算费用"
+        },
+        "actionBar": {
+          "label": "选中链路操作栏",
+          "idleHint": "点击上方任意节点，高亮其上下游关联链路并一键跳转筛选后的日志。",
+          "summary": "{{requests}} 次请求 · {{failed}} 次失败 · {{paths}} 条链路",
+          "goToLogs": "前往日志",
+          "goToChannel": "前往渠道"
         }
       }
     },
@@ -4425,7 +4621,28 @@
         "sourceDescription": "代码经过校验并隔离执行。更新使用当前读取的修订，拒绝不兼容的已有绑定。仅安装可信代码。",
         "sourceLimits": "同步 ESM，无 import 和环境 I/O。源码上限 256 KiB，模块 meta.key 必须与插件标识一致。",
         "invalidKey": "使用小写字母开头的字母、数字或连字符，最多 64 位。",
-        "requiredSource": "请输入 JavaScript 模块。"
+        "requiredSource": "请输入 JavaScript 模块。",
+        "preview": {
+          "title": "静态清单与权限预览",
+          "subtitle": "纯静态提取与校验，绝不执行插件源码。",
+          "apiVersion": "API 版本",
+          "apiWire": "v1 · Wire 钩子",
+          "apiProvider": "v2 · Provider 驱动",
+          "protocols": "声明协议",
+          "hooks": "声明钩子",
+          "credentialKinds": "凭据类型",
+          "authentication": "自定义鉴权请求头",
+          "endpoints": "外联端点路径",
+          "catalog": "模型目录路径",
+          "imageQueries": "图像任务轮询路径",
+          "options": "插件配置项 ({{count}})",
+          "noneDeclared": "未声明",
+          "valid": "清单格式校验通过",
+          "keyMismatch": "meta.key（「{{metaKey}}」）与当前插件 Key（「{{pluginKey}}」）不一致",
+          "notFound": "未检测到可静态解析的 export const meta = { ... } 对象字面量。",
+          "dynamicMeta": "清单包含动态表达式或暂不支持的语法，无法进行纯静态预览（已拒绝执行）。",
+          "schemaInvalid": "清单 Schema 校验未通过"
+        }
       },
       "group": {
         "title": "路由组",
@@ -5032,7 +5249,20 @@
       "updateConfig": "更新配置",
       "setupStep": "设置 API Key",
       "setupHint": "启动客户端前设置此环境变量。",
-      "providerImportHint": "导入链接仅配置供应商地址和 Key。请在客户端选择 {{model}}，或复制下方完整配置。"
+      "providerImportHint": "导入链接仅配置供应商地址和 Key。请在客户端选择 {{model}}，或复制下方完整配置。",
+      "clientCardsLabel": "选择客户端配置",
+      "endpointWithV1": "路径含 /v1 前缀",
+      "endpointWithoutV1": "网关根路径（不带 /v1 后缀）",
+      "configFilePath": "配置文件路径",
+      "maskedPreviewPlaceholder": "明文配置已遮罩隐藏，点击上方「显示 API Key」后可预览；当前仍可直接复制完整配置。",
+      "clientPaths": {
+        "codex": "~/.codex/config.toml（配合 METAPI_API_KEY 环境变量）",
+        "claude-code": "~/.claude/settings.json",
+        "openai": "Shell 环境变量（.env / ~/.zshrc）",
+        "cherry": "Cherry Studio → 模型服务商设置",
+        "openwebui": "Open WebUI → 管理员设置 → 连接",
+        "generic": "通用客户端 JSON 配置"
+      }
     },
     "search": {
       "trigger": "搜索…",
@@ -5121,7 +5351,8 @@
       "placeholder": "选择模型",
       "search": "搜索模型或提供商…",
       "other": "其他模型",
-      "empty": "没有匹配的模型，试试其他名称或提供商。"
+      "empty": "没有匹配的模型，试试其他名称或提供商。",
+      "useCustom": "使用自定义模型 / 通配符「{{value}}」"
     }
   }
 }

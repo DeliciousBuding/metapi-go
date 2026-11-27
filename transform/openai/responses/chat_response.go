@@ -3,8 +3,51 @@ package responses
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
+
+// Chat clients decode created into int64. Shift the decimal point using the
+// JSON lexeme so integral timestamps above 2^53 stay exact even in exponent form.
+func bridgeCreatedAt(value any) (int64, error) {
+	invalid := fmt.Errorf("Responses/Chat bridge: created_at must be an int64 timestamp")
+	number, ok := value.(json.Number)
+	if !ok {
+		return 0, invalid
+	}
+	if n, err := number.Int64(); err == nil {
+		return n, nil
+	}
+	raw := number.String()
+	mantissa, exponent, hasExponent := strings.Cut(strings.ToLower(raw), "e")
+	unsigned, negative := strings.CutPrefix(mantissa, "-")
+	whole, fraction, _ := strings.Cut(unsigned, ".")
+	digits := strings.TrimLeft(whole+fraction, "0")
+	if digits == "" {
+		return 0, nil
+	}
+	exp := 0
+	if hasExponent {
+		var err error
+		exp, err = strconv.Atoi(exponent)
+		if err != nil || exp < -len(digits) || exp > len(fraction)+19 {
+			return 0, invalid
+		}
+	}
+	coefficient := strings.TrimRight(digits, "0")
+	zeros := exp - len(fraction) + (len(digits) - len(coefficient))
+	if zeros < 0 || zeros > 19-len(coefficient) {
+		return 0, invalid
+	}
+	if negative {
+		coefficient = "-" + coefficient
+	}
+	n, err := strconv.ParseInt(coefficient+strings.Repeat("0", zeros), 10, 64)
+	if err != nil {
+		return 0, invalid
+	}
+	return n, nil
+}
 
 func bridgeUsage(raw any, fromChat bool) (bridgeObject, error) {
 	if raw == nil {
@@ -224,8 +267,11 @@ func FromChatResponse(body []byte) ([]byte, error) {
 	return json.Marshal(out)
 }
 
-func bridgeResponsesOutput(output any) (bridgeObject, int, error) {
-	items, ok := output.([]any)
+func bridgeResponsesOutput(response bridgeObject) (bridgeObject, int, error) {
+	items, ok := response["output"].([]any)
+	if ok && len(items) == 0 && response["status"] == "incomplete" {
+		return bridgeObject{"role": "assistant", "content": nil}, 0, nil
+	}
 	if !ok || len(items) == 0 {
 		return nil, 0, fmt.Errorf("Responses/Chat bridge: output must be a nonempty array")
 	}
@@ -282,9 +328,14 @@ func bridgeResponsesOutput(output any) (bridgeObject, int, error) {
 				}
 			}
 		case "function_call":
-			if err := bridgeFields(item, "id", "type", "status", "call_id", "name", "arguments"); err != nil {
+			if err := bridgeFields(item, "id", "type", "status", "call_id", "name", "arguments", "reasoning_content"); err != nil {
 				return nil, 0, err
 			}
+			thought, err := bridgeReasoningParts(item["reasoning_content"], "reasoning_text")
+			if err != nil {
+				return nil, 0, err
+			}
+			reasoning.WriteString(thought)
 			call, err := bridgeFunctionCall(item, false)
 			if err != nil {
 				return nil, 0, err
@@ -358,7 +409,7 @@ func ToChatResponse(body []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg, tools, err := bridgeResponsesOutput(src["output"])
+	msg, tools, err := bridgeResponsesOutput(src)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +423,10 @@ func ToChatResponse(body []byte) ([]byte, error) {
 	}
 	out := bridgeObject{"id": id, "object": "chat.completion", "model": model, "choices": []any{bridgeObject{"index": 0, "message": msg, "finish_reason": reason}}, "usage": usage}
 	if v := src["created_at"]; v != nil {
-		out["created"] = v
+		out["created"], err = bridgeCreatedAt(v)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(out)
 }

@@ -1,25 +1,26 @@
 // metapi-go/features/models/price-compare — standalone cross-site price page.
-// Groups the backend's cheaper-first candidate rows by model and surfaces the
-// provenance grade + best-channel recommendation for every source.
+// Groups the backend's cheaper-first candidate rows by model into a dense,
+// keyboard-operable RowDisclosure matrix: collapsed rows surface the winning
+// site, provenance grade, lowest/average cost spread, and a direct route
+// workspace link; expanding reveals every site's full input/output/sample cost
+// breakdown without burying the viewport in tall cards.
 
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowRight, Scale, Search, Star } from 'lucide-react'
-import { useMemo } from 'react'
+import { ArrowRight, Route, Scale, Search, Star } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ZodError } from 'zod'
 
 import { ModelPill } from '@/components/common/model-pill'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import {
+  RowDisclosureContent,
+  RowDisclosureTrigger,
+  rowDisclosureClick,
+} from '@/components/common/row-disclosure'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import {
   Empty,
   EmptyDescription,
@@ -48,6 +49,47 @@ type ModelGroup = {
   key: string
   model: string
   rows: PriceCompareItem[]
+  bestRow: PriceCompareItem
+  minSample: number | null
+  avgSample: number | null
+  spreadPct: number | null
+}
+
+function summarizeGroup(key: string, rows: PriceCompareItem[]): ModelGroup {
+  const bestRow =
+    rows.find((row) => row.recommended && row.source === 'billing_details') ??
+    rows[0]
+  if (!bestRow) {
+    throw new Error(`Expected non-empty price group for ${key}`)
+  }
+  const sampleCosts = rows
+    .filter(
+      (row) =>
+        !row.missingPrice &&
+        Number.isFinite(row.estimatedCostSample) &&
+        row.estimatedCostSample > 0
+    )
+    .map((row) => row.estimatedCostSample)
+
+  const minSample = sampleCosts.length > 0 ? Math.min(...sampleCosts) : null
+  const avgSample =
+    sampleCosts.length > 0
+      ? sampleCosts.reduce((sum, value) => sum + value, 0) / sampleCosts.length
+      : null
+  const spreadPct =
+    minSample !== null && avgSample !== null && avgSample > minSample
+      ? Math.round(((avgSample - minSample) / avgSample) * 100)
+      : null
+
+  return {
+    key,
+    model: bestRow.model,
+    rows,
+    bestRow,
+    minSample,
+    avgSample,
+    spreadPct,
+  }
 }
 
 export function PriceComparePage() {
@@ -63,6 +105,18 @@ export function PriceComparePage() {
     pricePage: pricePage ?? 1,
   })
 
+  const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const toggleGroup = useCallback((key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
   const groups = useMemo<ModelGroup[]>(() => {
     const map = new Map<string, PriceCompareItem[]>()
     for (const item of query.data?.items ?? []) {
@@ -72,12 +126,10 @@ export function PriceComparePage() {
       list.push(item)
       map.set(key, list)
     }
-    return [...map.entries()].map(([key, rows]) => ({
-      key,
-      model: rows[0]?.model ?? '',
-      rows,
-    }))
+    return [...map.entries()].map(([key, rows]) => summarizeGroup(key, rows))
   }, [query.data])
+
+  const currentPage = query.data?.currentPage
 
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
@@ -118,22 +170,19 @@ export function PriceComparePage() {
         }
       />
 
-      {query.data?.currentPage && query.data.currentPage.totalModels > 0 && (
+      {currentPage && currentPage.totalModels > 0 && (
         <nav
           className='flex flex-wrap items-center justify-between gap-3'
           aria-label={t('priceCompare.current.pagination')}
         >
-          <p className='text-muted-foreground text-sm'>
+          <p className='text-muted-foreground text-sm tabular-nums'>
             {t('priceCompare.current.pageSummary', {
-              page: query.data.currentPage.page,
+              page: currentPage.page,
               pages: Math.max(
                 1,
-                Math.ceil(
-                  query.data.currentPage.totalModels /
-                    query.data.currentPage.pageSize
-                )
+                Math.ceil(currentPage.totalModels / currentPage.pageSize)
               ),
-              count: query.data.currentPage.totalModels,
+              count: currentPage.totalModels,
             })}
           </p>
           <div className='flex gap-2'>
@@ -145,17 +194,13 @@ export function PriceComparePage() {
                 disabled={
                   query.isFetching ||
                   (delta < 0
-                    ? query.data!.currentPage!.page <= 1
-                    : query.data!.currentPage!.page *
-                        query.data!.currentPage!.pageSize >=
-                      query.data!.currentPage!.totalModels)
+                    ? currentPage.page <= 1
+                    : currentPage.page * currentPage.pageSize >=
+                      currentPage.totalModels)
                 }
                 onClick={() => {
                   const params = new URLSearchParams(window.location.search)
-                  params.set(
-                    'pricePage',
-                    String(query.data!.currentPage!.page + delta)
-                  )
+                  params.set('pricePage', String(currentPage.page + delta))
                   void navigate({ href: `/price-compare?${params}` })
                 }}
               >
@@ -216,69 +261,167 @@ export function PriceComparePage() {
           </Empty>
         )}
 
-      <div className='flex flex-col gap-4'>
-        {groups.length > 0 && (
-          <h2 className='text-base font-semibold'>
-            {t('priceCompare.current.history')}
-          </h2>
-        )}
-        {groups.map((group) => (
-          <ModelGroupCard key={group.key} group={group} />
-        ))}
-      </div>
+      {groups.length > 0 && (
+        <section className='flex flex-col gap-2.5'>
+          <div className='flex flex-wrap items-baseline justify-between gap-2'>
+            <h2 className='text-base font-semibold'>
+              {t('priceCompare.current.history')}
+            </h2>
+            <p className='text-muted-foreground text-xs'>
+              {t('priceCompare.group.description')}
+            </p>
+          </div>
+
+          <div className='bg-card divide-y overflow-hidden rounded-xl border'>
+            {groups.map((group) => (
+              <ModelGroupRow
+                key={group.key}
+                group={group}
+                expanded={expandedKeys.has(group.key)}
+                onToggle={() => toggleGroup(group.key)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
 
-function ModelGroupCard({ group }: { group: ModelGroup }) {
+function ModelGroupRow({
+  group,
+  expanded,
+  onToggle,
+}: {
+  group: ModelGroup
+  expanded: boolean
+  onToggle: () => void
+}) {
   const { t } = useTranslation()
+  const contentId = `price-group-${group.key.replace(/[^a-z0-9_-]/gi, '-')}`
+  const { bestRow, minSample, avgSample, spreadPct } = group
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-base font-normal'>
-          <ModelPill
-            model={group.model}
-            variant='inline'
-            className='text-base'
-          />
-        </CardTitle>
-        <CardDescription>{t('priceCompare.group.description')}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table className='max-sm:[&_td]:px-1 max-sm:[&_th]:px-1'>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('priceCompare.columns.site')}</TableHead>
-              <TableHead className='hidden sm:table-cell'>
-                {t('priceCompare.columns.grade')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('priceCompare.columns.input')}
-              </TableHead>
-              <TableHead className='hidden text-right sm:table-cell'>
-                {t('priceCompare.columns.output')}
-              </TableHead>
-              <TableHead className='hidden text-right sm:table-cell'>
-                {t('priceCompare.columns.effective')}
-              </TableHead>
-              <TableHead>{t('priceCompare.columns.status')}</TableHead>
-              <TableHead className='text-right'>
-                {t('priceCompare.columns.actions')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {group.rows.map((row) => (
-              <PriceRow
-                key={`${row.siteId}-${row.accountId}-${row.model}`}
-                row={row}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className='min-w-0'>
+      <div
+        className='hover:bg-muted/40 flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 transition-colors sm:flex-nowrap sm:px-4'
+        onClick={(event) => rowDisclosureClick(event, onToggle)}
+      >
+        {/* Model identity + disclosure button */}
+        <div className='flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none sm:basis-64'>
+          <RowDisclosureTrigger
+            expanded={expanded}
+            controls={contentId}
+            className='max-w-full min-w-0 flex-1 px-1'
+            onClick={onToggle}
+          >
+            <ModelPill
+              model={group.model}
+              variant='inline'
+              className='text-sm'
+            />
+          </RowDisclosureTrigger>
+        </div>
+
+        {/* Winning site + provenance grade */}
+        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2 text-xs'>
+          <span className='truncate text-sm font-medium'>
+            {bestRow.siteName}
+          </span>
+          <PriceGradeBadge grade={bestRow.source} />
+          {group.rows.length > 1 && (
+            <span className='text-muted-foreground tabular-nums'>
+              · {group.rows.length}
+            </span>
+          )}
+        </div>
+
+        {/* Lowest vs average price spread */}
+        <div className='flex flex-wrap items-center gap-2 text-xs tabular-nums sm:justify-end'>
+          {bestRow.ratesSource === 'billing_details' && (
+            <span className='font-medium'>
+              {formatPrice(bestRow.inputPerMillion, { fractionDigits: 4 })} →{' '}
+              {formatPrice(bestRow.outputPerMillion, { fractionDigits: 4 })}
+            </span>
+          )}
+          {bestRow.ratesSource !== 'billing_details' && minSample !== null && (
+            <span className='font-medium'>
+              {formatCurrency(minSample, { fractionDigits: 6 })}
+            </span>
+          )}
+          {bestRow.ratesSource !== 'billing_details' && minSample === null && (
+            <span className='text-muted-foreground'>—</span>
+          )}
+          {avgSample !== null &&
+            minSample !== null &&
+            group.rows.length > 1 && (
+              <span className='text-muted-foreground'>
+                / {formatCurrency(avgSample, { fractionDigits: 6 })}
+              </span>
+            )}
+          {spreadPct !== null && spreadPct > 0 && (
+            <Badge variant='success' className='text-2xs tabular-nums'>
+              -{spreadPct}%
+            </Badge>
+          )}
+        </div>
+
+        {/* Route workspace deep-link */}
+        <div className='ml-auto flex shrink-0 items-center gap-1 sm:ml-0'>
+          <Link
+            to='/token-routes'
+            search={{ workspaceModel: group.model }}
+            aria-label={t('priceCompare.goToRoutes', { model: group.model })}
+            className='border-border bg-background hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-focus-ring inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md border px-2 text-xs font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3'
+          >
+            <Route className='size-3.5' aria-hidden='true' />
+            <span className='hidden sm:inline'>
+              {t('tokenRoutes.workspace.title')}
+            </span>
+          </Link>
+        </div>
+      </div>
+
+      {expanded && (
+        <RowDisclosureContent
+          id={contentId}
+          label={group.model}
+          className='bg-muted/20 border-t px-3 py-2.5 sm:px-4'
+        >
+          <Table className='max-sm:[&_td]:px-1 max-sm:[&_th]:px-1'>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('priceCompare.columns.site')}</TableHead>
+                <TableHead className='hidden sm:table-cell'>
+                  {t('priceCompare.columns.grade')}
+                </TableHead>
+                <TableHead className='text-right'>
+                  {t('priceCompare.columns.input')}
+                </TableHead>
+                <TableHead className='hidden text-right sm:table-cell'>
+                  {t('priceCompare.columns.output')}
+                </TableHead>
+                <TableHead className='hidden text-right sm:table-cell'>
+                  {t('priceCompare.columns.effective')}
+                </TableHead>
+                <TableHead>{t('priceCompare.columns.status')}</TableHead>
+                <TableHead className='text-right'>
+                  {t('priceCompare.columns.actions')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {group.rows.map((row) => (
+                <PriceRow
+                  key={`${row.siteId}-${row.accountId}-${row.model}`}
+                  row={row}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </RowDisclosureContent>
+      )}
+    </div>
   )
 }
 

@@ -45,6 +45,21 @@ func newProtocolBridgeBody(body io.ReadCloser, stream protocolEventStream, byteL
 	return &messagesChatBody{ReadCloser: body, stream: stream, original: newIncrementalSseAnalyzer(), byteLimit: byteLimit}
 }
 
+// ResponsesFailureEvents delegates terminal serialization to the owner of the
+// converted Responses stream. The relay still owns transport failure handling.
+func (b *messagesChatBody) ResponsesFailureEvents(message string, delivered ...int) []byte {
+	if b == nil {
+		return nil
+	}
+	return responsesFailureEvents(b.stream, message, delivered...)
+}
+func responsesFailureEvents(stream protocolEventStream, message string, delivered ...int) []byte {
+	if src, ok := stream.(interface{ ResponsesFailureEvents(string, ...int) []byte }); ok {
+		return src.ResponsesFailureEvents(message, delivered...)
+	}
+	return nil
+}
+
 func (b *messagesChatBody) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil

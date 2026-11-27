@@ -26,6 +26,8 @@ func (a proxyChannelHealthProbeAdapter) ProbeChannel(ctx context.Context, target
 		return scheduler.ProbeOutcome{}, err
 	}
 	return scheduler.ProbeOutcome{
+		AccountID:  out.AccountID,
+		SiteID:     out.SiteID,
 		Status:     out.Status,
 		LatencyMs:  out.LatencyMs,
 		HTTPStatus: out.HTTPStatus,

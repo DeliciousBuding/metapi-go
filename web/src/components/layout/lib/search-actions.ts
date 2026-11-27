@@ -1,44 +1,24 @@
-// metapi-go/layout — action registry for the global search palette.
+// metapi-go/layout — action registry and smart operational query matcher for
+// the global search palette (⌘K / Ctrl+K).
 //
-// The ⌘K palette's action layer: high-frequency WRITE actions, alongside
-// (not replacing) the navigation and entity layers. Each entry points at an
-// affordance that already exists in the product — the registry only carries
-// stable identity, i18n title keys, match keywords and icons. Execution
-// lives in `search-modal.tsx`, where the router and mutation hooks are
-// available.
-//
-// Selection audit (#1035) — every entry reuses an existing
-// dialog/mutation, no new business logic:
-//   - add-site: the sites page already consumes a one-shot `?create=1`
-//     deep link (the dashboard onboarding and the sites guided flow write
-//     one), so the palette drives the exact same dialog-opening path.
-//   - run-checkin-all: the same `useManualCheckin` mutation the checkin
-//     page's "Run all check-ins" button fires.
-//   - rebuild-routes: the same `useRebuildRoutes` mutation the routes page
-//     fires, behind the same ConfirmDialog wording (the page gates it).
-//   - refresh-route-decisions: the same `useRefreshRouteDecisions` mutation
-//     the routes page header button fires.
-//
-// Rejected candidates (evaluated against the code, not invented):
-//   - add account: the accounts page only consumes a one-shot create
-//     deep link together with a valid siteId; a standalone `?create=1`
-//     never opens the dialog.
-//   - add route: the routes page has no `create` deep link, only `edit`.
-//   - add channel: channels are never created manually (read-only list;
-//     channels are composed by route rebuild / the route channel editor).
-//   - retest channel: no such operation exists anywhere in web/src.
-//   - refresh balances: only per-row and selection-scoped batch refresh
-//     exist; a palette-wide variant would be a new operation.
-//   - backup export: confirm-token + export-type + download flow (#1034),
-//     a settings section, not a palette-sized action.
-//   - clear cache / usage data: ConfirmDialog-gated maintenance ops,
-//     reachable through the settings entries of the navigation layer.
-//   - single-account check-in: needs the account picker dialog, which stays
-//     on the checkin page; the all-accounts trigger covers the quick case.
+// Two layers live here without touching any feature module (Rule 2):
+//   1. `SEARCH_ACTION_ENTRIES`: audited high-frequency write operations (keeps
+//      the original four stable write actions unchanged).
+//   2. `SEARCH_SHORTCUT_ENTRIES`: high-frequency operator diagnostic shortcuts
+//      pointing straight to existing workspaces (route diagnosis workspace,
+//      failed proxy logs, channel diagnostics / model tester, cross-site price
+//      compare).
+//   3. `resolveSmartLogQuery`: detects HTTP status codes (e.g. `429`, `503`) or
+//      request-ID prefixes (`req_...`) typed into the palette and returns a
+//      direct `/proxy-logs` navigation target.
 
 import {
+  AlertTriangle,
   CalendarCheck,
+  FlaskConical,
   RefreshCw,
+  Route,
+  Scale,
   Server,
   Zap,
   type LucideIcon,
@@ -59,6 +39,28 @@ export type SearchActionEntry = {
   keywords: readonly string[]
   /** Icon rendered instead of the group icon. */
   icon: LucideIcon
+}
+
+type SearchShortcutId =
+  | 'route-workspace'
+  | 'failed-proxy-logs'
+  | 'model-tester'
+  | 'price-compare'
+
+type SearchShortcutEntry = {
+  id: SearchShortcutId
+  titleKey: string
+  keywords: readonly string[]
+  icon: LucideIcon
+  to: string
+  search?: Record<string, unknown>
+}
+
+type SmartLogTarget = {
+  kind: 'http-status' | 'request-id'
+  value: string
+  to: '/proxy-logs'
+  search: Record<string, unknown>
 }
 
 /**
@@ -93,21 +95,128 @@ export const SEARCH_ACTION_ENTRIES: readonly SearchActionEntry[] = [
 ]
 
 /**
- * Local case-insensitive substring match over the translated action titles
- * plus their bilingual keyword aliases. Starts-with matches rank before
- * contains matches (label and keywords share the ranking); the registry
- * order is kept within a rank. Empty query returns every entry
- * (quick-entry mode).
+ * High-frequency operational shortcuts reusing existing i18n keys and routes:
+ *   - Route workspace (/token-routes)
+ *   - Failed attempt logs (/proxy-logs?view=attempts&status=failed)
+ *   - Channel diagnostics / model tester (/model-tester)
+ *   - Cross-site price comparison (/price-compare)
  */
-export function matchActionEntries(
-  entries: readonly SearchActionEntry[],
+export const SEARCH_SHORTCUT_ENTRIES: readonly SearchShortcutEntry[] = [
+  {
+    id: 'route-workspace',
+    titleKey: 'tokenRoutes.workspace.title',
+    keywords: [
+      'route diagnosis',
+      'route sandbox',
+      'call path',
+      '路由诊断',
+      '路由沙盒',
+      '诊断路由',
+    ],
+    icon: Route,
+    to: '/token-routes',
+  },
+  {
+    id: 'failed-proxy-logs',
+    titleKey: 'proxyLogs.page.summaryFailed',
+    keywords: [
+      'failed logs',
+      'error logs',
+      'errors',
+      '429',
+      '500',
+      '502',
+      '503',
+      '失败日志',
+      '异常日志',
+      '报错',
+    ],
+    icon: AlertTriangle,
+    to: '/proxy-logs',
+    search: { view: 'attempts', status: 'failed' },
+  },
+  {
+    id: 'model-tester',
+    titleKey: 'sidebar.items.modelTester',
+    keywords: [
+      'model tester',
+      'test model',
+      'probe',
+      '模型测试',
+      '渠道诊断',
+      '测试器',
+    ],
+    icon: FlaskConical,
+    to: '/model-tester',
+  },
+  {
+    id: 'price-compare',
+    titleKey: 'sidebar.items.priceCompare',
+    keywords: ['price compare', 'pricing', 'cost', '跨站比价', '比价', '价格'],
+    icon: Scale,
+    to: '/price-compare',
+  },
+]
+
+const HTTP_STATUS_RE = /^[1-5]\d{2}$/
+const REQUEST_ID_RE = /^req_[A-Za-z0-9_-]{3,}$/i
+
+/**
+ * Recognizes direct diagnostic queries typed into the command palette:
+ *   - 3-digit HTTP status codes (e.g. `429`, `502`, `503`) → jumps to
+ *     `/proxy-logs?view=attempts&q=<code>` (plus `status=failed` for 4xx/5xx)
+ *   - `req_...` internal request IDs → jumps to
+ *     `/proxy-logs?view=requests&requestId=<id>`
+ */
+export function resolveSmartLogQuery(query: string): SmartLogTarget | null {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+
+  if (REQUEST_ID_RE.test(trimmed)) {
+    return {
+      kind: 'request-id',
+      value: trimmed,
+      to: '/proxy-logs',
+      search: { view: 'requests', requestId: trimmed },
+    }
+  }
+
+  if (HTTP_STATUS_RE.test(trimmed)) {
+    const code = Number(trimmed)
+    const search: Record<string, unknown> = {
+      view: 'attempts',
+      q: trimmed,
+    }
+    if (code >= 400) {
+      search.status = 'failed'
+    }
+    return {
+      kind: 'http-status',
+      value: trimmed,
+      to: '/proxy-logs',
+      search,
+    }
+  }
+
+  return null
+}
+
+/**
+ * Local case-insensitive substring match over translated titles plus bilingual
+ * keyword aliases. Starts-with matches rank before contains matches; registry
+ * order is kept within a rank. Empty query returns every entry.
+ */
+export function matchActionEntries<
+  T extends { titleKey: string; keywords: readonly string[] },
+>(
+  entries: readonly T[],
   query: string,
   resolveLabel: (titleKey: string) => string
-): SearchActionEntry[] {
+): T[] {
   const needle = query.trim().toLowerCase()
   if (!needle) return [...entries]
 
-  const scored: Array<{ entry: SearchActionEntry; rank: number }> = []
+  const scored: Array<{ entry: T; rank: number }> = []
   for (const entry of entries) {
     let rank = Number.POSITIVE_INFINITY
     const candidates = [

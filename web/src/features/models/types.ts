@@ -29,6 +29,8 @@ export type ModelGroupPricing = {
   quotaType: number
   inputPerMillion?: number
   outputPerMillion?: number
+  cacheReadPerMillion?: number
+  cacheWritePerMillion?: number
   perCallInput?: number
   perCallOutput?: number
   perCallTotal?: number

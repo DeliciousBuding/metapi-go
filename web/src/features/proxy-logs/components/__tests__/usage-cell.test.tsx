@@ -23,8 +23,7 @@ describe('proxy log usage', () => {
     )
     expect(container.textContent).toContain('1,200 / 400')
     expect(container.textContent).toContain('+900')
-    // Cache writes stay measured even though only the read is on the dense
-    // list line; the tooltip carries the full breakdown.
+    expect(screen.getByTestId('usage-cache-creation')).toHaveTextContent('W 20')
     const cell = container.firstElementChild as HTMLElement
     expect(cell.getAttribute('title')).toContain('900')
     expect(cell.getAttribute('title')).toContain('20')

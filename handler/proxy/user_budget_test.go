@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -305,5 +306,59 @@ func TestUserBudgetUnsupportedProtocolNeverDispatches(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("system behavior %d", w.Code)
+	}
+}
+
+func TestGeminiDetailBudgetSettlement(t *testing.T) {
+	for _, test := range []struct {
+		name, action, details string
+		valid                 bool
+	}{
+		{"json", "generateContent", `[{"modality":"TEXT","tokenCount":2}]`, true},
+		{"sse", "streamGenerateContent", `[{"modality":"TEXT","tokenCount":2}]`, true},
+		{"negative", "generateContent", `[{"modality":"TEXT","tokenCount":-1}]`, false},
+		{"overflow", "streamGenerateContent", `[{"modality":"TEXT","tokenCount":18446744073709551616}]`, false},
+		{"malformed", "generateContent", `{"tokenCount":2}`, false},
+		{"unknown-field", "generateContent", `[{"modality":"TEXT","tokenCount":2,"unknown":17}]`, false},
+		{"missing-count", "generateContent", `[{"modality":"TEXT"}]`, false},
+		{"fraction", "generateContent", `[{"modality":"TEXT","tokenCount":1.00000000000000001}]`, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, users, user, keys := newBudgetProxyUser(t)
+			ctx := context.Background()
+			if _, err := users.SetUserBudget(ctx, user.ID, 1, false); err != nil {
+				t.Fatal(err)
+			}
+			var hits atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				hits.Add(1)
+				payload := `{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":2,"totalTokenCount":4,"promptTokensDetails":` + test.details + `,"candidatesTokensDetails":[{"modality":"TEXT","tokenCount":2}]}}`
+				if test.action == "streamGenerateContent" {
+					w.Header().Set("Content-Type", "text/event-stream")
+					fmt.Fprintf(w, "data: %s\n\n", payload)
+				} else {
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, payload)
+				}
+			}))
+			defer server.Close()
+			prior := getUpstreamConfig()
+			t.Cleanup(func() { SetUpstreamConfig(prior) })
+			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: server.URL, Platform: "gemini", Status: "active"}, TokenValue: "fixture", ActualModel: "fixture"}}, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
+			h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleGeminiGenerateContent)), func(context.Context, store.GatewayRequest) error { return nil })
+			for i := range 2 {
+				r := httptest.NewRequest("POST", "/v1beta/models/fixture:"+test.action, strings.NewReader(`{"contents":[{"parts":[{"text":"hi"}]}]}`))
+				r.Header.Set("Authorization", "Bearer "+keys[0])
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				if (i == 0 || test.valid) && w.Code != 200 || i == 1 && !test.valid && w.Code != 403 {
+					t.Fatalf("turn=%d status=%d hits=%d body=%s", i, w.Code, hits.Load(), w.Body.String())
+				}
+			}
+			b, err := users.GetUserBudget(ctx, user.ID)
+			if err != nil || test.valid && (b.Used != 0.000008 || b.Reserved != 0 || b.Frozen || hits.Load() != 2) || !test.valid && (!b.Frozen || b.UnknownRequests != 1 || hits.Load() != 1) {
+				t.Fatalf("budget=%+v hits=%d err=%v", b, hits.Load(), err)
+			}
+		})
 	}
 }

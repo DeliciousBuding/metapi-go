@@ -202,3 +202,19 @@ func TestKeyAdmissionLimiter_MaxTPMNil_Unchanged(t *testing.T) {
 		t.Fatalf("nil maxRPM must not record requests, usedRPM=%d", rpm)
 	}
 }
+
+func TestAgentAdmissionTokens(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want int64
+	}{
+		{`{"instructions":"检查go代码()","input":"test","max_output_tokens":10}`, 13},
+		{`{"prompt":"abcd","max_tokens":7}`, 8},
+		{`{"messages":[{"role":"user","content":"检查代码"}],"tools":[{"name":"read","description":"` + strings.Repeat("读取代码", 128) + `"}],"max_completion_tokens":64}`, 198},
+	} {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(tc.body))
+		if got := estimateAdmissionTokens(r); got != tc.want {
+			t.Errorf("estimate %d, want %d", got, tc.want)
+		}
+	}
+}

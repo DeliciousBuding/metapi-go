@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 )
 
@@ -23,6 +24,9 @@ type Stream struct {
 	inputBytes, outputBytes int
 	pending                 []byte
 	finished                bool
+	failedEvents            bool
+	nextSequence            int
+	responseID              string
 	err                     error
 }
 
@@ -34,8 +38,9 @@ func (s *Session) NewResponseStream() (*Stream, error) {
 	to, _ := kitFormat(s.from)
 	state, err := relayconvert.NewResponseStreamState(from, to, relayconvert.ResponseStreamOptions{Model: s.model, IncludeUsage: true, EmitSequenceNumber: true})
 	if err != nil {
-		return nil, ErrConversion
+		return nil, s.conversionError("stream", err, nil)
 	}
+	s.responseSteps = state.Steps
 	s.streamCreated = true
 	return &Stream{session: s, state: state}, nil
 }
@@ -101,9 +106,9 @@ func (s *Stream) TransformEvent(frame []byte) ([]byte, error) {
 	}
 	results, err := relayconvert.ConvertStreamResponseChunk(s.session.ctx, s.session.meta, s.state, value)
 	if err != nil {
-		return s.fail(fmt.Errorf("stream conversion: %w", ErrConversion))
+		return s.fail(s.session.conversionError("stream", err, s.state.Diagnostics()))
 	}
-	if err := checkDiagnostics(s.state.Diagnostics()); err != nil {
+	if err := s.session.checkDiagnostics("stream", s.state.Diagnostics()); err != nil {
 		return s.fail(err)
 	}
 	out, err := s.encode(results)
@@ -116,7 +121,65 @@ func (s *Stream) TransformEvent(frame []byte) ([]byte, error) {
 		s.pending = append(s.pending, out...)
 		return nil, nil
 	}
+	// Only sequences handed to the host are visible when a withheld terminal fails.
+	for _, r := range results {
+		if event, ok := r.Value.(relayconvert.ChatToResponsesStreamEvent); ok {
+			if event.Payload.SequenceNumber != nil {
+				s.nextSequence = *event.Payload.SequenceNumber + 1
+			}
+			if response := event.Payload.Response; response != nil && len(response.ID) <= 256 {
+				s.responseID = response.ID
+			}
+		}
+	}
 	return out, nil
+}
+
+// ResponsesFailureEvents emits a bounded terminal pair once. RelayKit may also
+// return partial tools/text in done events and response.output, so project only
+// error fields and response identity. The transport can supply its delivered
+// frame count when a wire budget discards already converted events.
+func (s *Stream) ResponsesFailureEvents(message string, delivered ...int) []byte {
+	if s == nil || s.session == nil || s.session.from != Responses || s.session.to == Responses || s.failedEvents {
+		return nil
+	}
+	switch message {
+	case "upstream stream idle timeout", "upstream stream exceeded configured byte limit", "stream response exceeded configured byte limit", "upstream stream interrupted":
+	default:
+		message = "upstream stream interrupted"
+	}
+	const code = "upstream_error"
+	results, handled := s.state.FailResponsesStream(code, message, "")
+	if !handled {
+		return nil
+	}
+	s.failedEvents = true
+	if s.err == nil {
+		s.err = ErrConversion
+	}
+	s.pending = nil
+	for _, result := range results {
+		if event, ok := result.Value.(relayconvert.ChatToResponsesStreamEvent); ok && event.Type == "response.failed" && event.Payload.Response != nil {
+			if id := event.Payload.Response.ID; len(id) <= 256 {
+				s.responseID = id
+			}
+		}
+	}
+	sequence := s.nextSequence
+	if len(delivered) > 0 {
+		sequence = delivered[0]
+	}
+	next := sequence + 1
+	failure := map[string]string{"code": code, "message": message}
+	response := &dto.OpenAIResponsesResponse{ID: s.responseID, Object: "response", Status: json.RawMessage(`"failed"`), Error: failure, Output: []dto.ResponsesOutput{}}
+	var out []byte
+	for _, event := range []dto.ResponsesStreamResponse{{Type: "error", Code: code, Message: message, SequenceNumber: &sequence}, {Type: "response.failed", Response: response, SequenceNumber: &next}} {
+		raw, _ := json.Marshal(event)
+		out = append(out, "event: "+event.Type+"\ndata: "...)
+		out = append(out, raw...)
+		out = append(out, '\n', '\n')
+	}
+	return out
 }
 
 func (s *Stream) Finish() ([]byte, error) {
@@ -136,14 +199,14 @@ func (s *Stream) Finish() ([]byte, error) {
 	if !s.source.done {
 		return s.fail(fmt.Errorf("upstream ended without its terminal event: %w", ErrConversion))
 	}
-	if err := checkDiagnostics(s.state.Diagnostics()); err != nil {
+	if err := s.session.checkDiagnostics("stream", s.state.Diagnostics()); err != nil {
 		return s.fail(err)
 	}
 	results, err := relayconvert.FinalizeStreamResponse(s.session.ctx, s.session.meta, s.state)
 	if err != nil {
-		return s.fail(fmt.Errorf("stream finalization: %w", ErrConversion))
+		return s.fail(s.session.conversionError("stream", err, s.state.Diagnostics()))
 	}
-	if err := checkDiagnostics(s.state.Diagnostics()); err != nil {
+	if err := s.session.checkDiagnostics("stream", s.state.Diagnostics()); err != nil {
 		return s.fail(err)
 	}
 	tail, err := s.encode(results)
@@ -161,7 +224,7 @@ func (s *Stream) Finish() ([]byte, error) {
 func (s *Stream) encode(results []relayconvert.ResponseResult) ([]byte, error) {
 	var out []byte
 	for _, result := range results {
-		if err := checkDiagnostics(result.Diagnostics); err != nil {
+		if err := s.session.checkDiagnostics("stream", result.Diagnostics); err != nil {
 			return nil, err
 		}
 		if result.Value == nil {

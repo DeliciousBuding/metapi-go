@@ -3,6 +3,7 @@ import { ChevronDown, Route, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPicker } from '@/components/common/model-picker'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -25,6 +26,7 @@ import {
   type DownstreamKeysResponse,
   KeyContextAdmissionResult,
 } from '@/features/downstream-keys'
+import { useModels } from '@/features/models'
 import { api, type KeyContextDecisionResponse } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
 
@@ -81,6 +83,7 @@ export function RouteWorkspace({
     setClientIp(filters.workspaceClientIp || '')
   }, [filters.workspaceClientIp])
 
+  const modelsQuery = useModels()
   const keysQuery = useQuery({
     queryKey: downstreamKeysQueryKeys.list(),
     queryFn: async () =>
@@ -226,11 +229,13 @@ export function RouteWorkspace({
             <Label htmlFor='route-workspace-model'>
               {t('tokenRoutes.workspace.model')}
             </Label>
-            <Input
+            <ModelPicker
               id='route-workspace-model'
+              allowCustom
+              models={modelsQuery.data ?? []}
               value={model}
+              onValueChange={setModel}
               placeholder='gpt-4o'
-              onChange={(event) => setModel(event.target.value)}
             />
           </div>
           <div className='space-y-1.5'>
@@ -326,52 +331,67 @@ export function RouteWorkspace({
           </p>
         ) : null}
 
-        {keyContext ? <KeyContextAdmissionResult result={keyContext} /> : null}
-
-        {decision ? (
-          <div className='space-y-2 border-t pt-3'>
-            <div className='flex flex-wrap items-center justify-between gap-2'>
+        {(keyContext || decision) && (
+          <div className='grid gap-4 border-t pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]'>
+            <section className='min-w-0 space-y-2'>
               <h3 className='text-sm font-medium'>
-                {t('tokenRoutes.workspace.routeResult')}
+                {t('tokenRoutes.workspace.admissionHeading')}
               </h3>
-              <div className='flex flex-wrap gap-2'>
-                {decision.routeId ? (
-                  <Button
-                    size='xs'
-                    variant='outline'
-                    onClick={() => onOpenRoute(decision.routeId as number)}
-                  >
-                    {t('tokenRoutes.workspace.openRoute')}
-                  </Button>
-                ) : null}
-                {selectedKeyId !== null ? (
-                  <>
-                    <Button
-                      size='xs'
-                      variant='outline'
-                      onClick={() =>
-                        onOpenKeyEdit(selectedKeyId, keyEditLocateField)
-                      }
-                    >
-                      {t('tokenRoutes.workspace.editKey')}
-                    </Button>
-                    <Button
-                      size='xs'
-                      variant='outline'
-                      onClick={() => onOpenKeyLogs(selectedKeyId)}
-                    >
-                      {t('tokenRoutes.workspace.openLogs')}
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-            <RouteDecisionResult
-              decision={decision}
-              onEditRoute={onEditRoute}
-            />
+              {keyContext ? (
+                <KeyContextAdmissionResult result={keyContext} />
+              ) : (
+                <div className='bg-muted/30 text-muted-foreground rounded-lg border border-dashed p-3 text-xs'>
+                  {t('tokenRoutes.workspace.adminAdmissionNote')}
+                </div>
+              )}
+            </section>
+
+            {decision ? (
+              <section className='min-w-0 space-y-2'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <h3 className='text-sm font-medium'>
+                    {t('tokenRoutes.workspace.topologyHeading')}
+                  </h3>
+                  <div className='flex flex-wrap gap-2'>
+                    {decision.routeId ? (
+                      <Button
+                        size='xs'
+                        variant='outline'
+                        onClick={() => onOpenRoute(decision.routeId as number)}
+                      >
+                        {t('tokenRoutes.workspace.openRoute')}
+                      </Button>
+                    ) : null}
+                    {selectedKeyId !== null ? (
+                      <>
+                        <Button
+                          size='xs'
+                          variant='outline'
+                          onClick={() =>
+                            onOpenKeyEdit(selectedKeyId, keyEditLocateField)
+                          }
+                        >
+                          {t('tokenRoutes.workspace.editKey')}
+                        </Button>
+                        <Button
+                          size='xs'
+                          variant='outline'
+                          onClick={() => onOpenKeyLogs(selectedKeyId)}
+                        >
+                          {t('tokenRoutes.workspace.openLogs')}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                <RouteDecisionResult
+                  decision={decision}
+                  onEditRoute={onEditRoute}
+                />
+              </section>
+            ) : null}
           </div>
-        ) : null}
+        )}
       </CollapsibleContent>
     </Collapsible>
   )

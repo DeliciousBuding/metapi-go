@@ -69,6 +69,9 @@ func TestGatewayRequestsQueries(t *testing.T) {
 			if body.Total != 7 || len(body.Items) != 2 || body.Summary.CompletedCount != 1 || body.Summary.FailedCount != 3 || body.Summary.CancelledCount != 1 || body.Summary.RejectedCount != 2 || body.CoverageStartedAt == nil {
 				t.Fatalf("wrong filtered/terminal summary: %s", response.Body.String())
 			}
+			if _, err := db.Exec(`UPDATE proxy_logs SET conversion_details='invalid-json',stream_timing='[]' WHERE gateway_request_id='internal-0' AND retry_count=1`); err != nil {
+				t.Fatal(err)
+			}
 			response = doGet(t, r, "/api/stats/requests/internal-0")
 			if response.Code != 200 {
 				t.Fatal(response.Body.String())
@@ -82,6 +85,13 @@ func TestGatewayRequestsQueries(t *testing.T) {
 			}
 			if detail.AttemptCount != 2 || detail.Attempts[0]["retryCount"] != float64(0) || detail.Attempts[1]["status"] != "success" {
 				t.Fatalf("external IDs conflated requests: %s", response.Body.String())
+			}
+			for _, attempt := range detail.Attempts {
+				for _, key := range []string{"conversion", "streamTiming"} {
+					if value, ok := attempt[key]; !ok || value != nil {
+						t.Fatal(key, attempt)
+					}
+				}
 			}
 			// The compatible attempt-detail API must not merge independent turns
 			// either, even though all four seeded attempts share one external ID.

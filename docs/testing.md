@@ -94,8 +94,8 @@ environment described below.
 
 Use the existing GitHub issue / PR to connect a reported failure to its regression test:
 
-1. Describe the failed user task, minimal reproduction, expected result and root cause.
-2. Add a regression check that fails for the original defect. Use an isolated checkout when testing with the fix removed, then restore it before continuing.
+1. Reproduce the reported task with sanitized input that preserves the triggering bytes. For a stream this may mean truncation or one-byte fragments. For JSON preserve the original null, empty value or large integer.
+2. Run the new regression test against the original behavior, or temporarily remove the fix in an isolated worktree. Record the failing assertion for the reported defect or broken invariant. The test must compile and reach that assertion. Restore the fix and run the same test to confirm it passes.
 3. For a release candidate, run relevant checks on the final source and build. Record the commit, local changes, build version, commands and results. Distinguish fixture tests, real-model relay and downstream-client E2E in the result summary.
 4. Repeat affected checks when the source, build or environment changes. Include remaining issues in the release review.
 
@@ -134,7 +134,7 @@ go test ./handler/admin -run '^TestOpsWS' -count=1
 go test ./handler/admin ./service -count=1
 ```
 
-涉及并发行为时，对相关用例加 `-race`。需要检查顺序依赖和偶发失败时，
+涉及竞态时，对定向用例运行 `-race -count=10`。需要检查顺序依赖和偶发失败时，
 对定向用例使用 `-shuffle=on -count=10`，保留失败输出中的 seed。
 日常测试可使用 Go 的结果缓存；`-count=1` 用于需要实际执行的验证。
 push 前仍运行[完整本地检查](../CONTRIBUTING.md#本地验证)。
@@ -148,8 +148,9 @@ push 前仍运行[完整本地检查](../CONTRIBUTING.md#本地验证)。
 
 添加 `t.Parallel()` 前检查数据库、配置、缓存、环境变量和后台任务的所有权。
 每项并行测试应拥有自己的可变资源；修改进程级状态的用例保持串行。
-网络测试使用可控上游或传输错误，未知平台测试仍执行真实 adapter detection。
-异步测试优先等待明确的完成信号；超时作为失败上限，正常收尾应主动释放资源。
+常规测试在临时目录内读写配置，网络请求只发往本地夹具；未知平台测试仍执行真实 adapter detection。
+时间敏感的回归用例用屏障或注入延迟重现顺序，超时只作失败上限。测试结束前关闭临时服务、
+等待 goroutine 退出，再清理临时目录。
 并发断言调用生产实现，检查操作错误与合法最终状态；手写竞争演示不能代替回归测试。
 并发用例用启动信号和固定操作次数组织读写，等待所有 worker 退出；
 需要在锁外读取的缓存快照，应检查后续更新不会修改已返回的数据。
@@ -276,8 +277,6 @@ PostgreSQL service/database，所以跨 runner 不共享表或迁移状态，而
   记录实际扫描面，但不依赖历史文件数量证明检测正确。
 - 负例和真实扫描共用检测函数，或在临时夹具中运行真实 CLI；
   不用另一份复制实现证明自己正确。
-- 必要时在隔离工作树移除待保护的修复，确认门禁变红；
-  恢复修改后再确认通过。
 
 `docs/pg_rebind_gate_test.go` 检查 SQL 字面量；动态 SQL 和跨文件句柄由
 PostgreSQL 行为测试覆盖。前端静态 FormControl 检查提示常见接线问题，

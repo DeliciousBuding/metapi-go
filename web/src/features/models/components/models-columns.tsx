@@ -73,16 +73,61 @@ function resolveLowestInputPrice(model: ModelRow): number | null {
   return lowest
 }
 
-function resolvePriceDetail(
-  model: ModelRow
-): Array<{ site: string; siteId: number; price: number }> {
-  const rows: Array<{ site: string; siteId: number; price: number }> = []
+function resolveLowestOutputPrice(model: ModelRow): number | null {
+  let lowest: number | null = null
+  for (const source of model.pricingSources ?? []) {
+    for (const groupKey of Object.keys(source.groupPricing ?? {})) {
+      const group = source.groupPricing[groupKey]
+      const output = group?.outputPerMillion
+      if (typeof output === 'number' && Number.isFinite(output)) {
+        if (lowest === null || output < lowest) lowest = output
+      }
+    }
+  }
+  return lowest
+}
+
+function resolveHighestInputPrice(model: ModelRow): number | null {
+  let highest: number | null = null
+  for (const source of model.pricingSources ?? []) {
+    for (const groupKey of Object.keys(source.groupPricing ?? {})) {
+      const group = source.groupPricing[groupKey]
+      const input = group?.inputPerMillion
+      if (typeof input === 'number' && Number.isFinite(input)) {
+        if (highest === null || input > highest) highest = input
+      }
+    }
+  }
+  return highest
+}
+
+function resolvePriceDetail(model: ModelRow): Array<{
+  site: string
+  siteId: number
+  price: number
+  outputPrice: number | null
+}> {
+  const rows: Array<{
+    site: string
+    siteId: number
+    price: number
+    outputPrice: number | null
+  }> = []
   for (const source of model.pricingSources ?? []) {
     let lowest: number | null = null
+    let matchedOutput: number | null = null
     for (const groupKey of Object.keys(source.groupPricing ?? {})) {
-      const input = source.groupPricing[groupKey]?.inputPerMillion
+      const group = source.groupPricing[groupKey]
+      const input = group?.inputPerMillion
       if (typeof input === 'number' && Number.isFinite(input)) {
-        if (lowest === null || input < lowest) lowest = input
+        if (lowest === null || input < lowest) {
+          lowest = input
+          matchedOutput =
+            typeof group?.outputPerMillion === 'number' &&
+            Number.isFinite(group.outputPerMillion)
+              ? group.outputPerMillion
+              : null
+        }
       }
     }
     if (lowest !== null) {
@@ -90,6 +135,7 @@ function resolvePriceDetail(
         site: source.siteName || `#${source.siteId}`,
         siteId: source.siteId,
         price: lowest,
+        outputPrice: matchedOutput,
       })
     }
   }
@@ -404,20 +450,39 @@ export function useModelsColumns(
           if (price === null) {
             return <span className='text-muted-foreground text-sm'>—</span>
           }
+          const highestInput = resolveHighestInputPrice(row.original)
+          const lowestOutput = resolveLowestOutputPrice(row.original)
           const detail = resolvePriceDetail(row.original)
-          const priceLabel = `${formatPrice(price)}/M`
+          const hasRange = highestInput !== null && highestInput > price
+          const priceLabel = hasRange
+            ? `${formatPrice(price)}–${formatPrice(highestInput)}/M`
+            : `${formatPrice(price)}/M`
+          const triggerNode = (
+            <div className='flex flex-col gap-0.5 tabular-nums'>
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  detail.length > 0 &&
+                    'underline decoration-dotted underline-offset-2'
+                )}
+              >
+                {priceLabel}
+              </span>
+              {lowestOutput !== null && (
+                <span className='text-muted-foreground text-2xs'>
+                  → {formatPrice(lowestOutput)}/M
+                </span>
+              )}
+            </div>
+          )
           if (detail.length === 0) {
-            return <span className='text-sm tabular-nums'>{priceLabel}</span>
+            return triggerNode
           }
           return (
             <TooltipProvider delay={200}>
               <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span className='text-sm tabular-nums underline decoration-dotted underline-offset-2' />
-                  }
-                >
-                  {priceLabel}
+                <TooltipTrigger render={<span className='inline-flex' />}>
+                  {triggerNode}
                 </TooltipTrigger>
                 <TooltipContent side='top' className='max-w-xs'>
                   <div className='flex flex-col gap-1'>
@@ -425,9 +490,15 @@ export function useModelsColumns(
                       {t('models.columns.priceDetail')}
                     </span>
                     {detail.map((item) => (
-                      <span key={item.site} className='text-xs tabular-nums'>
+                      <span
+                        key={`${item.siteId}-${item.site}`}
+                        className='text-xs tabular-nums'
+                      >
                         {pricingSiteLabel(item.site, item.siteId, t)}:{' '}
                         {formatPrice(item.price)}/M
+                        {item.outputPrice !== null
+                          ? ` → ${formatPrice(item.outputPrice)}/M`
+                          : ''}
                       </span>
                     ))}
                   </div>

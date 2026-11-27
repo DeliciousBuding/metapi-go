@@ -15,6 +15,30 @@ import { currentPriceSchema, priceCompareResponseSchema } from '../../types'
 import { AccountModelPrice, CurrentPrices } from '../current-prices'
 
 const state = vi.hoisted(() => ({ refresh: vi.fn() }))
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    search,
+    children,
+    ...rest
+  }: {
+    to?: string
+    search?: Record<string, unknown>
+    children?: React.ReactNode
+    [key: string]: unknown
+  }) => {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(search ?? {})) {
+      if (value !== undefined && value !== null) params.set(key, String(value))
+    }
+    const qs = params.toString()
+    return (
+      <a href={qs ? `${to}?${qs}` : (to ?? '')} {...rest}>
+        {children}
+      </a>
+    )
+  },
+}))
 vi.mock('@/lib/api', () => ({ api: { refreshAccountPricing: state.refresh } }))
 afterEach(() => {
   cleanup()

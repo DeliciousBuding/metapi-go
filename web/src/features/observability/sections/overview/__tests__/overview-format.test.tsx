@@ -6,11 +6,40 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
 import { OverviewSection } from '../overview-section'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    search,
+    children,
+    ...rest
+  }: {
+    to: string
+    search?: Record<string, string | number | undefined>
+    children?: ReactNode
+    'aria-label'?: string
+    className?: string
+  }) => {
+    const query = search
+      ? new URLSearchParams(
+          Object.entries(search)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : ''
+    return (
+      <a href={query ? `${to}?${query}` : to} {...rest}>
+        {children}
+      </a>
+    )
+  },
+}))
 
 const fixtures = vi.hoisted(() => {
   const SLOW_CREATED_AT_ISO = '2026-08-20T14:30:05Z'
@@ -93,6 +122,11 @@ describe('OverviewSection slow requests', () => {
     )
     const siteCell = screen.getByText('Primary site')
     expect(siteCell).toHaveAttribute('title', 'Primary site')
+    const logsLink = screen.getByRole('link', { name: 'View in logs' })
+    expect(logsLink).toHaveAttribute(
+      'href',
+      '/proxy-logs?view=attempts&q=req-1&siteId=1'
+    )
   })
 })
 

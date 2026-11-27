@@ -14,13 +14,22 @@
 
 import type {
   ProxyLogBillingDetails,
+  ProxyLogBillingToolSurcharge,
+  ProxyLogConversion,
   ProxyLogDetail as BackendProxyLogDetail,
   ProxyLogListItem,
   ProxyLogStatusFilter,
+  ProxyLogStreamTiming,
   ProxyLogsQuery,
 } from '@/lib/api'
 
-export { type ProxyLogBillingDetails, type ProxyLogsQuery }
+export {
+  type ProxyLogBillingDetails,
+  type ProxyLogBillingToolSurcharge,
+  type ProxyLogConversion,
+  type ProxyLogStreamTiming,
+  type ProxyLogsQuery,
+}
 
 // --- List item + detail (feature contract) -------------------------------
 

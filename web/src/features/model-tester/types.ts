@@ -8,6 +8,12 @@
 
 export type TestTargetFormat = 'openai' | 'claude' | 'responses' | 'gemini'
 
+type EnabledSamplingParams = {
+  temperature: boolean
+  topP: boolean
+  maxTokens: boolean
+}
+
 /**
  * One turn in the tester conversation. The user prompt is appended when a
  * run starts; an assistant turn records the response or error when it finishes.
@@ -43,6 +49,7 @@ export type TestFormValues = {
   temperature: number
   topP: number
   maxTokens: number
+  enabledParams?: EnabledSamplingParams
 }
 
 /**
@@ -91,6 +98,9 @@ export type TestResponse = {
   doneReceived: boolean
   statusCode: number
   latencyMs: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   rawEvents: string[]
   empty: boolean
   error?: string
@@ -126,5 +136,15 @@ export type BatchProbeResult = {
   status: 'success' | 'failure' | 'aborted'
   statusCode?: number
   latencyMs?: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   error?: string
+  content?: string
+  reasoningContent?: string
+  rawEvents?: string[]
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  bodyTruncated?: boolean
 }

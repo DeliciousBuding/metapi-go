@@ -39,6 +39,7 @@ import { formatDateTime, formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { channelsKeys, type ChannelRow, type ChannelStatus } from '../types'
+import { ChannelInlineProbe } from './channel-inline-probe'
 
 type ChannelDetailSheetProps = {
   channel: ChannelRow | null
@@ -259,6 +260,16 @@ export function ChannelDetailSheet({
                 />
               </div>
             </section>
+
+            {open && channel.type !== 'oauth_unit' ? (
+              <>
+                <Separator />
+                <ChannelInlineProbe
+                  channelId={channel.id}
+                  defaultModel={channel.models}
+                />
+              </>
+            ) : null}
           </div>
         </ScrollArea>
 

@@ -38,6 +38,7 @@ type nativeTerminalBody struct {
 	normalizer    transformshared.NativeTerminalStream
 	responseModel string
 	original      *incrementalSseAnalyzer
+	timing        *attemptStreamTiming
 	analysis      *incrementalSseAnalyzer
 	frameLimit    int64
 	boundaryScan  int
@@ -50,6 +51,8 @@ type nativeTerminalBody struct {
 	completionProtocol proxy.UpstreamEndpoint
 	terminalSeen       bool
 	terminalFailed     bool
+	responseIncomplete bool
+	nextSequence       int64
 	chatChoices        map[int]bool
 	readBuf            [4096]byte
 }
@@ -155,6 +158,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	event := parseSseBlock(string(block))
 	if event != nil {
+		if b.timing != nil {
+			b.timing.observe(*event)
+		}
 		if b.original != nil {
 			b.original.recordEvent(*event)
 		}
@@ -190,8 +196,9 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 		return
 	}
 	var payload struct {
-		Type    string `json:"type"`
-		Choices []struct {
+		Type           string `json:"type"`
+		SequenceNumber *int64 `json:"sequence_number"`
+		Choices        []struct {
 			Index        int    `json:"index"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
@@ -213,6 +220,9 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 	}
 	if err != nil {
 		return
+	}
+	if b.completionProtocol == proxy.EndpointResponses && payload.SequenceNumber != nil {
+		b.nextSequence = *payload.SequenceNumber + 1
 	}
 	if b.completionProtocol == proxy.EndpointChat {
 		for _, choice := range payload.Choices {
@@ -236,7 +246,8 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 			}
 		} else if kind == "response.incomplete" {
 			b.terminalSeen = true
-			b.terminalFailed = true
+			b.responseIncomplete = payload.Response.Status == "incomplete"
+			b.terminalFailed = !b.responseIncomplete
 		}
 	}
 }

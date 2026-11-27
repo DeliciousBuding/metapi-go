@@ -153,3 +153,60 @@ func TestGeminiBridgePreservesExactToolSemantics(t *testing.T) {
 		t.Fatal("empty stream tool terminal succeeded")
 	}
 }
+
+func TestDirectBuilderToolArgumentsKeepInteger(t *testing.T) {
+	body, err := bridgeObject([]byte(`{"messages":[{"role":"assistant","tool_calls":[{"id":"a","function":{"name":"lookup","arguments":"{\"ids\":[9007199254740993]}"}}]}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(BuildGeminiGenerateContentRequestFromOpenAi(body, "m"))
+	if err != nil || !strings.Contains(string(raw), `"args":{"ids":[9007199254740993]}`) {
+		t.Fatalf("tool arguments: %s %v", raw, err)
+	}
+}
+
+func TestGeminiCachedUsageWire(t *testing.T) {
+	for _, tc := range []struct {
+		name, details string
+		cached        bool
+	}{
+		{"canonical", `,"prompt_tokens_details":{"cached_tokens":4},"input_tokens_details":{"cached_tokens":3}`, true},
+		{"normalized", `,"input_tokens_details":{"cached_tokens":4}`, true},
+		{"zero-with-normalized", `,"prompt_tokens_details":{"cached_tokens":0},"input_tokens_details":{"cached_tokens":4}`, true},
+		{"zero", `,"prompt_tokens_details":{"cached_tokens":0}`, false}, {"absent", ``, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usage := `{"prompt_tokens":12,"completion_tokens":2` + tc.details + `}`
+			body, err := FromChatResponse([]byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":` + usage + `}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			stream := NewChatStream("m")
+			var tail []byte
+			for _, frame := range []string{`{"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}`, `{"choices":[],"usage":` + usage + `}`, `[DONE]`} {
+				tail, err = stream.TransformEvent([]byte("data: " + frame + "\n\n"))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, wire := range []string{string(body), string(tail)} {
+				if !strings.Contains(wire, `"promptTokenCount":12`) || !strings.Contains(wire, `"totalTokenCount":14`) || strings.Contains(wire, `"cachedContentTokenCount"`) != tc.cached || tc.cached && !strings.Contains(wire, `"cachedContentTokenCount":4`) {
+					t.Errorf("wrong native usage: %s", wire)
+				}
+			}
+			back, err := ToChatResponse(body, "m")
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunk, err := NewGeminiStream("m").TransformEvent(tail)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, wire := range []string{string(back), string(chunk)} {
+				if !strings.Contains(wire, `"prompt_tokens":12`) || strings.Contains(wire, `"cached_tokens"`) != tc.cached || tc.cached && !strings.Contains(wire, `"cached_tokens":4`) {
+					t.Errorf("wrong chat usage: %s", wire)
+				}
+			}
+		})
+	}
+}

@@ -29,11 +29,11 @@ function SearchTrigger({ onClick }: { onClick?: () => void }) {
   return (
     <Button
       variant='outline'
-      className='text-muted-foreground dark:border-input dark:bg-input/30 h-8 gap-2 px-2.5 font-normal max-md:h-10 max-md:px-3'
+      className='border-border/80 bg-muted/35 text-muted-foreground hover:bg-muted/70 hover:text-foreground dark:border-input dark:bg-input/30 h-8 gap-2 rounded-lg px-2.5 font-normal shadow-none transition-colors max-md:h-10 max-md:px-3'
       onClick={onClick}
       aria-label={t('search.trigger')}
     >
-      <Search className='size-4' />
+      <Search className='size-4 shrink-0' />
       <span className='hidden md:inline'>{t('search.trigger')}</span>
       <span className='hidden items-center gap-1 md:flex'>
         <Kbd>{modifierKey}</Kbd>
@@ -47,9 +47,9 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
   return (
     <header
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg',
+        'bg-background/95 supports-[backdrop-filter]:bg-background/70 backdrop-blur-lg',
         'sticky top-0 z-50 w-full',
-        'flex h-[var(--app-header-height)] items-center gap-2 border-b px-4'
+        'border-border/80 flex h-[var(--app-header-height)] items-center gap-2 border-b px-4'
       )}
     >
       <SidebarTrigger className='max-md:size-10 md:hidden' />
