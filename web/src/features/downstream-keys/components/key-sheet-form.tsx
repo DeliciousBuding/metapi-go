@@ -1,260 +1,44 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import type { CredentialExportTarget } from '@/components/common/credential-export-dialog'
-// metapi-go/features/downstream-keys — key create/edit sheet
-// form: model policy editor (rules + suggestions), site scope picker, and
-// the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
-import { ModelPill } from '@/components/common/model-pill'
 import { useReauthReplay } from '@/components/common/reauth-provider'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  formLabelIdFor,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+import { Form } from '@/components/ui/form'
 import {
   SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
-import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
-import { parseIdArray, serializeCredentialRefs } from '../lib/credential-refs'
-import {
-  KEY_POLICY_PRESETS,
-  type KeyPolicyPreset,
-} from '../lib/key-policy-presets'
+import { parseIdArray } from '../lib/credential-refs'
 import {
   downstreamKeysQueryKeys,
   type CreateDownstreamKeyResponse,
   type DownstreamApiKeyItem,
 } from '../types'
-import { AccessPolicyEditor } from './access-policy-editor'
-import { CredentialRefPicker } from './credential-ref-picker'
+import { KeyScopeFields, KeyAccessPolicyField } from './key-access-fields'
+import { KeyIdentityFields, KeyLimitFields } from './key-details-fields'
+import { createKeyPayload, updateKeyPayload } from './key-form-payload'
 import {
   CREATE_FORM_ID,
   blankKeyFormValues,
   createKeySchema,
   editKeySchema,
-  generateDownstreamSkSuffix,
   keyFormValuesFromItem,
-  localDatetimeInputToIso,
   resolveKeyScopeControl,
-  normalizeModelRules,
   resolveApiErrorMessage,
   type CreateKeyFormValues,
 } from './key-form-shared'
+import { KeyPolicyPresetMenu } from './key-policy-preset-menu'
 import { KeyRestrictionSummary } from './key-restriction-summary'
-import { SiteScopePicker } from './site-scope-picker'
 
-type ModelPolicyEditorProps = {
-  value: string[]
-  onChange: (rules: string[]) => void
-  candidateModels?: string[]
-  routeGrantCount?: number
-} & Omit<ComponentProps<'div'>, 'onChange'>
-
-function ModelPolicyEditor({
-  value,
-  onChange,
-  candidateModels = [],
-  routeGrantCount = 0,
-  ...props
-}: ModelPolicyEditorProps) {
-  const { t } = useTranslation()
-  // Composite control: the field is a group (summary + rules + add-rule input +
-  // suggestions). The FormControl-injected id / aria-* belong on the group root,
-  // named via aria-labelledby -> the FormLabel id; the inner add-rule <Input> is
-  // a sub-control and gets its OWN aria-label, never the field-level id (#1300).
-  const labelId = props.id ? formLabelIdFor(props.id) : undefined
-  const [pendingRule, setPendingRule] = useState('')
-  const rules = normalizeModelRules(value)
-  const normalizedPendingRule = pendingRule.trim()
-  const suggestions = useMemo(() => {
-    if (!normalizedPendingRule) return []
-    const query = normalizedPendingRule.toLowerCase()
-    return candidateModels
-      .filter(
-        (model) => model.toLowerCase().includes(query) && !rules.includes(model)
-      )
-      .slice(0, 8)
-  }, [candidateModels, normalizedPendingRule, rules])
-
-  function addRule(rawRule: string) {
-    const rule = rawRule.trim()
-    if (!rule) return
-    onChange(normalizeModelRules([...rules, rule]))
-    setPendingRule('')
-  }
-
-  function removeRule(rule: string) {
-    onChange(rules.filter((candidate) => candidate !== rule))
-  }
-
-  let summary = t('settings.downstream.keys.models.summary.rules', {
-    count: rules.length,
-    defaultValue: '{{count}} rules',
-  })
-  let summaryVariant: 'success' | 'warning' | 'outline' = 'outline'
-  if (rules.includes('*')) {
-    summary = t('settings.downstream.keys.models.summary.all', {
-      defaultValue: 'All models',
-    })
-    summaryVariant = 'success'
-  } else if (rules.length === 0 && routeGrantCount > 0) {
-    summary = t('settings.downstream.keys.models.summary.routes', {
-      count: routeGrantCount,
-      defaultValue: '{{count}} route grants',
-    })
-  } else if (rules.length === 0) {
-    summary = t('settings.downstream.keys.models.summary.none', {
-      defaultValue: 'No models authorized',
-    })
-    summaryVariant = 'warning'
-  }
-
-  return (
-    <div
-      className='space-y-2'
-      role='group'
-      aria-labelledby={labelId}
-      {...props}
-    >
-      <div className='flex flex-wrap items-center gap-2'>
-        <Badge variant={summaryVariant} data-testid='model-policy-form-summary'>
-          {summary}
-        </Badge>
-        <Button
-          type='button'
-          variant='outline'
-          size='xs'
-          onClick={() => onChange(['*'])}
-        >
-          {t('settings.downstream.keys.models.allowAll', {
-            defaultValue: 'Allow all',
-          })}
-        </Button>
-        <Button
-          type='button'
-          variant='outline'
-          size='xs'
-          onClick={() => onChange([])}
-        >
-          {t('settings.downstream.keys.models.denyAll', {
-            defaultValue: 'Deny all',
-          })}
-        </Button>
-      </div>
-
-      {rules.length > 0 ? (
-        <div className='flex flex-wrap gap-1' data-testid='model-policy-rules'>
-          {rules.map((rule) => (
-            <Badge key={rule} variant='secondary' className='font-mono'>
-              {rule}
-              <button
-                type='button'
-                className='focus-visible:ring-focus-ring rounded-full outline-none focus-visible:ring-2'
-                aria-label={t(
-                  'settings.downstream.keys.models.removeRuleAria',
-                  { rule, defaultValue: 'Remove model rule {{rule}}' }
-                )}
-                onClick={() => removeRule(rule)}
-              >
-                <X aria-hidden='true' />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-
-      <div className='flex gap-2'>
-        <Input
-          aria-label={t('settings.downstream.keys.models.inputAria', {
-            defaultValue: 'Model rule',
-          })}
-          value={pendingRule}
-          onChange={(event) => setPendingRule(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              if (
-                event.nativeEvent.isComposing ||
-                event.nativeEvent.keyCode === 229
-              )
-                return
-              addRule(pendingRule)
-            }
-          }}
-          placeholder={t('settings.downstream.keys.models.inputPlaceholder', {
-            defaultValue: 'gpt-5.5, gpt-*, or re:^claude-',
-          })}
-          className='font-mono'
-        />
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          disabled={!normalizedPendingRule}
-          onClick={() => addRule(pendingRule)}
-        >
-          {t('settings.common.add')}
-        </Button>
-      </div>
-
-      {suggestions.length > 0 ? (
-        <div
-          className='flex flex-wrap gap-1'
-          role='listbox'
-          aria-label={t('settings.downstream.keys.models.suggestions', {
-            defaultValue: 'Matching models',
-          })}
-        >
-          {suggestions.map((model) => (
-            <Button
-              key={model}
-              type='button'
-              role='option'
-              aria-selected='false'
-              variant='ghost'
-              size='xs'
-              className='font-mono'
-              onClick={() => addRule(model)}
-            >
-              + <ModelPill model={model} variant='inline' />
-            </Button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-// Exported so the edit-mode behavior test can render it in isolation,
-// mirroring the AccountsRowActions export pattern. The whole KeysSection
-// remains the only public entry in the settings surface.
-//
 // `onCreated` (create mode only) receives the created key's export-dialog
 // target straight from the create response so KeysSection can auto-open the
 // Connect surface — the operator no longer has to hunt the row down.
@@ -281,7 +65,6 @@ export function KeySheetForm({
   const handleReauth = useReauthReplay()
   const queryClient = useQueryClient()
   const isEdit = editingKey !== null
-  const { data: sites } = useSites()
 
   const form = useForm<CreateKeyFormValues>({
     resolver: zodResolver(
@@ -317,36 +100,6 @@ export function KeySheetForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function generateKey() {
-    form.setValue('key', `sk-${generateDownstreamSkSuffix()}`, {
-      shouldDirty: true,
-    })
-  }
-
-  function applyPreset(preset: KeyPolicyPreset) {
-    form.setValue('supportedModels', [...preset.supportedModels], {
-      shouldDirty: true,
-      shouldValidate: true,
-    })
-    if (preset.maxRequests !== undefined) {
-      form.setValue('maxRequests', preset.maxRequests, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-    }
-    if (preset.maxCost !== undefined) {
-      form.setValue('maxCost', preset.maxCost, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-    }
-    toast.success(
-      t('settings.downstream.keys.presets.applied', {
-        name: t(preset.labelKey),
-      })
-    )
-  }
-
   const routeGrantCount = parseIdArray(editingKey?.allowedRouteIds).length
 
   const submitMutation = useMutation({
@@ -355,41 +108,13 @@ export function KeySheetForm({
       confirmToken?: string
     }) => {
       const values = input.values
-      // Canonical wire format for the credential-ref dimensions: real arrays
-      // (create/update bodies never carry the stored JSON-string form).
-      const policy = {
-        accessPolicy: values.accessPolicy,
-        allowedCredentialRefs: serializeCredentialRefs(
-          values.allowedCredentialRefs
-        ),
-        excludedCredentialRefs: serializeCredentialRefs(
-          values.excludedCredentialRefs
-        ),
-      }
-      // expiresAt goes out as RFC3339 UTC: the server only enforces an
-      // expiry it can parse (see localDatetimeInputToIso).
-      const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
-        const payload = {
-          ...values,
-          ...policy,
-          expiresAt,
-        }
+        const payload = createKeyPayload(values)
         return input.confirmToken
           ? api.createDownstreamApiKey(payload, input.confirmToken)
           : api.createDownstreamApiKey(payload)
       }
-      const payload = {
-        name: values.name,
-        groupName: values.groupName,
-        maxRequests: values.maxRequests,
-        maxCost: values.maxCost,
-        enabled: values.enabled,
-        expiresAt,
-        supportedModels: values.supportedModels,
-        allowedSiteIds: values.allowedSiteIds,
-        ...policy,
-      }
+      const payload = updateKeyPayload(values)
       return input.confirmToken
         ? api.updateDownstreamApiKey(editingKey.id, payload, input.confirmToken)
         : api.updateDownstreamApiKey(editingKey.id, payload)
@@ -484,326 +209,14 @@ export function KeySheetForm({
           className='min-h-0 flex-1 space-y-4 overflow-y-auto px-4'
         >
           <KeyRestrictionSummary routeGrantCount={routeGrantCount} />
-          <div className='bg-muted/20 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2'>
-            <p className='text-muted-foreground text-xs'>
-              {t('settings.downstream.keys.presets.hint')}
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button type='button' variant='outline' size='xs'>
-                    <Sparkles className='size-3.5' aria-hidden='true' />
-                    {t('settings.downstream.keys.presets.label')}
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align='end'>
-                {KEY_POLICY_PRESETS.map((preset) => (
-                  <DropdownMenuItem
-                    key={preset.id}
-                    onClick={() => applyPreset(preset)}
-                  >
-                    {t(preset.labelKey)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <FormField
-            control={form.control}
-            name='name'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {t('settings.downstream.keys.fields.name')}
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} value={field.value ?? ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+          <KeyPolicyPresetMenu />
+          <KeyIdentityFields isEdit={isEdit} />
+          <KeyScopeFields
+            candidateModels={candidateModels}
+            routeGrantCount={routeGrantCount}
           />
-          {isEdit ? null : (
-            <FormField
-              control={form.control}
-              name='key'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('settings.downstream.keys.fields.key')}
-                  </FormLabel>
-                  <div className='flex gap-2'>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        className='font-mono'
-                        placeholder='sk-…'
-                      />
-                    </FormControl>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={generateKey}
-                    >
-                      {t('settings.downstream.keys.generate')}
-                    </Button>
-                  </div>
-                  <FormDescription>
-                    {t('settings.downstream.keys.fields.keyHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name='supportedModels'
-            render={({ field }) => (
-              <FormItem data-key-scope='supportedModels'>
-                <FormLabel>
-                  {t('settings.downstream.keys.models.fieldLabel', {
-                    defaultValue: 'Model access',
-                  })}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.models.hint', {
-                    defaultValue:
-                      'Empty denies all. Add exact names, glob patterns (*), or re: regex rules. All models requires an explicit *.',
-                  })}
-                </FormDescription>
-                <FormControl>
-                  <ModelPolicyEditor
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                    candidateModels={candidateModels}
-                    routeGrantCount={
-                      parseIdArray(editingKey?.allowedRouteIds).length
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='allowedSiteIds'
-            render={({ field }) => (
-              <FormItem data-key-scope='allowedSiteIds'>
-                <FormLabel>
-                  {t('settings.downstream.keys.sites.fieldLabel', {
-                    defaultValue: 'Upstream site restriction',
-                  })}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.sites.hint', {
-                    defaultValue:
-                      'Leave empty for no site restriction. Selecting sites limits this key to channels of the chosen upstream sites.',
-                  })}
-                </FormDescription>
-                <FormControl>
-                  <SiteScopePicker
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                    sites={sites ?? []}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='allowedCredentialRefs'
-            render={({ field }) => (
-              <FormItem data-key-scope='allowedCredentialRefs'>
-                <FormLabel>
-                  {t('settings.downstream.keys.credentials.fieldLabelAllow')}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.credentials.hintAllow')}
-                </FormDescription>
-                <FormControl>
-                  <CredentialRefPicker
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='excludedCredentialRefs'
-            render={({ field }) => (
-              <FormItem data-key-scope='excludedCredentialRefs'>
-                <FormLabel>
-                  {t('settings.downstream.keys.credentials.fieldLabelExclude')}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.credentials.hintExclude')}
-                </FormDescription>
-                <FormControl>
-                  <CredentialRefPicker
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='groupName'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {t('settings.downstream.keys.fields.groupName')}
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} value={field.value ?? ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className='grid grid-cols-2 gap-4'>
-            <FormField
-              control={form.control}
-              name='maxRequests'
-              render={({ field }) => (
-                <FormItem data-key-scope='maxRequests'>
-                  <FormLabel>
-                    {t('settings.downstream.keys.fields.maxRequests')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t('settings.downstream.keys.fields.maxRequestsHint')}
-                  </FormDescription>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      type='number'
-                      min={0}
-                      placeholder={t('settings.common.unlimited')}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='maxCost'
-              render={({ field }) => (
-                <FormItem data-key-scope='maxCost'>
-                  <FormLabel>
-                    {t('settings.downstream.keys.fields.maxCost')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t('settings.downstream.keys.fields.maxCostHint')}
-                  </FormDescription>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      type='number'
-                      min={0}
-                      step={0.01}
-                      placeholder={t('settings.common.unlimited')}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name='expiresAt'
-            render={({ field }) => (
-              <FormItem data-key-scope='expiresAt'>
-                <FormLabel>
-                  {t('settings.downstream.keys.fields.expiresAt')}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.fields.expiresAtHint')}
-                </FormDescription>
-                <FormControl>
-                  <Input
-                    {...field}
-                    value={field.value ?? ''}
-                    type='datetime-local'
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='enabled'
-            render={({ field }) => (
-              <FormItem
-                data-key-scope='enabled'
-                className='flex flex-row items-center gap-3'
-              >
-                <FormControl>
-                  <Switch
-                    checked={Boolean(field.value)}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className='cursor-pointer'>
-                  {t('settings.downstream.keys.fields.enabled')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-          {isEdit ? null : (
-            <FormField
-              control={form.control}
-              name='description'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('settings.downstream.keys.fields.description')}
-                  </FormLabel>
-                  <FormControl>
-                    <Input {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name='accessPolicy'
-            render={({ field }) => (
-              <FormItem data-key-scope='accessPolicy' className='border-t pt-4'>
-                <FormLabel>
-                  {t('settings.downstream.keys.fields.accessPolicy')}
-                </FormLabel>
-                <FormDescription>
-                  {t('settings.downstream.keys.access.hint')}
-                </FormDescription>
-                <FormControl>
-                  <AccessPolicyEditor
-                    {...field}
-                    candidateModels={candidateModels}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <KeyLimitFields isEdit={isEdit} />
+          <KeyAccessPolicyField candidateModels={candidateModels} />
         </form>
       </Form>
       <SheetFooter>
