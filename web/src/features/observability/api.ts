@@ -13,7 +13,7 @@
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
-import { api } from '@/lib/api'
+import { api, type OverviewPeriod, type TrafficFlowResponse } from '@/lib/api'
 
 import { useObservabilityAutoRefresh } from './context/auto-refresh-context'
 import {
@@ -59,6 +59,20 @@ export function useMonitorHealth(
     queryKey: observabilityKeys.monitorHealth(),
     queryFn: () => api.getMonitorHealth() as Promise<MonitorHealthResponse>,
     staleTime: 15 * 1000,
+    refetchInterval: intervalMs,
+    ...options,
+  })
+}
+
+export function useTrafficFlow(
+  params: { period?: OverviewPeriod; topN?: number } = {},
+  options?: Omit<UseQueryOptions<TrafficFlowResponse>, 'queryKey' | 'queryFn'>
+) {
+  const { intervalMs } = useObservabilityAutoRefresh()
+  return useQuery({
+    queryKey: observabilityKeys.trafficFlow(params),
+    queryFn: () => api.getTrafficFlow(params),
+    staleTime: 30 * 1000,
     refetchInterval: intervalMs,
     ...options,
   })

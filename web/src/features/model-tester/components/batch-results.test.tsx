@@ -140,6 +140,37 @@ describe('BatchResults', () => {
     expect(screen.getByText('partial output summary')).toBeInTheDocument()
     expect(screen.getByText('{"error":"gateway timeout"}')).toBeInTheDocument()
   })
+
+  it('shows probe TTFB and highlights upstreamReportedModel only when it differs from requestedModel', () => {
+    render(
+      <BatchResults
+        channels={channels}
+        isRunning={false}
+        requestedModel='gpt-5.5'
+        results={[
+          {
+            channelId: 1,
+            status: 'success',
+            statusCode: 200,
+            latencyMs: 480,
+            firstByteLatencyMs: 140,
+            upstreamReportedModel: 'gpt-5.5-2026-10-01',
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText('TTFB: 140 ms')).toBeInTheDocument()
+    expect(screen.getByText('Served: gpt-5.5-2026-10-01')).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View details for Primary channel' })
+    )
+    expect(screen.getByText('First byte (TTFB)')).toBeInTheDocument()
+    expect(screen.getByText('140 ms')).toBeInTheDocument()
+    expect(screen.getByText('Upstream reported model')).toBeInTheDocument()
+    expect(screen.getByText('gpt-5.5-2026-10-01')).toBeInTheDocument()
+  })
 })
 
 describe('BatchResults bulk disable of failed channels', () => {

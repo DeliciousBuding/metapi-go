@@ -5,6 +5,14 @@
 export type BackupWebdavExportType = 'all' | 'accounts' | 'preferences'
 
 export type OverviewPeriod = '24h' | '7d' | '30d' | 'all'
+
+export type OverviewSiteSample = {
+  bucketTs: string
+  total: number
+  success: number
+  avgLatencyMs: number | null
+}
+
 export type OverviewReport = {
   period: OverviewPeriod
   window: { from?: string; to: string }
@@ -15,6 +23,7 @@ export type OverviewReport = {
     totalTokensAll: number
     totalCost: number
     averageLatencyMs: number | null
+    averageFirstByteMs?: number | null
   }
   requestSummary: {
     totalCount: number
@@ -61,8 +70,34 @@ export type OverviewReport = {
     successCount: number
     failedCount: number
     averageLatencyMs: number | null
+    averageFirstByteMs?: number | null
+    recentSamples?: OverviewSiteSample[]
   }>
   models: Array<{ model: string; calls: number; tokens: number; cost: number }>
+}
+
+export type TrafficFlowEdge = {
+  downstreamKeyId: number | null
+  downstreamKeyName: string | null
+  model: string
+  siteId: number | null
+  siteName: string | null
+  channelId: number | null
+  requests: number
+  failedCount: number
+  totalTokens: number
+  totalCost: number
+  averageLatencyMs: number | null
+}
+
+export type TrafficFlowResponse = {
+  period: OverviewPeriod
+  window: { from?: string; to: string }
+  totalRequests: number
+  totalFailed: number
+  totalTokens: number
+  totalCost: number
+  edges: TrafficFlowEdge[]
 }
 
 type BackupWebdavConfig = {

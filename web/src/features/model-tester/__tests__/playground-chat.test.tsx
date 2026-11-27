@@ -309,4 +309,32 @@ describe('chat playground', () => {
     expect(secondPayload).not.toHaveProperty('top_p')
     expect(secondPayload).not.toHaveProperty('max_tokens')
   })
+
+  it('displays real probe TTFB and upstream actual model badge when different from requested model', async () => {
+    network.testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 360,
+          firstByteLatencyMs: 95,
+          upstreamReportedModel: 'test-model-2026-11',
+          basis: 'forcedProbe',
+          error: null,
+          truncatedBody: JSON.stringify({
+            choices: [
+              { message: { content: 'served reply' }, finish_reason: 'stop' },
+            ],
+          }),
+        })
+      )
+    )
+    const prompt = await openChat()
+    fireEvent.change(prompt, { target: { value: 'hello' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('served reply', { exact: true })
+
+    expect(screen.getByText('TTFB: 95ms')).toBeInTheDocument()
+    expect(screen.getByText('Served: test-model-2026-11')).toBeInTheDocument()
+  })
 })

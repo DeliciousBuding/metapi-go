@@ -386,6 +386,7 @@ export function ModelTesterPage() {
             results={comparison ?? []}
             channels={channelsQuery.data ?? []}
             isRunning={isComparing}
+            requestedModel={lastComparisonRef.current?.values.model}
             totalCount={comparisonTotal}
             rerunningChannelIds={rerunningChannelIds}
             onRerunRow={handleRerunRow}

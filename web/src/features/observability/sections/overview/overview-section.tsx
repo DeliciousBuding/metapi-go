@@ -159,7 +159,7 @@ export function OverviewSection() {
 function renderSlowRequestsBody(
   loading: boolean,
   items: SlowRequestItem[],
-  t: (key: string) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
   locale: string
 ): ReactNode {
   if (loading) {
@@ -206,12 +206,38 @@ function renderSlowRequestsBody(
       </TableHeader>
       <TableBody>
         {items.map((item) => {
+          const gatewayRequestId = item.gatewayRequestId?.trim() || ''
           const queryTerm = item.requestId?.trim() || item.model?.trim() || ''
-          const logSearch = {
-            view: 'attempts' as const,
-            ...(queryTerm ? { q: queryTerm } : {}),
-            ...(item.siteId && item.siteId > 0 ? { siteId: item.siteId } : {}),
-          }
+          const logSearch = gatewayRequestId
+            ? {
+                view: 'requests' as const,
+                requestId: gatewayRequestId,
+              }
+            : {
+                view: 'attempts' as const,
+                ...(queryTerm ? { q: queryTerm } : {}),
+                ...(item.siteId && item.siteId > 0
+                  ? { siteId: item.siteId }
+                  : {}),
+              }
+          const firstByteText =
+            item.firstByteLatencyMs === null ||
+            item.firstByteLatencyMs === undefined
+              ? '—'
+              : formatLatency(item.firstByteLatencyMs, {
+                  autoSeconds: true,
+                  secondsDigits: 1,
+                  spaced: true,
+                })
+          const firstOutputText =
+            item.firstOutputLatencyMs === null ||
+            item.firstOutputLatencyMs === undefined
+              ? null
+              : formatLatency(item.firstOutputLatencyMs, {
+                  autoSeconds: true,
+                  secondsDigits: 1,
+                  spaced: true,
+                })
           return (
             <TableRow key={item.id}>
               <TableCell
@@ -234,11 +260,21 @@ function renderSlowRequestsBody(
                 })}
               </TableCell>
               <TableCell className='text-right tabular-nums'>
-                {formatLatency(item.firstByteLatencyMs, {
-                  autoSeconds: true,
-                  secondsDigits: 1,
-                  spaced: true,
-                })}
+                <div className='flex flex-col items-end gap-0.5'>
+                  <span>{firstByteText}</span>
+                  {firstOutputText && (
+                    <span
+                      className='text-muted-foreground text-2xs'
+                      title={t(
+                        'observability.overview.slowRequests.firstOutputTooltip'
+                      )}
+                    >
+                      {t('observability.overview.slowRequests.firstOutput', {
+                        value: firstOutputText,
+                      })}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell className='text-right tabular-nums'>
                 {item.httpStatus || '—'}

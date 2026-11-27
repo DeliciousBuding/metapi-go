@@ -425,4 +425,30 @@ describe('runChatProbe', () => {
       'Invalid chat test harness response'
     )
   })
+
+  it('preserves firstByteLatencyMs, upstreamReportedModel, and basis when provided by the backend', async () => {
+    const truncatedBody = JSON.stringify({
+      choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }],
+    })
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 420,
+          firstByteLatencyMs: 135,
+          upstreamReportedModel: 'gpt-5.5-2026-10-01',
+          basis: 'forcedProbe',
+          truncatedBody,
+          error: null,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await runChatProbe(buildChatPayload(formValues()))
+    expect(result.firstByteLatencyMs).toBe(135)
+    expect(result.upstreamReportedModel).toBe('gpt-5.5-2026-10-01')
+    expect(result.basis).toBe('forcedProbe')
+  })
 })

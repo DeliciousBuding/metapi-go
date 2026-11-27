@@ -7,6 +7,7 @@ import { CheckCircle2, Server, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ExpandableText } from '@/components/common/expandable-text'
 import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -48,6 +49,24 @@ type Translate = (
   key: string,
   options?: Record<string, string | number>
 ) => string
+
+const KNOWN_COOLDOWN_REASON_CODES = new Set([
+  'usage_limit',
+  'rate_limited',
+  'auth_error',
+  'upstream_error',
+  'client_error',
+  'timeout',
+  'network_error',
+  'probe_failure',
+  'unknown',
+])
+
+function formatCooldownReasonCode(code: string, t: Translate): string {
+  return KNOWN_COOLDOWN_REASON_CODES.has(code)
+    ? t(`channels.reason.codes.${code}`)
+    : code
+}
 
 function resolveToneClass(tone: 'neutral' | 'warning' | 'success'): string {
   if (tone === 'warning') return 'text-warning-soft-fg'
@@ -284,15 +303,26 @@ function renderBreakersBody(
       <TableBody>
         {breakers.map((breaker) => {
           const remaining = formatRemainingCooldown(breaker.breakerUntilMs, now)
+          const siteName = breaker.siteName?.trim()
           return (
             <TableRow key={`${breaker.siteId}:${breaker.model}`}>
-              <TableCell className='tabular-nums'>
+              <TableCell className='max-w-44 tabular-nums'>
                 <Link
                   to='/sites'
                   search={{ edit: breaker.siteId }}
-                  className='text-primary font-medium hover:underline'
+                  className='text-primary inline-flex max-w-full items-baseline gap-1.5 font-medium hover:underline'
+                  title={siteName || `#${breaker.siteId}`}
                 >
-                  #{breaker.siteId}
+                  {siteName ? (
+                    <>
+                      <span className='truncate'>{siteName}</span>
+                      <span className='text-muted-foreground text-2xs shrink-0 font-mono font-normal'>
+                        #{breaker.siteId}
+                      </span>
+                    </>
+                  ) : (
+                    `#${breaker.siteId}`
+                  )}
                 </Link>
               </TableCell>
               <TableCell className='truncate'>
@@ -417,6 +447,11 @@ function renderCoolingTable(
       </Empty>
     )
   }
+  const hasAnyReason = channels.some(
+    (channel) =>
+      Boolean(channel.cooldownReasonCode?.trim()) ||
+      Boolean(channel.cooldownReason?.trim())
+  )
   return (
     <Table>
       <TableHeader>
@@ -425,6 +460,11 @@ function renderCoolingTable(
           <TableHead className='text-right'>
             {t('observability.health.cooldown.colChannel')}
           </TableHead>
+          {hasAnyReason && (
+            <TableHead>
+              {t('observability.health.cooldown.colReason')}
+            </TableHead>
+          )}
           <TableHead className='text-right'>
             {t('observability.health.cooldown.colFailCount')}
           </TableHead>
@@ -439,6 +479,8 @@ function renderCoolingTable(
       <TableBody>
         {channels.map((channel) => {
           const remaining = formatRemainingCooldown(channel.cooldownUntil, now)
+          const reasonCode = channel.cooldownReasonCode?.trim() || null
+          const reasonText = channel.cooldownReason?.trim() || null
           return (
             <TableRow key={channel.channelId}>
               <TableCell className='truncate'>
@@ -453,6 +495,30 @@ function renderCoolingTable(
                   #{channel.channelId}
                 </Link>
               </TableCell>
+              {hasAnyReason && (
+                <TableCell className='max-w-56 align-top'>
+                  {reasonCode || reasonText ? (
+                    <div className='flex min-w-0 flex-col gap-1'>
+                      {reasonCode && (
+                        <Badge
+                          variant='outline'
+                          className='w-fit font-normal'
+                          title={reasonCode}
+                        >
+                          {formatCooldownReasonCode(reasonCode, t)}
+                        </Badge>
+                      )}
+                      {reasonText && (
+                        <ExpandableText
+                          text={reasonText}
+                          threshold={72}
+                          className='text-muted-foreground text-xs leading-snug'
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                </TableCell>
+              )}
               <TableCell className='text-right tabular-nums'>
                 {channel.failCount}
               </TableCell>

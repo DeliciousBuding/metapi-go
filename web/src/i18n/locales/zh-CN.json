@@ -953,6 +953,9 @@
         "empty": "空响应",
         "done": "完成",
         "latency": "延迟：{{value}}",
+        "firstByteLatency": "首字延迟：{{value}}",
+        "upstreamReportedModel": "上游实际模型：{{model}}",
+        "upstreamReportedModelHint": "上游响应体中实际返回的模型标识。",
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
         "truncated": "响应超过大小限制，原始数据已截断。",
@@ -992,6 +995,8 @@
         "detailTitle": "渠道探针详情 · {{channel}}",
         "detailDescription": "当前会话内存中的只读诊断快照。",
         "httpStatus": "HTTP 状态",
+        "firstByte": "首字延迟（TTFB）",
+        "upstreamReportedModel": "上游实际模型",
         "responseSummary": "模型返回摘要",
         "rawEvents": "原始事件 / 响应体"
       },
@@ -1733,6 +1738,11 @@
         "failed": "失败",
         "successRate": "成功率",
         "latency": "平均耗时",
+        "firstByte": "首字 {{value}}",
+        "recentSamples": "近 24h 样本",
+        "samplesEmpty": "暂无样本",
+        "samplesAria": "{{name}}：共 {{count}} 个有请求的 UTC 小时样本",
+        "sampleTooltip": "{{bucket}} · 成功 {{success}}/{{total}} · 均耗 {{latency}}",
         "failedLink": "{{name}}：{{count}} 次失败请求",
         "modelTitle": "模型消耗排行",
         "modelDescription": "按估算成本排序 · 同时展示请求与 Token 用量",
@@ -1763,6 +1773,8 @@
         "requestLegacyAttempts": "另有 {{count}} 条旧尝试缺少 requestId，未计入请求级统计",
         "tokensHint": "按请求日志记录的有效 Token 汇总",
         "costHint": "调用费用估算，不代表营收",
+        "avgLatency": "平均延迟",
+        "avgFirstByte": "平均首字延迟",
         "loadError": "请求数据加载失败：{{message}}",
         "trend": "调用量与成功率趋势",
         "trendScope": "最近 7 个 UTC 自然日 · 含今天",
@@ -4166,6 +4178,10 @@
         "health": {
           "title": "健康",
           "description": "站点/账号健康以及路由熔断与冷却状态。"
+        },
+        "flow": {
+          "title": "流量流向",
+          "description": "下游 Key → 请求模型 → 上游站点/渠道的流量拓扑。"
         }
       },
       "overview": {
@@ -4178,6 +4194,8 @@
           "colSite": "站点",
           "colLatency": "延迟",
           "colFirstByte": "首字节",
+          "firstOutput": "首输出 {{value}}",
+          "firstOutputTooltip": "首个输出 Token/分片到达耗时",
           "colHttp": "HTTP",
           "colStatus": "状态",
           "colTime": "时间",
@@ -4227,6 +4245,7 @@
           "empty": "当前没有处于冷却的通道。",
           "colSite": "站点",
           "colChannel": "通道",
+          "colReason": "原因",
           "colFailCount": "失败数",
           "colUntil": "截至",
           "colActions": "操作",
@@ -4241,6 +4260,46 @@
           "active": "活跃",
           "disabled": "停用",
           "other": "其他"
+        }
+      },
+      "flow": {
+        "periodLabel": "流量统计时段",
+        "metricLabel": "流量统计维度",
+        "metric": {
+          "requests": "请求数",
+          "cost": "估算费用",
+          "tokens": "Token 量"
+        },
+        "failedOnly": "仅看含失败链路",
+        "loadFailed": "流量流向数据加载失败。",
+        "cardTitle": "流量流向拓扑",
+        "cardDescription": "点击或键盘选中任意 Key、模型或上游节点，高亮关联链路并跳转对应日志。",
+        "clearSelection": "清除选择",
+        "empty": "当前时间窗内暂无流量流向数据。",
+        "emptyFailedFilter": "当前时间窗内没有包含失败请求的链路。",
+        "unassignedKey": "未归属 Key",
+        "unknownModel": "未知模型",
+        "unassignedUpstream": "未归属上游",
+        "channelPrefix": "渠道#",
+        "failedCountTitle": "失败 {{count}} 次",
+        "columns": {
+          "key": "下游 Key",
+          "model": "请求模型",
+          "upstream": "上游站点 / 渠道"
+        },
+        "summary": {
+          "requests": "总请求数",
+          "failed": "失败数",
+          "successRate": "成功 {{rate}}",
+          "tokens": "总 Token",
+          "cost": "估算费用"
+        },
+        "actionBar": {
+          "label": "选中链路操作栏",
+          "idleHint": "点击上方任意节点，高亮其上下游关联链路并一键跳转筛选后的日志。",
+          "summary": "{{requests}} 次请求 · {{failed}} 次失败 · {{paths}} 条链路",
+          "goToLogs": "前往日志",
+          "goToChannel": "前往渠道"
         }
       }
     },

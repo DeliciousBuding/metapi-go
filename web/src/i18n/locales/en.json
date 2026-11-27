@@ -953,6 +953,9 @@
         "empty": "Empty",
         "done": "Done",
         "latency": "Latency: {{value}}",
+        "firstByteLatency": "TTFB: {{value}}",
+        "upstreamReportedModel": "Served: {{model}}",
+        "upstreamReportedModelHint": "Model identifier returned by the upstream response body.",
         "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
         "truncated": "The response exceeded the size limit. Raw data was truncated.",
@@ -992,6 +995,8 @@
         "detailTitle": "Probe details · {{channel}}",
         "detailDescription": "Read-only diagnostic snapshot held in current session memory.",
         "httpStatus": "HTTP status",
+        "firstByte": "First byte (TTFB)",
+        "upstreamReportedModel": "Upstream reported model",
         "responseSummary": "Response summary",
         "rawEvents": "Raw events"
       },
@@ -1733,6 +1738,11 @@
         "failed": "Failed",
         "successRate": "Success rate",
         "latency": "Avg latency",
+        "firstByte": "TTFB {{value}}",
+        "recentSamples": "24h samples",
+        "samplesEmpty": "No samples",
+        "samplesAria": "{{name}}: {{count}} active UTC hour samples",
+        "sampleTooltip": "{{bucket}} · {{success}}/{{total}} ok · avg {{latency}}",
         "failedLink": "{{name}}: {{count}} failed requests",
         "modelTitle": "Model usage ranking",
         "modelDescription": "Estimated cost ranking · Includes requests and tokens",
@@ -1763,6 +1773,8 @@
         "requestLegacyAttempts": "{{count}} legacy attempts without requestId are excluded from request-level metrics",
         "tokensHint": "Effective tokens recorded in request logs",
         "costHint": "Estimated usage cost, not revenue",
+        "avgLatency": "Avg latency",
+        "avgFirstByte": "Avg TTFB",
         "loadError": "Unable to load request data: {{message}}",
         "trend": "Request volume & reliability",
         "trendScope": "Last 7 UTC calendar days · includes today",
@@ -4166,6 +4178,10 @@
         "health": {
           "title": "Health",
           "description": "Site/account health plus routing breaker and cooldown state."
+        },
+        "flow": {
+          "title": "Traffic flow",
+          "description": "Downstream key to model to upstream routing paths."
         }
       },
       "overview": {
@@ -4178,6 +4194,8 @@
           "colSite": "Site",
           "colLatency": "Latency",
           "colFirstByte": "First byte",
+          "firstOutput": "First out {{value}}",
+          "firstOutputTooltip": "Time to first output token/chunk",
           "colHttp": "HTTP",
           "colStatus": "Status",
           "colTime": "Time",
@@ -4227,6 +4245,7 @@
           "empty": "No channels currently cooling down.",
           "colSite": "Site",
           "colChannel": "Channel",
+          "colReason": "Reason",
           "colFailCount": "Fails",
           "colUntil": "Until",
           "colActions": "Actions",
@@ -4241,6 +4260,46 @@
           "active": "Active",
           "disabled": "Disabled",
           "other": "Other"
+        }
+      },
+      "flow": {
+        "periodLabel": "Flow period",
+        "metricLabel": "Flow metric",
+        "metric": {
+          "requests": "Requests",
+          "cost": "Estimated cost",
+          "tokens": "Tokens"
+        },
+        "failedOnly": "Failed paths only",
+        "loadFailed": "Failed to load traffic flow data.",
+        "cardTitle": "Traffic flow topology",
+        "cardDescription": "Select any key, model, or upstream node to isolate connected paths and drill into logs.",
+        "clearSelection": "Clear selection",
+        "empty": "No traffic flow edges recorded in this window.",
+        "emptyFailedFilter": "No paths with failures in this window.",
+        "unassignedKey": "Unassigned key",
+        "unknownModel": "Unknown model",
+        "unassignedUpstream": "Unassigned upstream",
+        "channelPrefix": "ch#",
+        "failedCountTitle": "{{count}} failed requests",
+        "columns": {
+          "key": "Downstream key",
+          "model": "Requested model",
+          "upstream": "Upstream site / channel"
+        },
+        "summary": {
+          "requests": "Total requests",
+          "failed": "Failed",
+          "successRate": "{{rate}} ok",
+          "tokens": "Total tokens",
+          "cost": "Estimated cost"
+        },
+        "actionBar": {
+          "label": "Selected flow path actions",
+          "idleHint": "Select a node above to highlight its upstream and downstream paths and jump to filtered logs.",
+          "summary": "{{requests}} requests · {{failed}} failed · {{paths}} paths",
+          "goToLogs": "Go to logs",
+          "goToChannel": "Go to channel"
         }
       }
     },

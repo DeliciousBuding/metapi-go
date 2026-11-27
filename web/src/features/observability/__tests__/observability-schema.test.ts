@@ -14,6 +14,9 @@ describe('observabilitySearchSchema', () => {
     expect(observabilitySearchSchema.parse({ section: 'health' }).section).toBe(
       'health'
     )
+    expect(observabilitySearchSchema.parse({ section: 'flow' }).section).toBe(
+      'flow'
+    )
   })
 
   it('falls back to overview for an absent section', () => {

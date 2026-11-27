@@ -44,6 +44,9 @@ type ChatTestHarnessEnvelope = {
   success: boolean
   statusCode: number
   latencyMs: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   truncatedBody: string
   error: string | null
   bodyTruncated?: boolean
@@ -138,10 +141,31 @@ function parseChatTestHarnessEnvelope(
     throw new Error('Invalid chat test harness response')
   }
 
+  const firstByteLatencyMs =
+    typeof record.firstByteLatencyMs === 'number' &&
+    Number.isFinite(record.firstByteLatencyMs)
+      ? record.firstByteLatencyMs
+      : record.firstByteLatencyMs === null
+        ? null
+        : undefined
+  const upstreamReportedModel =
+    typeof record.upstreamReportedModel === 'string'
+      ? record.upstreamReportedModel.trim() || null
+      : record.upstreamReportedModel === null
+        ? null
+        : undefined
+  const basis =
+    typeof record.basis === 'string' && record.basis.trim().length > 0
+      ? record.basis.trim()
+      : undefined
+
   return {
     success: record.success,
     statusCode: record.statusCode,
     latencyMs: record.latencyMs,
+    ...(firstByteLatencyMs !== undefined ? { firstByteLatencyMs } : {}),
+    ...(upstreamReportedModel !== undefined ? { upstreamReportedModel } : {}),
+    ...(basis !== undefined ? { basis } : {}),
     truncatedBody: record.truncatedBody,
     error: record.error as string | null,
     bodyTruncated: record.bodyTruncated === true,
@@ -516,6 +540,13 @@ export async function runChatProbe(
     doneReceived: upstreamBody.doneReceived,
     statusCode: envelope.statusCode,
     latencyMs: envelope.latencyMs,
+    ...(envelope.firstByteLatencyMs !== undefined
+      ? { firstByteLatencyMs: envelope.firstByteLatencyMs }
+      : {}),
+    ...(envelope.upstreamReportedModel !== undefined
+      ? { upstreamReportedModel: envelope.upstreamReportedModel }
+      : {}),
+    ...(envelope.basis !== undefined ? { basis: envelope.basis } : {}),
     rawEvents: upstreamBody.rawEvents,
     empty: !upstreamBody.content && !upstreamBody.reasoningContent,
     error,
@@ -612,6 +643,13 @@ async function settleProbe(
         status: 'failure',
         statusCode: summary.statusCode,
         latencyMs: summary.latencyMs,
+        ...(summary.firstByteLatencyMs !== undefined
+          ? { firstByteLatencyMs: summary.firstByteLatencyMs }
+          : {}),
+        ...(summary.upstreamReportedModel !== undefined
+          ? { upstreamReportedModel: summary.upstreamReportedModel }
+          : {}),
+        ...(summary.basis !== undefined ? { basis: summary.basis } : {}),
         error: summary.error,
         content: summary.content,
         reasoningContent: summary.reasoningContent,
@@ -627,6 +665,13 @@ async function settleProbe(
       status: 'success',
       statusCode: summary.statusCode,
       latencyMs: summary.latencyMs,
+      ...(summary.firstByteLatencyMs !== undefined
+        ? { firstByteLatencyMs: summary.firstByteLatencyMs }
+        : {}),
+      ...(summary.upstreamReportedModel !== undefined
+        ? { upstreamReportedModel: summary.upstreamReportedModel }
+        : {}),
+      ...(summary.basis !== undefined ? { basis: summary.basis } : {}),
       content: summary.content,
       reasoningContent: summary.reasoningContent,
       rawEvents: summary.rawEvents,

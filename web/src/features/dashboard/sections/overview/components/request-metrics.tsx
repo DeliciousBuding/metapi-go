@@ -7,7 +7,12 @@ import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import type { OverviewPeriod } from '@/lib/api'
-import { formatCurrency, formatDateTime, formatInt } from '@/lib/format'
+import {
+  formatCurrency,
+  formatDateTime,
+  formatInt,
+  formatLatency,
+} from '@/lib/format'
 
 import { useOverviewReport } from '../use-overview-report'
 
@@ -81,6 +86,25 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
       failed: false,
     },
   ]
+  const hasAttempts = (summary?.totalCount ?? 0) > 0
+  const avgLatencyText =
+    hasAttempts && summary?.averageLatencyMs != null
+      ? formatLatency(summary.averageLatencyMs, {
+          autoSeconds: true,
+          secondsDigits: 1,
+          spaced: true,
+        })
+      : '—'
+  const avgFirstByteText =
+    hasAttempts && summary?.averageFirstByteMs != null
+      ? formatLatency(summary.averageFirstByteMs, {
+          autoSeconds: true,
+          secondsDigits: 1,
+          spaced: true,
+        })
+      : '—'
+  const showLatencyStrip = !query.isLoading && !query.error && summary != null
+
   return (
     <section
       className='space-y-3'
@@ -145,19 +169,37 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
           )
         })}
       </div>
-      {gatewaySummary && (
-        <p className='text-muted-foreground text-xs leading-5'>
-          {t('requestLogs.observedHint')}{' '}
-          {gatewaySummary.coverageStartedAt
-            ? t('requestLogs.coverage', {
-                time: formatDateTime(
-                  gatewaySummary.coverageStartedAt,
-                  toBcp47(i18n.language)
-                ),
-              })
-            : t('requestLogs.noCoverage')}
-        </p>
-      )}
+      <div className='text-muted-foreground flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 text-xs leading-5'>
+        {showLatencyStrip && (
+          <div className='flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums'>
+            <span>
+              {t('dashboard.operations.avgLatency')}:{' '}
+              <span className='text-foreground font-medium'>
+                {avgLatencyText}
+              </span>
+            </span>
+            <span>
+              {t('dashboard.operations.avgFirstByte')}:{' '}
+              <span className='text-foreground font-medium'>
+                {avgFirstByteText}
+              </span>
+            </span>
+          </div>
+        )}
+        {gatewaySummary && (
+          <p>
+            {t('requestLogs.observedHint')}{' '}
+            {gatewaySummary.coverageStartedAt
+              ? t('requestLogs.coverage', {
+                  time: formatDateTime(
+                    gatewaySummary.coverageStartedAt,
+                    toBcp47(i18n.language)
+                  ),
+                })
+              : t('requestLogs.noCoverage')}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

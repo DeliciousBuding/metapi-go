@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,6 +34,8 @@ type BatchResultsProps = {
   results: BatchProbeResult[]
   channels: ChannelRow[]
   isRunning: boolean
+  /** Requested model name for this batch comparison (detects upstream model mismatch). */
+  requestedModel?: string
   /** Total channels queued for comparison (shows incremental progress). */
   totalCount?: number
   /** Channels whose single-row re-run probe is in flight (row spinner). */
@@ -55,6 +58,7 @@ export function BatchResults({
   results,
   channels,
   isRunning,
+  requestedModel,
   totalCount,
   rerunningChannelIds,
   onRerunRow,
@@ -183,16 +187,37 @@ export function BatchResults({
                   rerunningChannelIds?.has(result.channelId) ?? false
                 const channelDisplayName =
                   channel?.name ?? String(result.channelId)
+                const reportedModel =
+                  result.upstreamReportedModel?.trim() || null
+                const normalizedRequested = requestedModel?.trim() || null
+                const hasModelMismatch =
+                  Boolean(reportedModel) &&
+                  Boolean(normalizedRequested) &&
+                  reportedModel !== normalizedRequested
                 return (
                   <tr key={result.channelId} className='border-t'>
                     <td className='px-3 py-2'>
-                      <Link
-                        to='/channels'
-                        search={{ channelId: result.channelId }}
-                        className='text-primary hover:underline'
-                      >
-                        {channel?.name ?? result.channelId}
-                      </Link>
+                      <div className='flex flex-col gap-1'>
+                        <Link
+                          to='/channels'
+                          search={{ channelId: result.channelId }}
+                          className='text-primary hover:underline'
+                        >
+                          {channel?.name ?? result.channelId}
+                        </Link>
+                        {hasModelMismatch && reportedModel && (
+                          <SoftToneBadge
+                            tone='info'
+                            title={t(
+                              'modelTester.viewer.upstreamReportedModelHint'
+                            )}
+                          >
+                            {t('modelTester.viewer.upstreamReportedModel', {
+                              model: reportedModel,
+                            })}
+                          </SoftToneBadge>
+                        )}
+                      </div>
                     </td>
                     <td className='text-muted-foreground px-3 py-2'>
                       {channel?.site.name ?? '—'}
@@ -210,10 +235,24 @@ export function BatchResults({
                       </span>
                     </td>
                     <td className='px-3 py-2 tabular-nums'>
-                      {formatLatency(result.latencyMs, {
-                        autoSeconds: true,
-                        spaced: true,
-                      })}
+                      <div className='flex flex-col gap-0.5'>
+                        <span>
+                          {formatLatency(result.latencyMs, {
+                            autoSeconds: true,
+                            spaced: true,
+                          })}
+                        </span>
+                        {result.firstByteLatencyMs != null && (
+                          <span className='text-muted-foreground text-2xs'>
+                            {t('modelTester.viewer.firstByteLatency', {
+                              value: formatLatency(result.firstByteLatencyMs, {
+                                autoSeconds: true,
+                                spaced: true,
+                              }),
+                            })}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className='text-muted-foreground max-w-56 px-3 py-2 break-words'>
                       {result.error || '—'}
@@ -299,6 +338,24 @@ export function BatchResults({
                     spaced: true,
                   })}
                 </DetailField>
+                {detailResult.firstByteLatencyMs !== undefined && (
+                  <DetailField label={t('modelTester.compare.firstByte')}>
+                    {detailResult.firstByteLatencyMs != null
+                      ? formatLatency(detailResult.firstByteLatencyMs, {
+                          autoSeconds: true,
+                          spaced: true,
+                        })
+                      : '—'}
+                  </DetailField>
+                )}
+                {detailResult.upstreamReportedModel && (
+                  <DetailField
+                    label={t('modelTester.compare.upstreamReportedModel')}
+                    full
+                  >
+                    {detailResult.upstreamReportedModel}
+                  </DetailField>
+                )}
                 {detailResult.totalTokens !== undefined && (
                   <DetailField label={t('modelTester.viewer.usage')} full>
                     {t('modelTester.viewer.usage', {

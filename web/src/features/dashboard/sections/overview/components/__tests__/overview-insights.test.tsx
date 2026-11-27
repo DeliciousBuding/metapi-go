@@ -238,4 +238,71 @@ describe('overview operational insights', () => {
     )
     expect(screen.queryByText('untranslated')).not.toBeInTheDocument()
   })
+
+  it('renders non-gap recentSamples bars with color semantics, empty sample copy, and site TTFB', async () => {
+    vi.mocked(api.getOverviewReport).mockResolvedValue(
+      reportFixture({
+        siteAvailability: [
+          {
+            siteId: 1,
+            siteName: 'Active Site',
+            totalRequests: 20,
+            successCount: 17,
+            failedCount: 3,
+            averageLatencyMs: 800,
+            averageFirstByteMs: 210,
+            recentSamples: [
+              {
+                bucketTs: '2026-11-27T01:00:00Z',
+                total: 10,
+                success: 10,
+                avgLatencyMs: 600,
+              },
+              {
+                bucketTs: '2026-11-27T02:00:00Z',
+                total: 8,
+                success: 7,
+                avgLatencyMs: 900,
+              },
+              {
+                bucketTs: '2026-11-27T03:00:00Z',
+                total: 2,
+                success: 0,
+                avgLatencyMs: 1200,
+              },
+            ],
+          },
+          {
+            siteId: 2,
+            siteName: 'Quiet Site',
+            totalRequests: 0,
+            successCount: 0,
+            failedCount: 0,
+            averageLatencyMs: null,
+            averageFirstByteMs: null,
+            recentSamples: [],
+          },
+        ],
+      })
+    )
+
+    mount(<UpstreamHealthPanel />)
+    await screen.findByText('Active Site')
+
+    const group = screen.getByRole('group', {
+      name: 'Active Site: 3 active UTC hour samples',
+    })
+    const bars = within(group).getAllByRole('button')
+    expect(bars).toHaveLength(3)
+    expect(bars[0]).toHaveClass('bg-success')
+    expect(bars[1]).toHaveClass('bg-warning')
+    expect(bars[2]).toHaveClass('bg-destructive')
+    expect(bars[0]).toHaveAttribute(
+      'aria-label',
+      '11-27 01:00 UTC · 10/10 ok · avg 600 ms'
+    )
+
+    expect(screen.getByText('No samples')).toBeInTheDocument()
+    expect(screen.getByText('TTFB 210 ms')).toBeInTheDocument()
+  })
 })

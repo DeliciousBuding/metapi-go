@@ -98,6 +98,9 @@ export type TestResponse = {
   doneReceived: boolean
   statusCode: number
   latencyMs: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   rawEvents: string[]
   empty: boolean
   error?: string
@@ -133,6 +136,9 @@ export type BatchProbeResult = {
   status: 'success' | 'failure' | 'aborted'
   statusCode?: number
   latencyMs?: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  basis?: string
   error?: string
   content?: string
   reasoningContent?: string
