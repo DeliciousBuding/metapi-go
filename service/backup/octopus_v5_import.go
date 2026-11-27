@@ -41,7 +41,7 @@ func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey stri
 		if len(unsupported) == 0 {
 			return nil, errors.New("Octopus v5 requires explicit channels-only acknowledgement for group relay policy adaptations")
 		}
-		return nil, fmt.Errorf("Octopus v5 backup contains unsupported non-empty sections: %s", strings.Join(sortedSectionNames(unsupported), ", "))
+		return nil, fmt.Errorf("Octopus v5 backup contains unsupported non-empty sections: %s", strings.Join(sortedStringKeys(unsupported), ", "))
 	}
 	if db == nil {
 		return nil, errors.New("database is unavailable")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -264,4 +265,95 @@ func sourceSectionLength(top map[string]json.RawMessage, section string) (int, e
 		return 0, err
 	}
 	return len(rows), nil
+}
+
+func validateOriginKey(v string) error {
+	if v == "" || len(v) > 128 {
+		return fmt.Errorf("originKey must be between 1 and 128 characters")
+	}
+	for _, r := range v {
+		if !sourceIdentifierChar(r) {
+			return fmt.Errorf("originKey may contain only letters, digits, dot, underscore and hyphen")
+		}
+	}
+	return nil
+}
+
+func sourceIdentifierChar(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.'
+}
+
+// sanitizeIdentifier keeps preview output free of arbitrary attacker text while
+// still naming the item well enough to investigate it.
+func sanitizeIdentifier(name string) string {
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	out := make([]rune, 0, len(name))
+	for _, r := range name {
+		if !sourceIdentifierChar(r) {
+			r = '_'
+		}
+		out = append(out, r)
+	}
+	return string(out)
+}
+
+// present reports whether a JSON field carries a value rather than being absent,
+// null, or an empty container.
+func present(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return false
+	}
+	switch string(trimmed) {
+	case "null", `""`, "{}", "[]":
+		return false
+	}
+	return true
+}
+
+func unknownKeys(obj map[string]json.RawMessage, allowed []string) []string {
+	known := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		known[key] = struct{}{}
+	}
+	var extra []string
+	for key := range obj {
+		if _, ok := known[key]; !ok {
+			extra = append(extra, sanitizeIdentifier(key))
+		}
+	}
+	sort.Strings(extra)
+	return extra
+}
+
+func dropZeroCounts(counts map[string]int) {
+	for key, count := range counts {
+		if count == 0 {
+			delete(counts, key)
+		}
+	}
+}
+
+func uniquifyReasons(reasons []string) []string {
+	seen := map[string]bool{}
+	out := reasons[:0]
+	for _, reason := range reasons {
+		if seen[reason] {
+			continue
+		}
+		seen[reason] = true
+		out = append(out, reason)
+	}
+	return out
+}
+
+func sortedStringKeys[V any](values map[string]V) []string {
+	out := make([]string, 0, len(values))
+	for key := range values {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
 }

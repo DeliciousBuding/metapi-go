@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
@@ -106,6 +105,7 @@ func rawRows(raw json.RawMessage) []json.RawMessage {
 	_ = json.Unmarshal(raw, &rows)
 	return rows
 }
+
 func rejectUnknownJSONFields(row map[string]json.RawMessage, allowed ...string) error {
 	set := map[string]bool{}
 	for _, k := range allowed {
@@ -129,14 +129,11 @@ func validateOctopusV5(d *OctopusV5Dump) error {
 		if c.ID <= 0 || c.Name == "" || c.Dialect != "generic" || strings.TrimSpace(c.BaseURL) == "" {
 			return fmt.Errorf("Octopus channels contain an unsupported dialect or invalid identity/configuration")
 		}
-		if !safeOctopusEndpointPath(c.ChatPath) || !safeOctopusEndpointPath(c.ResponsesPath) || !safeOctopusEndpointPath(c.AnthropicPath) {
+		if !safeDirectEndpointPath(c.ChatPath) || !safeDirectEndpointPath(c.ResponsesPath) || !safeDirectEndpointPath(c.AnthropicPath) {
 			return fmt.Errorf("Octopus channel contains an invalid protocol endpoint path")
 		}
 		if len(c.CustomHeader) > 0 && string(c.CustomHeader) != "null" {
-			var headers []struct {
-				HeaderKey   string `json:"header_key"`
-				HeaderValue string `json:"header_value"`
-			}
+			var headers []importHeader
 			if json.Unmarshal(c.CustomHeader, &headers) != nil {
 				return fmt.Errorf("Octopus channel contains invalid custom headers")
 			}
@@ -148,13 +145,10 @@ func validateOctopusV5(d *OctopusV5Dump) error {
 		if e != nil || u.Scheme != "https" && u.Scheme != "http" || u.Host == "" || u.User != nil || u.Fragment != "" {
 			return fmt.Errorf("Octopus channel contains an invalid base URL")
 		}
-		if c.ParamOverride != "" {
-			var m map[string]json.RawMessage
-			if json.Unmarshal([]byte(c.ParamOverride), &m) != nil || m == nil {
-				return fmt.Errorf("Octopus channel has invalid parameter overrides")
-			}
+		if c.ParamOverride != "" && !validParamOverride(c.ParamOverride) {
+			return fmt.Errorf("Octopus channel has invalid parameter overrides")
 		}
-		if c.Proxy && strings.TrimSpace(c.ChannelProxy) != "" && !validOctopusProxyURL(c.ChannelProxy) {
+		if c.Proxy && strings.TrimSpace(c.ChannelProxy) != "" && !validImportProxyURL(c.ChannelProxy) {
 			return fmt.Errorf("Octopus channel contains an invalid proxy URL")
 		}
 		if c.Proxy && service.IsForbiddenSiteTargetURL(c.ChannelProxy) {
@@ -289,17 +283,6 @@ func PreviewOctopusV5(db *store.DB, raw []byte, originKey string) (*OctopusV5Pre
 	return preview, nil
 }
 
-func safeOctopusEndpointPath(path string) bool {
-	if strings.TrimSpace(path) == "" {
-		return true
-	}
-	if !strings.HasPrefix(path, "/") || strings.Contains(path, "\\") || strings.Contains(path, "..") {
-		return false
-	}
-	u, err := url.Parse(path)
-	return err == nil && !u.IsAbs() && u.Host == "" && u.RawQuery == "" && u.Fragment == ""
-}
-
 func unsupportedOctopusV5Sections(d *OctopusV5Dump) map[string]int {
 	unsupported := map[string]int{}
 	_, importedSettings, _ := octopusProxyURL(d)
@@ -371,7 +354,7 @@ func octopusProxyURL(d *OctopusV5Dump) (string, int, error) {
 		seen = true
 		imported++
 		proxyURL = strings.TrimSpace(setting.Value)
-		if proxyURL != "" && !validOctopusProxyURL(proxyURL) {
+		if proxyURL != "" && !validImportProxyURL(proxyURL) {
 			return "", imported, fmt.Errorf("Octopus settings contain an invalid proxy_url")
 		}
 		if proxyURL != "" && service.IsForbiddenSiteTargetURL(proxyURL) {
@@ -391,16 +374,8 @@ func octopusProxyURL(d *OctopusV5Dump) (string, int, error) {
 	return proxyURL, imported, nil
 }
 
-func validOctopusProxyURL(raw string) bool {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https" || u.Scheme == "socks5" || u.Scheme == "socks5h") && u.Host != "" && u.RawQuery == "" && u.Fragment == ""
-}
-
 func channelHasClientHeaderTemplate(raw json.RawMessage) bool {
-	var headers []struct {
-		Key   string `json:"header_key"`
-		Value string `json:"header_value"`
-	}
+	var headers []importHeader
 	if json.Unmarshal(raw, &headers) != nil {
 		return false
 	}
@@ -410,25 +385,4 @@ func channelHasClientHeaderTemplate(raw json.RawMessage) bool {
 		}
 	}
 	return false
-}
-
-func sortedSectionNames(sections map[string]int) []string {
-	names := make([]string, 0, len(sections))
-	for name := range sections {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func validateOriginKey(v string) error {
-	if v == "" || len(v) > 128 {
-		return fmt.Errorf("originKey must be between 1 and 128 characters")
-	}
-	for _, r := range v {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.') {
-			return fmt.Errorf("originKey may contain only letters, digits, dot, underscore and hyphen")
-		}
-	}
-	return nil
 }
