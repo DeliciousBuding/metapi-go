@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp, Copy, FlaskConical } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
@@ -56,6 +56,9 @@ export function GatewayRequestDetailSheet({
   const query = useGatewayRequest(id)
   const detail = query.data
   const [attemptId, setAttemptId] = useState<number | null>(null)
+  useEffect(() => {
+    setAttemptId(null)
+  }, [id])
   const selectedAttempt = detail?.attempts.find(
     (attempt) => attempt.id === attemptId
   )

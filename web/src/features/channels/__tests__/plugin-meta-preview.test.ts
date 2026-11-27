@@ -86,4 +86,12 @@ describe('extractStaticPluginMetaPreview', () => {
     const result = extractStaticPluginMetaPreview(source, 'bad-plugin')
     expect(result.status).toBe('invalid_schema')
   })
+
+  it('rejects excessive nesting depth and invalid unicode code points safely', () => {
+    const deep = `export const meta = { a: ${'['.repeat(40)}1${']'.repeat(40)} };`
+    expect(extractStaticPluginMetaPreview(deep).status).toBe('dynamic')
+
+    const badUnicode = `export const meta = { apiVersion: 1, key: "\\u{110000}" };`
+    expect(extractStaticPluginMetaPreview(badUnicode).status).toBe('dynamic')
+  })
 })

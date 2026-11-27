@@ -457,3 +457,27 @@ func TestParseUsageFromBodyOpenAIMediaZeroDetailsDoNotInvent(t *testing.T) {
 		t.Fatalf("zero media details must not invent: %+v", got)
 	}
 }
+
+func TestParseUsageFromBodyMixedAnthropicZeroAndOpenAISubsetDetailsNoDoubleCount(t *testing.T) {
+	body := []byte(`{
+		"usage": {
+			"prompt_tokens": 100,
+			"completion_tokens": 10,
+			"cache_read_input_tokens": 0,
+			"prompt_tokens_details": {
+				"cached_tokens": 40,
+				"cache_write_tokens": 20
+			}
+		}
+	}`)
+	got := ParseUsageFromBody(body)
+	if got.PromptTokens != 100 {
+		t.Fatalf("prompt = %d, want 100 (OpenAI details are subsets, must not be added to prompt_tokens)", got.PromptTokens)
+	}
+	if got.CacheReadTokens != 40 || got.CacheCreationTokens != 20 {
+		t.Fatalf("cache fields = read %d create %d, want 40/20", got.CacheReadTokens, got.CacheCreationTokens)
+	}
+	if got.TotalTokens != 110 {
+		t.Fatalf("total = %d, want 110", got.TotalTokens)
+	}
+}

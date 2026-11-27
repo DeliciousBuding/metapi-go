@@ -13,6 +13,7 @@ type RelayBridgeTraceCardProps = {
 }
 
 const PROTOCOL_LABELS: Record<string, string> = {
+  chat: 'OpenAI Chat',
   openai: 'OpenAI Chat',
   openai_chat: 'OpenAI Chat',
   'openai-chat': 'OpenAI Chat',
@@ -20,6 +21,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   responses: 'OpenAI Responses',
   openai_responses: 'OpenAI Responses',
   'openai-responses': 'OpenAI Responses',
+  messages: 'Anthropic Messages',
   anthropic: 'Anthropic Messages',
   anthropic_messages: 'Anthropic Messages',
   'anthropic-messages': 'Anthropic Messages',

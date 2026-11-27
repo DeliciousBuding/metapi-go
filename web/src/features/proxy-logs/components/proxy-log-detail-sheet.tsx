@@ -647,11 +647,14 @@ function getToolLabel(
 }
 
 function getToolSourceLabel(
-  source: string,
+  source: string | null | undefined,
   t: ReturnType<typeof useTranslation>['t']
-): string {
+): string | null {
+  if (typeof source !== 'string') return null
   const normalized = source.trim().toLowerCase()
+  if (!normalized) return null
   if (
+    normalized === 'vendor_reported' ||
     normalized === 'provider' ||
     normalized === 'upstream' ||
     normalized === 'reported' ||
@@ -660,6 +663,7 @@ function getToolSourceLabel(
     return t('proxyLogs.usage.toolSource.provider')
   }
   if (
+    normalized === 'response_derived' ||
     normalized === 'inferred' ||
     normalized === 'estimated' ||
     normalized === 'response' ||
@@ -667,7 +671,7 @@ function getToolSourceLabel(
   ) {
     return t('proxyLogs.usage.toolSource.inferred')
   }
-  return source
+  return source.trim()
 }
 
 function formatToolUnitPrice(
@@ -830,7 +834,7 @@ export function BillingSection({
         <h3 className='mb-2 text-sm font-medium'>
           {t('proxyLogs.detail.sectionBilling')}
         </h3>
-        {rows.length > 0 ? (
+        {rows.length > 0 || toolSurcharges.length > 0 ? (
           <>
             <dl className='divide-border divide-y rounded-md border px-3'>
               {rows.map((row) => (
@@ -856,47 +860,54 @@ export function BillingSection({
                     {t('proxyLogs.usage.toolSurchargesTitle')}
                   </dt>
                   <dd className='space-y-1.5'>
-                    {toolSurcharges.map(({ item, key }) => (
-                      <div
-                        key={key}
-                        className='grid grid-cols-[1fr_auto_auto] items-baseline gap-3 text-xs'
-                      >
-                        <div className='min-w-0 space-y-0.5'>
-                          <div className='flex flex-wrap items-center gap-1.5'>
-                            <span className='font-medium'>
-                              {getToolLabel(item.tool, t)}
-                            </span>
-                            <span className='bg-muted text-muted-foreground text-2xs rounded-4xl border px-1.5 py-0.5'>
-                              {getToolSourceLabel(item.source, t)}
-                            </span>
+                    {toolSurcharges.map(({ item, key }) => {
+                      const sourceLabel = getToolSourceLabel(item.source, t)
+                      return (
+                        <div
+                          key={key}
+                          className='grid grid-cols-[1fr_auto_auto] items-baseline gap-3 text-xs'
+                        >
+                          <div className='min-w-0 space-y-0.5'>
+                            <div className='flex flex-wrap items-center gap-1.5'>
+                              <span className='font-medium'>
+                                {getToolLabel(item.tool, t)}
+                              </span>
+                              {sourceLabel && (
+                                <span className='bg-muted text-muted-foreground text-2xs rounded-4xl border px-1.5 py-0.5'>
+                                  {sourceLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div className='text-muted-foreground tabular-nums'>
+                              {formatInt(item.quantity, locale)} {item.unit}
+                            </div>
                           </div>
-                          <div className='text-muted-foreground tabular-nums'>
-                            {formatInt(item.quantity, locale)} {item.unit}
-                          </div>
+                          <span className='text-muted-foreground tabular-nums'>
+                            {formatToolUnitPrice(item, locale, t)}
+                          </span>
+                          <span className='tabular-nums'>
+                            {formatCurrency(item.cost, {
+                              fractionDigits: 6,
+                              locale,
+                            })}
+                          </span>
                         </div>
-                        <span className='text-muted-foreground tabular-nums'>
-                          {formatToolUnitPrice(item, locale, t)}
-                        </span>
-                        <span className='tabular-nums'>
-                          {formatCurrency(item.cost, {
-                            fractionDigits: 6,
-                            locale,
-                          })}
-                        </span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </dd>
                 </div>
               )}
-              <div className='flex justify-between gap-3 py-2 text-sm font-medium'>
-                <dt>{t('proxyLogs.usage.totalCost')}</dt>
-                <dd className='tabular-nums'>
-                  {formatCurrency(breakdown.totalCost, {
-                    fractionDigits: 6,
-                    locale,
-                  })}
-                </dd>
-              </div>
+              {typeof breakdown?.totalCost === 'number' && (
+                <div className='flex justify-between gap-3 py-2 text-sm font-medium'>
+                  <dt>{t('proxyLogs.usage.totalCost')}</dt>
+                  <dd className='tabular-nums'>
+                    {formatCurrency(breakdown.totalCost, {
+                      fractionDigits: 6,
+                      locale,
+                    })}
+                  </dd>
+                </div>
+              )}
             </dl>
             <details className='mt-3 text-xs'>
               <summary className='text-muted-foreground cursor-pointer py-1'>

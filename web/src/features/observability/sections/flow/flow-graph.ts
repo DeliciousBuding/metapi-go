@@ -55,10 +55,16 @@ const CHART_VARS = [
   'var(--chart-5)',
 ] as const
 
+function safeNonNeg(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : 0
+}
+
 function getEdgeMetricValue(edge: TrafficFlowEdge, metric: FlowMetric): number {
-  if (metric === 'cost') return Math.max(0, edge.totalCost)
-  if (metric === 'tokens') return Math.max(0, edge.totalTokens)
-  return Math.max(0, edge.requests)
+  if (metric === 'cost') return safeNonNeg(edge.totalCost)
+  if (metric === 'tokens') return safeNonNeg(edge.totalTokens)
+  return safeNonNeg(edge.requests)
 }
 
 function keyNodeId(edge: TrafficFlowEdge): string {
@@ -117,6 +123,10 @@ export function buildFlowGraph(
   let totalMetric = 0
 
   edges.forEach((edge, index) => {
+    const reqs = safeNonNeg(edge.requests)
+    const failed = safeNonNeg(edge.failedCount)
+    const tokens = safeNonNeg(edge.totalTokens)
+    const cost = safeNonNeg(edge.totalCost)
     const value = getEdgeMetricValue(edge, metric)
     totalMetric += value
 
@@ -133,10 +143,10 @@ export function buildFlowGraph(
     // Key node
     const existingKey = keyMap.get(kId)
     if (existingKey) {
-      existingKey.requests += edge.requests
-      existingKey.failedCount += edge.failedCount
-      existingKey.totalTokens += edge.totalTokens
-      existingKey.totalCost += edge.totalCost
+      existingKey.requests += reqs
+      existingKey.failedCount += failed
+      existingKey.totalTokens += tokens
+      existingKey.totalCost += cost
       existingKey.metricValue += value
     } else {
       const name = edge.downstreamKeyName?.trim()
@@ -154,10 +164,10 @@ export function buildFlowGraph(
         column: 'key',
         label,
         sublabel,
-        requests: edge.requests,
-        failedCount: edge.failedCount,
-        totalTokens: edge.totalTokens,
-        totalCost: edge.totalCost,
+        requests: reqs,
+        failedCount: failed,
+        totalTokens: tokens,
+        totalCost: cost,
         metricValue: value,
         share: 0,
         colorVar: CHART_VARS[0],
@@ -168,10 +178,10 @@ export function buildFlowGraph(
     // Model node
     const existingModel = modelMap.get(mId)
     if (existingModel) {
-      existingModel.requests += edge.requests
-      existingModel.failedCount += edge.failedCount
-      existingModel.totalTokens += edge.totalTokens
-      existingModel.totalCost += edge.totalCost
+      existingModel.requests += reqs
+      existingModel.failedCount += failed
+      existingModel.totalTokens += tokens
+      existingModel.totalCost += cost
       existingModel.metricValue += value
     } else {
       const modelName = edge.model?.trim()
@@ -179,10 +189,10 @@ export function buildFlowGraph(
         id: mId,
         column: 'model',
         label: modelName || labels.unknownModel,
-        requests: edge.requests,
-        failedCount: edge.failedCount,
-        totalTokens: edge.totalTokens,
-        totalCost: edge.totalCost,
+        requests: reqs,
+        failedCount: failed,
+        totalTokens: tokens,
+        totalCost: cost,
         metricValue: value,
         share: 0,
         colorVar: CHART_VARS[1],
@@ -193,10 +203,10 @@ export function buildFlowGraph(
     // Upstream node (site + optional channel)
     const existingUpstream = upstreamMap.get(uId)
     if (existingUpstream) {
-      existingUpstream.requests += edge.requests
-      existingUpstream.failedCount += edge.failedCount
-      existingUpstream.totalTokens += edge.totalTokens
-      existingUpstream.totalCost += edge.totalCost
+      existingUpstream.requests += reqs
+      existingUpstream.failedCount += failed
+      existingUpstream.totalTokens += tokens
+      existingUpstream.totalCost += cost
       existingUpstream.metricValue += value
     } else {
       const siteName = edge.siteName?.trim()
@@ -219,10 +229,10 @@ export function buildFlowGraph(
         column: 'upstream',
         label,
         sublabel,
-        requests: edge.requests,
-        failedCount: edge.failedCount,
-        totalTokens: edge.totalTokens,
-        totalCost: edge.totalCost,
+        requests: reqs,
+        failedCount: failed,
+        totalTokens: tokens,
+        totalCost: cost,
         metricValue: value,
         share: 0,
         colorVar: CHART_VARS[2],
@@ -240,10 +250,10 @@ export function buildFlowGraph(
       const id = `${sourceId}=>${targetId}`
       const existing = linkMap.get(id)
       if (existing) {
-        existing.requests += edge.requests
-        existing.failedCount += edge.failedCount
-        existing.totalTokens += edge.totalTokens
-        existing.totalCost += edge.totalCost
+        existing.requests += reqs
+        existing.failedCount += failed
+        existing.totalTokens += tokens
+        existing.totalCost += cost
         existing.metricValue += value
         existing.edgeKeys.add(edgeKey)
       } else {
@@ -252,10 +262,10 @@ export function buildFlowGraph(
           sourceId,
           targetId,
           stage,
-          requests: edge.requests,
-          failedCount: edge.failedCount,
-          totalTokens: edge.totalTokens,
-          totalCost: edge.totalCost,
+          requests: reqs,
+          failedCount: failed,
+          totalTokens: tokens,
+          totalCost: cost,
           metricValue: value,
           colorVar: CHART_VARS[0],
           edgeKeys: new Set([edgeKey]),

@@ -265,14 +265,17 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any, gemini bool) {
 	}
 
 	// Anthropic exclusive cache fields (not subsets of input_tokens).
+	var anthropicCacheRead, anthropicCacheCreate int64
 	sawAnthropicCacheKeys := false
 	if cacheRead, ok := asInt64(usage["cache_read_input_tokens"]); ok {
 		out.CacheReadTokens = cacheRead
+		anthropicCacheRead = cacheRead
 		out.Found = true
 		sawAnthropicCacheKeys = true
 	}
 	if cacheCreate, ok := asInt64(usage["cache_creation_input_tokens"]); ok {
 		out.CacheCreationTokens = cacheCreate
+		anthropicCacheCreate = cacheCreate
 		out.Found = true
 		sawAnthropicCacheKeys = true
 	}
@@ -288,12 +291,15 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any, gemini bool) {
 		out.CacheReadTokens = cache.CacheReadTokens
 		out.Found = true
 	}
-	if sawAnthropicCacheKeys || cache.CacheCreation5mTokens+cache.CacheCreation1hTokens > 0 {
-		// input_tokens (if present) is non-cached; expand prompt to include cache
-		// so total_tokens and billing breakdown billable-prompt math stay correct.
-		// When input_tokens was omitted (0) and only cache fields exist, this still
-		// yields prompt = cache_read + cache_creation.
-		out.PromptTokens = out.PromptTokens + out.CacheReadTokens + out.CacheCreationTokens
+	anthropicTiers := cache.CacheCreation5mTokens + cache.CacheCreation1hTokens
+	if sawAnthropicCacheKeys || anthropicTiers > 0 {
+		// input_tokens (if present) is non-cached; expand prompt only by Anthropic
+		// exclusive cache fields (never re-adding OpenAI prompt_tokens_details subsets).
+		exclusiveCreate := anthropicCacheCreate
+		if exclusiveCreate == 0 && anthropicTiers > 0 {
+			exclusiveCreate = anthropicTiers
+		}
+		out.PromptTokens = out.PromptTokens + anthropicCacheRead + exclusiveCreate
 	}
 
 	// OpenAI prompt_tokens_details.cached_tokens / input_tokens_details.cached_tokens

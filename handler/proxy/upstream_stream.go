@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -495,9 +496,13 @@ func (r *responsesFrameReader) readFrame() ([]byte, error) {
 			continue
 		}
 		if err != nil {
+			if err == io.EOF && len(frame) > 0 {
+				r.delivered++
+				return frame, nil
+			}
 			return nil, err
 		}
-		if len(frame) >= 2 && frame[len(frame)-2] == '\n' {
+		if bytes.HasSuffix(frame, []byte("\n\n")) || bytes.HasSuffix(frame, []byte("\r\n\r\n")) {
 			r.delivered++
 			return frame, nil
 		}

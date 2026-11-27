@@ -22,7 +22,7 @@ function isPositiveFinite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
-function getDecodeStatusMeta(decodeStatus: string): {
+function getDecodeStatusMeta(decodeStatus: string | null | undefined): {
   tone: SoftTone
   labelKey: string
 } {
@@ -61,7 +61,9 @@ function getDecodeStatusMeta(decodeStatus: string): {
   }
 }
 
-function getReasoningEvidenceKey(evidence: string): string | null {
+function getReasoningEvidenceKey(
+  evidence: string | null | undefined
+): string | null {
   switch (evidence) {
     case 'visible':
       return 'proxyLogs.telemetry.streamTiming.reasoningEvidence.visible'

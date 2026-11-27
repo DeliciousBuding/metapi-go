@@ -75,16 +75,16 @@ const proxyLogConversionSchema = z.object({
 })
 
 const proxyLogStreamTimingSchema = z.object({
-  headerMs: z.number().nullable(),
-  firstReasoningMs: z.number().nullable(),
-  firstTextMs: z.number().nullable(),
-  lastContentMs: z.number().nullable(),
-  maxContentGapMs: z.number().nullable(),
-  reasoningEvidence: z.string(),
-  decodeTokens: z.number(),
-  decodeWindowMs: z.number().nullable(),
-  decodeTps: z.number().nullable(),
-  decodeStatus: z.string(),
+  headerMs: z.number().nullable().optional(),
+  firstReasoningMs: z.number().nullable().optional(),
+  firstTextMs: z.number().nullable().optional(),
+  lastContentMs: z.number().nullable().optional(),
+  maxContentGapMs: z.number().nullable().optional(),
+  reasoningEvidence: z.string().nullable().optional(),
+  decodeTokens: z.number().nullable().optional(),
+  decodeWindowMs: z.number().nullable().optional(),
+  decodeTps: z.number().nullable().optional(),
+  decodeStatus: z.string().nullable().optional(),
 })
 
 // Attempt rows keep their existing wire vocabulary. Validate the fields this

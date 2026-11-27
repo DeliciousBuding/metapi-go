@@ -25,6 +25,9 @@ export type PluginMetaPreviewResult =
 
 class StaticParseError extends Error {}
 
+const MAX_STATIC_NESTING_DEPTH = 32
+const EXPORT_META_RE = /export\s+const\s+meta\s*=/y
+
 /**
  * Pure static parser for JS literal values (`{...}`, `[...]`, strings, numbers,
  * booleans, null) without ever invoking eval, Function, or executing user code.
@@ -32,6 +35,7 @@ class StaticParseError extends Error {}
 class StaticJsLiteralParser {
   private readonly source: string
   private pos: number
+  private depth = 0
 
   constructor(source: string, startPos: number) {
     this.source = source
@@ -99,95 +103,115 @@ class StaticJsLiteralParser {
   }
 
   private parseObject(): Record<string, unknown> {
-    this.pos += 1 // '{'
-    const result: Record<string, unknown> = {}
-    while (true) {
-      this.skipTrivia()
-      if (this.pos >= this.source.length) {
-        throw new StaticParseError('Unterminated object literal')
-      }
-      if (this.source[this.pos] === '}') {
-        this.pos += 1
-        return result
-      }
-      if (
-        this.source[this.pos] === '.' &&
-        this.source.slice(this.pos, this.pos + 3) === '...'
-      ) {
-        throw new StaticParseError(
-          'Spread properties cannot be statically resolved'
-        )
-      }
-      if (this.source[this.pos] === '[') {
-        throw new StaticParseError('Computed property keys are not supported')
-      }
-
-      let key: string
-      const ch = this.source[this.pos]
-      if (ch === '"' || ch === "'" || ch === '`') {
-        key = this.parseString(ch)
-      } else {
-        key = this.readIdentifier()
-        if (!key) {
-          throw new StaticParseError(`Invalid object key at ${this.pos}`)
+    if (this.depth >= MAX_STATIC_NESTING_DEPTH) {
+      throw new StaticParseError('Nesting depth limit exceeded')
+    }
+    this.depth += 1
+    try {
+      this.pos += 1 // '{'
+      const result: Record<string, unknown> = {}
+      while (true) {
+        this.skipTrivia()
+        if (this.pos >= this.source.length) {
+          throw new StaticParseError('Unterminated object literal')
         }
-      }
+        if (this.source[this.pos] === '}') {
+          this.pos += 1
+          return result
+        }
+        if (
+          this.source[this.pos] === '.' &&
+          this.source.slice(this.pos, this.pos + 3) === '...'
+        ) {
+          throw new StaticParseError(
+            'Spread properties cannot be statically resolved'
+          )
+        }
+        if (this.source[this.pos] === '[') {
+          throw new StaticParseError('Computed property keys are not supported')
+        }
 
-      this.skipTrivia()
-      if (this.source[this.pos] !== ':') {
-        throw new StaticParseError(`Expected ":" after key "${key}"`)
-      }
-      this.pos += 1
+        let key: string
+        const ch = this.source[this.pos]
+        if (ch === '"' || ch === "'" || ch === '`') {
+          key = this.parseString(ch)
+        } else {
+          key = this.readIdentifier()
+          if (!key) {
+            throw new StaticParseError(`Invalid object key at ${this.pos}`)
+          }
+        }
 
-      const value = this.parseValue()
-      if (key !== '__proto__' && key !== 'constructor' && key !== 'prototype') {
-        result[key] = value
-      }
-
-      this.skipTrivia()
-      if (this.source[this.pos] === ',') {
+        this.skipTrivia()
+        if (this.source[this.pos] !== ':') {
+          throw new StaticParseError(`Expected ":" after key "${key}"`)
+        }
         this.pos += 1
-        continue
+
+        const value = this.parseValue()
+        if (
+          key !== '__proto__' &&
+          key !== 'constructor' &&
+          key !== 'prototype'
+        ) {
+          result[key] = value
+        }
+
+        this.skipTrivia()
+        if (this.source[this.pos] === ',') {
+          this.pos += 1
+          continue
+        }
+        if (this.source[this.pos] === '}') {
+          this.pos += 1
+          return result
+        }
+        throw new StaticParseError(`Expected "," or "}" in object literal`)
       }
-      if (this.source[this.pos] === '}') {
-        this.pos += 1
-        return result
-      }
-      throw new StaticParseError(`Expected "," or "}" in object literal`)
+    } finally {
+      this.depth -= 1
     }
   }
 
   private parseArray(): unknown[] {
-    this.pos += 1 // '['
-    const result: unknown[] = []
-    while (true) {
-      this.skipTrivia()
-      if (this.pos >= this.source.length) {
-        throw new StaticParseError('Unterminated array literal')
+    if (this.depth >= MAX_STATIC_NESTING_DEPTH) {
+      throw new StaticParseError('Nesting depth limit exceeded')
+    }
+    this.depth += 1
+    try {
+      this.pos += 1 // '['
+      const result: unknown[] = []
+      while (true) {
+        this.skipTrivia()
+        if (this.pos >= this.source.length) {
+          throw new StaticParseError('Unterminated array literal')
+        }
+        if (this.source[this.pos] === ']') {
+          this.pos += 1
+          return result
+        }
+        if (
+          this.source[this.pos] === '.' &&
+          this.source.slice(this.pos, this.pos + 3) === '...'
+        ) {
+          throw new StaticParseError(
+            'Spread elements cannot be statically resolved'
+          )
+        }
+        result.push(this.parseValue())
+        this.skipTrivia()
+        if (this.source[this.pos] === ',') {
+          this.pos += 1
+          continue
+        }
+        if (this.source[this.pos] === ']') {
+          this.pos += 1
+          return result
+        }
+        throw new StaticParseError('Expected "," or "]" in array literal')
       }
-      if (this.source[this.pos] === ']') {
-        this.pos += 1
-        return result
-      }
-      if (
-        this.source[this.pos] === '.' &&
-        this.source.slice(this.pos, this.pos + 3) === '...'
-      ) {
-        throw new StaticParseError(
-          'Spread elements cannot be statically resolved'
-        )
-      }
-      result.push(this.parseValue())
-      this.skipTrivia()
-      if (this.source[this.pos] === ',') {
-        this.pos += 1
-        continue
-      }
-      if (this.source[this.pos] === ']') {
-        this.pos += 1
-        return result
-      }
-      throw new StaticParseError('Expected "," or "]" in array literal')
+    } finally {
+      this.depth -= 1
     }
   }
 
@@ -233,11 +257,12 @@ class StaticJsLiteralParser {
               const close = this.source.indexOf('}', this.pos + 1)
               if (close === -1)
                 throw new StaticParseError('Invalid unicode escape')
-              const code = Number.parseInt(
-                this.source.slice(this.pos + 1, close),
-                16
-              )
-              if (!Number.isFinite(code)) {
+              const hex = this.source.slice(this.pos + 1, close)
+              if (!/^[0-9a-fA-F]{1,6}$/.test(hex)) {
+                throw new StaticParseError('Invalid unicode escape')
+              }
+              const code = Number.parseInt(hex, 16)
+              if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) {
                 throw new StaticParseError('Invalid unicode escape')
               }
               out += String.fromCodePoint(code)
@@ -334,7 +359,8 @@ function findExportMetaEqualsIndex(source: string): number {
       continue
     }
     if (ch === 'e') {
-      const match = /^export\s+const\s+meta\s*=/.exec(source.slice(i))
+      EXPORT_META_RE.lastIndex = i
+      const match = EXPORT_META_RE.exec(source)
       if (match) {
         const prev = i > 0 ? source[i - 1] : ''
         if (!/[A-Za-z0-9_$]/.test(prev)) {

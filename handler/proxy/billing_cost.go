@@ -158,7 +158,11 @@ func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usag
 		b.OutputCost = float64(detail.Usage.CompletionTokens) * output / 1e6
 		b.CacheReadCost = float64(detail.Usage.CacheReadTokens) * read / 1e6
 		b.PriceCatalogCacheWrites(detail.Usage, write)
-		b.TotalCost = b.InputCost + b.OutputCost + b.CacheReadCost + b.CacheCreationCost
+		var toolCost float64
+		for _, s := range b.ToolSurcharges {
+			toolCost += s.Cost
+		}
+		b.TotalCost = b.InputCost + b.OutputCost + b.CacheReadCost + b.CacheCreationCost + toolCost
 	} else {
 		pricing["model_ratio"], pricing["completion_ratio"] = detail.Pricing.ModelRatio, detail.Pricing.CompletionRatio
 		if hasCache {

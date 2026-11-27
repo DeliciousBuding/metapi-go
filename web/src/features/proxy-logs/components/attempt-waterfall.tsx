@@ -22,7 +22,7 @@ function isValidNonNeg(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
-function getInlineDecodeBadge(decodeStatus: string): {
+function getInlineDecodeBadge(decodeStatus: string | null | undefined): {
   tone: SoftTone
   labelKey: string
 } | null {

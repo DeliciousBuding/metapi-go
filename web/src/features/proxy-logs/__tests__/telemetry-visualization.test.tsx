@@ -310,7 +310,7 @@ describe('BillingSection tiered cache writes and tool surcharges', () => {
             tool: 'web_search',
             unit: 'queries',
             quantity: 3,
-            source: 'provider',
+            source: 'vendor_reported',
             unitPrice: 0.01,
             cost: 0.03,
           },
@@ -318,7 +318,7 @@ describe('BillingSection tiered cache writes and tool surcharges', () => {
             tool: 'grounding',
             unit: 'queries',
             quantity: 2,
-            source: 'inferred',
+            source: 'response_derived',
             unitPrice: null,
             cost: 0,
           },
@@ -326,7 +326,6 @@ describe('BillingSection tiered cache writes and tool surcharges', () => {
             tool: 'file_search',
             unit: 'calls',
             quantity: 1,
-            source: 'provider',
             unitPrice: 0,
             cost: 0,
           },
@@ -345,11 +344,27 @@ describe('BillingSection tiered cache writes and tool surcharges', () => {
     expect(screen.getByText('3 queries')).toBeInTheDocument()
     expect(screen.getByText('2 queries')).toBeInTheDocument()
     expect(screen.getByText('1 calls')).toBeInTheDocument()
-    expect(screen.getAllByText('Provider reported')).toHaveLength(2)
+    expect(screen.getAllByText('Provider reported')).toHaveLength(1)
     expect(screen.getByText('Response inferred')).toBeInTheDocument()
     expect(screen.getByText('$0.010000')).toBeInTheDocument()
     expect(screen.getByText('Unpriced')).toBeInTheDocument()
     expect(screen.getByText('Free $0')).toBeInTheDocument()
+  })
+
+  it('formats backend chat/messages protocol names consistently in RelayBridgeTraceCard', () => {
+    render(
+      <RelayBridgeTraceCard
+        conversion={{
+          owner: 'relaykit',
+          sourceProtocol: 'chat',
+          upstreamProtocol: 'messages',
+          quality: 'good',
+          diagnostics: [],
+        }}
+      />
+    )
+    expect(screen.getByText('OpenAI Chat')).toBeInTheDocument()
+    expect(screen.getByText('Anthropic Messages')).toBeInTheDocument()
   })
 
   it('keeps legacy billing objects working without tiered cache or tool surcharge fields', () => {

@@ -501,29 +501,36 @@ export type ProxyLogConversion = {
 }
 
 export type ProxyLogStreamTiming = {
-  headerMs: number | null
-  firstReasoningMs: number | null
-  firstTextMs: number | null
-  lastContentMs: number | null
-  maxContentGapMs: number | null
-  reasoningEvidence: 'none' | 'visible' | 'hidden' | 'summaryOnly' | string
-  decodeTokens: number
-  decodeWindowMs: number | null
-  decodeTps: number | null
-  decodeStatus:
+  headerMs?: number | null
+  firstReasoningMs?: number | null
+  firstTextMs?: number | null
+  lastContentMs?: number | null
+  maxContentGapMs?: number | null
+  reasoningEvidence?:
+    | 'none'
+    | 'visible'
+    | 'hidden'
+    | 'summaryOnly'
+    | string
+    | null
+  decodeTokens?: number | null
+  decodeWindowMs?: number | null
+  decodeTps?: number | null
+  decodeStatus?:
     | 'measured'
     | 'bufferedBurst'
     | 'hiddenReasoning'
     | 'insufficientEvidence'
     | 'interrupted'
     | string
+    | null
 }
 
 export type ProxyLogBillingToolSurcharge = {
   tool: string
   unit: string
   quantity: number
-  source: string
+  source?: string | null
   unitPrice?: number | null
   cost: number
 }
