@@ -46,34 +46,31 @@ func insertHarnessFixtures(t *testing.T, db *store.DB) (siteID, accountID, route
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+	var err error
+	siteID, err = execInsertID(db.DB, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, ?)`, "HarnessSite", "https://upstream.example.test", "openai", now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	siteID, _ = res.LastInsertId()
 
 	apiTok := "sk-harness-api-token-xyz"
-	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
+	accountID, err = execInsertID(db.DB, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
-	accountID, _ = res.LastInsertId()
 
-	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
+	routeID, err = execInsertID(db.DB, `INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
 		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "gpt-*", "Harness Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
-	routeID, _ = res.LastInsertId()
 
-	res, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
+	channelID, err = execInsertID(db.DB, `INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
 		VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
-	channelID, _ = res.LastInsertId()
 	return siteID, accountID, routeID, channelID
 }
 
@@ -446,4 +443,69 @@ func TestTruncateAndRedact(t *testing.T) {
 	if len(s2) > channelTestMaxBodyBytes+20 {
 		t.Fatalf("len=%d", len(s2))
 	}
+}
+
+type probeBodyReader func([]byte) (int, error)
+
+func (f probeBodyReader) Read(buf []byte) (int, error) { return f(buf) }
+
+func TestChannelProbeObservations(t *testing.T) {
+	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
+		h := &channelTestHandler{db: db.DB, cfg: &config.Config{}}
+		r.Post("/api/admin/test-channel", h.testChannel)
+		r.Post("/api/debug/channel-probe", h.testChannel)
+		_, _, _, id := insertHarnessFixtures(t, db)
+		body := map[string]any{"channelId": id}
+		for _, tc := range []struct {
+			path, reply, model      string
+			readFails, requestFails bool
+		}{
+			{"/api/admin/test-channel", `{"model":"served"}`, "served", false, false},
+			{"/api/debug/channel-probe", `{"model":"sk-syntheticprobe"}`, "[redacted]", false, false},
+			{"/api/debug/channel-probe", `{"model":{"id":"unknown"}}`, "", false, false},
+			{"/api/debug/channel-probe", `{`, "", false, false},
+			{"/api/debug/channel-probe", "", "", true, false},
+			{"/api/debug/channel-probe", "", "", false, true},
+		} {
+			var firstRead time.Time
+			h.transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+				if tc.requestFails {
+					return nil, io.ErrUnexpectedEOF
+				}
+				time.Sleep(8 * time.Millisecond)
+				reader := probeBodyReader(func(buf []byte) (int, error) {
+					firstRead = time.Now()
+					time.Sleep(30 * time.Millisecond)
+					if tc.readFails {
+						return 0, io.ErrUnexpectedEOF
+					}
+					return copy(buf, tc.reply), io.EOF
+				})
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(reader)}, nil
+			})
+			start := time.Now()
+			out := catalogCall(t, r, "POST", tc.path, body, 200)
+			if out["basis"] != "forcedProbe" {
+				t.Errorf("basis=%v", out["basis"])
+			}
+			ms, present := out["firstByteLatencyMs"]
+			if !present {
+				t.Errorf("missing firstByteLatencyMs")
+			} else if tc.requestFails {
+				if ms != nil {
+					t.Errorf("failed request latency=%v", ms)
+				}
+			} else if n, ok := ms.(float64); !ok || n < 8 || n > float64(firstRead.Sub(start).Milliseconds()) {
+				t.Errorf("header latency=%v read started at %s", ms, firstRead.Sub(start))
+			}
+			reported, ok := out["upstreamReportedModel"]
+			if tc.model != "" && reported != tc.model || tc.model == "" && ok {
+				t.Errorf("reported model=%v", reported)
+			}
+		}
+		var count int
+		if err := db.Get(&count, `SELECT (SELECT COUNT(*) FROM proxy_logs)+(SELECT COUNT(*) FROM gateway_requests)`); err != nil || count != 0 {
+			t.Fatalf("usage count=%d err=%v", count, err)
+		}
+	})
 }

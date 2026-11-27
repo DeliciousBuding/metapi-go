@@ -7,9 +7,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 )
 
-// overview gives every analytical panel one bounded window. Current resource
-// balances and maintenance remain on their existing snapshot endpoints.
-func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
+type statsWindow struct {
+	period   string
+	from, to time.Time
+}
+
+func readStatsWindow(w http.ResponseWriter, r *http.Request) (statsWindow, bool) {
 	period := r.URL.Query().Get("period")
 	if period == "" {
 		period = "7d"
@@ -26,27 +29,48 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 	case "all":
 	default:
 		writeError(w, http.StatusBadRequest, "period must be 24h, 7d, 30d or all")
-		return
+		return statsWindow{}, false
 	}
-	window := map[string]string{"to": now.Format(time.RFC3339)}
+	return statsWindow{period: period, from: from, to: now}, true
+}
+
+func (win statsWindow) bounds() map[string]string {
+	bounds := map[string]string{"to": win.to.Format(time.RFC3339)}
+	if !win.from.IsZero() {
+		bounds["from"] = win.from.Format(time.RFC3339)
+	}
+	return bounds
+}
+
+func (win statsWindow) attemptFilter() (string, []any) {
 	condition := "pl.created_at <= ?"
-	args := []any{window["to"]}
-	if !from.IsZero() {
-		window["from"] = from.Format(time.RFC3339)
+	args := []any{win.to.Format(time.RFC3339)}
+	if !win.from.IsZero() {
 		condition += " AND pl.created_at >= ?"
-		args = append(args, window["from"])
+		args = append(args, win.from.Format(time.RFC3339))
 	}
 	// Known directory/object access does not contribute model usage or
 	// attempts. Unlinked historical model logs retain their original coverage.
 	condition += ` AND (COALESCE(pl.gateway_request_id,'') = '' OR EXISTS
 		(SELECT 1 FROM gateway_requests gr WHERE gr.id = pl.gateway_request_id
 		 AND ` + gatewayModelInvocationSQL + `))`
+	return condition, args
+}
+
+// overview gives every analytical panel one bounded window. Current resource
+// balances and maintenance remain on their existing snapshot endpoints.
+func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
+	win, ok := readStatsWindow(w, r)
+	if !ok {
+		return
+	}
+	condition, args := win.attemptFilter()
 	bucket := dayBucketSQLExpr(h.db, "pl.created_at")
-	if period == "24h" {
+	if win.period == "24h" {
 		bucket = hourBucketSQLExpr(h.db, "pl.created_at")
 	}
 	requestBucket := dayBucketSQLExpr(h.db, "correlated.created_at")
-	if period == "24h" {
+	if win.period == "24h" {
 		requestBucket = hourBucketSQLExpr(h.db, "correlated.created_at")
 	}
 	points, err := queryRowsErr(h.db, `SELECT `+bucket+` AS date,
@@ -104,14 +128,23 @@ ORDER BY date`, args...)
 		requestSuccess += ok
 		p["successRate"] = float64(ok) / float64(count)
 	}
-	var legacyAttemptCount int64
-	if err := h.db.Get(&legacyAttemptCount, rebindAdminQuery(h.db, `
-		SELECT COUNT(*) FROM proxy_logs pl
-		WHERE COALESCE(pl.request_id, '') = '' AND `+condition), args...); err != nil {
+	var coverage struct {
+		LegacyAttempts     int64    `db:"legacy_attempts"`
+		AverageFirstByteMs *float64 `db:"average_first_byte_ms"`
+	}
+	if err := h.db.Get(&coverage, rebindAdminQuery(h.db, `SELECT
+  COUNT(CASE WHEN COALESCE(pl.request_id,'')='' THEN 1 END) AS legacy_attempts,
+  AVG(CASE WHEN pl.first_byte_latency_ms > 0 THEN pl.first_byte_latency_ms END) AS average_first_byte_ms
+  FROM proxy_logs pl WHERE `+condition), args...); err != nil {
 		writeError(w, 500, "failed to load request overview completeness")
 		return
 	}
-	summary := map[string]any{"totalCount": total, "successCount": success, "failedCount": total - success, "totalTokensAll": tokens, "totalCost": roundMicro(cost), "averageLatencyMs": nil}
+	legacyAttemptCount := coverage.LegacyAttempts
+	summary := map[string]any{
+		"totalCount": total, "successCount": success, "failedCount": total - success,
+		"totalTokensAll": tokens, "totalCost": roundMicro(cost),
+		"averageLatencyMs": nil, "averageFirstByteMs": coverage.AverageFirstByteMs,
+	}
 	if latencyCount > 0 {
 		summary["averageLatencyMs"] = round1(latencySum / float64(latencyCount))
 	}
@@ -131,13 +164,18 @@ ORDER BY date`, args...)
   COUNT(pl.id) AS total_requests,
   COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END),0) AS success_count,
   COALESCE(SUM(CASE WHEN pl.id IS NOT NULL AND COALESCE(pl.status,'') <> 'success' THEN 1 ELSE 0 END),0) AS failed_count,
-  AVG(CASE WHEN pl.latency_ms > 0 THEN pl.latency_ms END) AS average_latency_ms
+  AVG(CASE WHEN pl.latency_ms > 0 THEN pl.latency_ms END) AS average_latency_ms,
+  AVG(CASE WHEN pl.first_byte_latency_ms > 0 THEN CAST(pl.first_byte_latency_ms AS DOUBLE PRECISION) END) AS average_first_byte_ms
   FROM sites s LEFT JOIN accounts a ON a.site_id=s.id
   LEFT JOIN proxy_logs pl ON pl.account_id=a.id AND `+condition+`
   WHERE s.status='active' GROUP BY s.id,s.name
   ORDER BY failed_count DESC,total_requests DESC,s.name LIMIT 8`, args...)
 	if err != nil {
 		writeError(w, 500, "failed to load overview upstreams")
+		return
+	}
+	if err := h.attachRecentSamples(sites, condition, args); err != nil {
+		writeError(w, 500, "failed to load overview site samples")
 		return
 	}
 	model := `COALESCE(NULLIF(pl.model_actual,''),NULLIF(pl.model_requested,''),'unknown')`
@@ -171,7 +209,7 @@ ORDER BY date`, args...)
 	if models == nil {
 		models = []map[string]any{}
 	}
-	gatewaySummary, gatewayPoints, err := h.gatewayRequestOverview(period, from, now)
+	gatewaySummary, gatewayPoints, err := h.gatewayRequestOverview(win.period, win.from, win.to)
 	if err != nil {
 		h.gatewayRequestLoadError(w, r, err)
 		return
@@ -179,8 +217,8 @@ ORDER BY date`, args...)
 	writeJSON(w, 200, map[string]any{
 		"gatewayRequestSummary": gatewaySummary,
 		"gatewayRequestPoints":  gatewayPoints,
-		"period":                period,
-		"window":                window,
+		"period":                win.period,
+		"window":                win.bounds(),
 		"summary":               summary,
 		"requestSummary":        requestSummary,
 		"points":                points,
@@ -188,4 +226,43 @@ ORDER BY date`, args...)
 		"siteAvailability":      sites,
 		"models":                models,
 	})
+}
+
+// Rank occupied hours per site before returning samples in chronological order.
+func (h *statsHandler) attachRecentSamples(sites []map[string]any, condition string, args []any) error {
+	if len(sites) == 0 {
+		return nil
+	}
+	siteIDs := make([]any, 0, len(sites))
+	samples := make(map[int64][]map[string]any, len(sites))
+	for _, site := range sites {
+		siteIDs = append(siteIDs, site["siteId"])
+	}
+	hour := `strftime('%Y-%m-%dT%H:00:00Z', pl.created_at)`
+	if h.db.DriverName() == "pgx" {
+		hour = `to_char(pl.created_at::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:00:00"Z"')`
+	}
+	rows, err := queryRowsErr(h.db, `WITH hourly AS (
+ SELECT a.site_id, `+hour+` AS bucket_ts, COUNT(*) AS total,
+ COUNT(CASE WHEN pl.status='success' THEN 1 END) AS success,
+ AVG(CASE WHEN pl.latency_ms > 0 THEN CAST(pl.latency_ms AS DOUBLE PRECISION) END) AS avg_latency_ms
+ FROM proxy_logs pl JOIN accounts a ON a.id=pl.account_id
+ WHERE a.site_id IN (`+sqlPlaceholders(len(sites))+`) AND `+condition+`
+ GROUP BY a.site_id, `+hour+`
+ ), ranked AS (
+ SELECT hourly.*, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY bucket_ts DESC) AS recency FROM hourly
+ ) SELECT site_id,bucket_ts,total,success,avg_latency_ms FROM ranked
+ WHERE recency <= 24 ORDER BY site_id,bucket_ts`, append(siteIDs, args...)...)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		id := coerceInt64(row["siteId"])
+		delete(row, "siteId")
+		samples[id] = append(samples[id], row)
+	}
+	for _, site := range sites {
+		site["recentSamples"] = normalizeSlice(samples[coerceInt64(site["siteId"])])
+	}
+	return nil
 }

@@ -193,17 +193,19 @@ func (h *channelTestHandler) runChannelTest(w http.ResponseWriter, r *http.Reque
 
 	if target.TokenValue == "" {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"success":       false,
-			"statusCode":    0,
-			"latencyMs":     0,
-			"truncatedBody": "",
-			"error":         "No usable token on channel/account (api token / oauth access token required)",
-			"channelId":     target.ChannelID,
-			"siteId":        target.SiteID,
-			"accountId":     target.AccountID,
-			"model":         model,
-			"mode":          mode,
-			"bodyTruncated": false,
+			"basis":              "forcedProbe",
+			"firstByteLatencyMs": nil,
+			"success":            false,
+			"statusCode":         0,
+			"latencyMs":          0,
+			"truncatedBody":      "",
+			"error":              "No usable token on channel/account (api token / oauth access token required)",
+			"channelId":          target.ChannelID,
+			"siteId":             target.SiteID,
+			"accountId":          target.AccountID,
+			"model":              model,
+			"mode":               mode,
+			"bodyTruncated":      false,
 		})
 		return
 	}
@@ -458,6 +460,7 @@ func (h *channelTestHandler) executeProbe(
 	if err != nil {
 		return harnessFail(target, mode, model, upstreamPath, host, 0, latencyMs, "", safeError(err))
 	}
+	firstByteLatencyMs := latencyMs
 	defer resp.Body.Close()
 
 	// Bound body read tightly for operator summary.
@@ -468,7 +471,9 @@ func (h *channelTestHandler) executeProbe(
 	limited := io.LimitReader(resp.Body, int64(bodyLimit+1))
 	raw, readErr := io.ReadAll(limited)
 	if readErr != nil {
-		return harnessFail(target, mode, model, upstreamPath, host, resp.StatusCode, latencyMs, "", "read body: "+safeError(readErr))
+		failure := harnessFail(target, mode, model, upstreamPath, host, resp.StatusCode, latencyMs, "", "read body: "+safeError(readErr))
+		failure["firstByteLatencyMs"] = firstByteLatencyMs
+		return failure
 	}
 	truncated, wasTruncated := truncateAndRedact(raw, bodyLimit)
 	if chat != nil {
@@ -477,21 +482,31 @@ func (h *channelTestHandler) executeProbe(
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	out := map[string]any{
-		"success":       success,
-		"statusCode":    resp.StatusCode,
-		"latencyMs":     latencyMs,
-		"truncatedBody": truncated,
-		"error":         nil,
-		"channelId":     target.ChannelID,
-		"routeId":       target.RouteID,
-		"siteId":        target.SiteID,
-		"siteName":      target.SiteName,
-		"accountId":     target.AccountID,
-		"model":         model,
-		"mode":          mode,
-		"upstreamPath":  upstreamPath,
-		"upstreamHost":  host,
-		"bodyTruncated": wasTruncated,
+		"basis":              "forcedProbe",
+		"firstByteLatencyMs": firstByteLatencyMs,
+		"success":            success,
+		"statusCode":         resp.StatusCode,
+		"latencyMs":          latencyMs,
+		"truncatedBody":      truncated,
+		"error":              nil,
+		"channelId":          target.ChannelID,
+		"routeId":            target.RouteID,
+		"siteId":             target.SiteID,
+		"siteName":           target.SiteName,
+		"accountId":          target.AccountID,
+		"model":              model,
+		"mode":               mode,
+		"upstreamPath":       upstreamPath,
+		"upstreamHost":       host,
+		"bodyTruncated":      wasTruncated,
+	}
+	var reported struct {
+		Model string `json:"model"`
+	}
+	if !wasTruncated && json.Unmarshal(raw, &reported) == nil {
+		if name := strings.TrimSpace(reported.Model); name != "" {
+			out["upstreamReportedModel"] = secretLikeRE.ReplaceAllString(name, "[redacted]")
+		}
 	}
 	if !success {
 		out["error"] = fmt.Sprintf("upstream status %d", resp.StatusCode)
@@ -501,21 +516,23 @@ func (h *channelTestHandler) executeProbe(
 
 func harnessFail(target *channelTestTarget, mode, model, path, host string, status int, latencyMs int64, body, errMsg string) map[string]any {
 	return map[string]any{
-		"success":       false,
-		"statusCode":    status,
-		"latencyMs":     latencyMs,
-		"truncatedBody": body,
-		"error":         errMsg,
-		"channelId":     target.ChannelID,
-		"routeId":       target.RouteID,
-		"siteId":        target.SiteID,
-		"siteName":      target.SiteName,
-		"accountId":     target.AccountID,
-		"model":         model,
-		"mode":          mode,
-		"upstreamPath":  path,
-		"upstreamHost":  host,
-		"bodyTruncated": false,
+		"basis":              "forcedProbe",
+		"firstByteLatencyMs": nil,
+		"success":            false,
+		"statusCode":         status,
+		"latencyMs":          latencyMs,
+		"truncatedBody":      body,
+		"error":              errMsg,
+		"channelId":          target.ChannelID,
+		"routeId":            target.RouteID,
+		"siteId":             target.SiteID,
+		"siteName":           target.SiteName,
+		"accountId":          target.AccountID,
+		"model":              model,
+		"mode":               mode,
+		"upstreamPath":       path,
+		"upstreamHost":       host,
+		"bodyTruncated":      false,
 	}
 }
 

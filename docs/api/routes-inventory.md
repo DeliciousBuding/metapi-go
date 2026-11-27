@@ -113,6 +113,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/stats/balance-history`
 - `/api/stats/balance-income-outcome`
 - `/api/stats/dashboard`
+- `/api/stats/flow`
 - `/api/stats/latency-histogram`
 - `/api/stats/latency-trend`
 - `/api/stats/model-by-site`

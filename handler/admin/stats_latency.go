@@ -22,7 +22,8 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 			COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), '') AS model,
 			COALESCE(pl.status, '') AS status,
 			COALESCE(pl.latency_ms, 0) AS latency_ms,
-			COALESCE(pl.first_byte_latency_ms, 0) AS first_byte_latency_ms,
+			pl.first_byte_latency_ms, pl.first_output_latency_ms,
+			pl.gateway_request_id, pl.is_stream, pl.downstream_path,
 			COALESCE(pl.http_status, 0) AS http_status,
 			COALESCE(pl.request_id, '') AS request_id,
 			pl.account_id AS account_id,
@@ -42,21 +43,12 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, map[string]any{
-			"id":                 coerceInt64(row["id"]),
-			"model":              coerceString(row["model"]),
-			"status":             coerceString(row["status"]),
-			"latencyMs":          coerceInt64(row["latencyMs"]),
-			"firstByteLatencyMs": coerceInt64(row["firstByteLatencyMs"]),
-			"httpStatus":         coerceInt(row["httpStatus"]),
-			"requestId":          coerceString(row["requestId"]),
-			"accountId":          row["accountId"],
-			"siteId":             row["siteId"],
-			"siteName":           coerceString(row["siteName"]),
-			"createdAt":          coerceString(row["createdAt"]),
-		})
+	items := normalizeSlice(rows)
+	for _, item := range items {
+		if item["isStream"] != nil {
+			item["isStream"] = coerceBool(item["isStream"])
+		}
+		item["createdAt"] = coerceString(item["createdAt"])
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{

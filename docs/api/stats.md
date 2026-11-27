@@ -30,13 +30,35 @@ proxy-log drill-downs.
 `coverageStartedAt` 是当前保留的真实请求中最早的 `startedAt`，无记录时为 null；
 它不证明之后没有记录失败，也不代表迁移以前的请求已覆盖。
 `models` lists the five highest-cost models and an `other` bucket when needed.
-`siteAvailability` lists up to eight enabled sites, failures first.
+`siteAvailability` lists up to eight enabled sites, failures first. Each site includes
+`recentSamples` in chronological order. Each `{bucketTs,total,success,avgLatencyMs}`
+represents a UTC hour with recorded attempts in the selected window. The array contains
+at most the latest 24 occupied hours and is empty for idle sites. `avgLatencyMs` averages
+positive latency observations and is `null` when the hour has none. Both `summary` and
+each site include `averageFirstByteMs`, averaged over positive first-byte measurements
+in their respective scopes, or `null` when none were recorded.
 
 Summary, trend and model aggregates include unassigned logs and disabled sites;
 the upstream table is explicitly limited to currently enabled sites. Costs are
 estimates. Current balances, notices and maintenance are not historical metrics
 and retain their separate endpoints. A failed aggregate query returns an error
 rather than a misleading healthy zero.
+
+### GET /api/stats/flow
+
+Groups upstream attempts by downstream API key, model, site and route channel. `period`
+accepts `24h`, `7d` (default), `30d`, or `all`. Invalid periods return 400. `topN`
+defaults to 20 and is clamped to 1–50. The reporting window and model-invocation
+filter match the overview, including its coverage of historical unlinked attempts.
+
+The response contains `{period,window,totalRequests,totalFailed,totalTokens,totalCost,edges}`.
+Totals cover every matching attempt, including retries and edges outside the top N.
+Each edge contains `{downstreamKeyId,downstreamKeyName,model,siteId,siteName,channelId,
+requests,failedCount,totalTokens,totalCost,averageLatencyMs}`. Edges are ranked by
+attempt count. The model is the actual model, falling back to the requested model and
+then `unknown`. Missing resource identities and names are `null`. Cost is estimated.
+Latency averages positive observations and is `null` when none exist. An empty window
+returns zero totals and `edges: []`.
 
 ### GET /api/stats/dashboard
 
@@ -204,7 +226,22 @@ Top slow proxy requests by `latency_ms` within a time window.
 
 **Query params**: `limit` (1–200, default 50), `minLatencyMs` (default 1000), `hours` (1–168, default 24)
 
-**Response**: `{ hours, minLatencyMs, limit, since, count, items:[{id,model,status,latencyMs,firstByteLatencyMs,httpStatus,requestId,accountId,siteId,siteName,createdAt}] }`. Metadata only — no request/response bodies.
+**Response**: `{ hours, minLatencyMs, limit, since, count, items:[{id,model,status,latencyMs,firstByteLatencyMs,firstOutputLatencyMs,isStream,downstreamPath,gatewayRequestId,httpStatus,requestId,accountId,siteId,siteName,createdAt}] }`. Metadata only — no request/response bodies.
+
+The gateway request ID identifies the exact request for drill-down. Both timing fields,
+`isStream`, `downstreamPath`, and `gatewayRequestId` are nullable for unobserved values.
+
+### Related diagnostics
+
+`GET /api/monitor/health` includes `siteName` on each open breaker (empty when the site
+cannot be resolved). Active cooldowns include the persisted `cooldownReasonCode` and
+`cooldownReason`, each nullable.
+
+Synchronous results from `POST /api/admin/test-channel` and `POST /api/debug/channel-probe`
+carry `basis: "forcedProbe"`. `firstByteLatencyMs` measures elapsed time until response
+headers arrive and is `null` if no headers arrive. A complete JSON body within the probe
+limit may also supply `upstreamReportedModel` from its top-level `model` string. This field
+uses the same credential redaction as the body summary. Probes do not write usage records.
 
 ### GET /api/stats/attention
 

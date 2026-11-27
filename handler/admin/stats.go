@@ -27,6 +27,7 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 
 	r.Get("/api/stats/dashboard", handler.dashboard)
 	r.Get("/api/stats/overview", handler.overview)
+	r.Get("/api/stats/flow", handler.flow)
 	r.Get("/api/stats/requests", handler.gatewayRequests)
 	r.Get("/api/stats/requests/{id}", handler.gatewayRequestDetail)
 	r.Get("/api/stats/proxy-logs", handler.proxyLogs)
