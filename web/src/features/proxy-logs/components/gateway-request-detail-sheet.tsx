@@ -30,7 +30,9 @@ import { useDetailSheetKeyboardNav } from '../lib/detail-navigation'
 import { useGatewayRequest } from '../lib/gateway-requests'
 import { AttemptWaterfall } from './attempt-waterfall'
 import { BillingSection, CurrentRouteDiagnosis } from './proxy-log-detail-sheet'
+import { RelayBridgeTraceCard } from './relay-bridge-trace'
 import { RequestOutcome } from './request-outcome'
+import { StreamTimingCard } from './stream-timing-card'
 import { TimingCell } from './timing-cell'
 import { UsageCell } from './usage-cell'
 
@@ -256,103 +258,130 @@ export function GatewayRequestDetailSheet({
                   </p>
                 )}
                 <ol className='space-y-2'>
-                  {detail.attempts.map((attempt) => (
-                    <li key={attempt.id} className='rounded-lg border'>
-                      <details
-                        open={selectedAttempt?.id === attempt.id}
-                        onToggle={(event) => {
-                          if (event.currentTarget.open) setAttemptId(attempt.id)
-                          else
-                            setAttemptId((current) =>
-                              current === attempt.id ? null : current
-                            )
-                        }}
-                      >
-                        <summary className='focus-visible:ring-ring cursor-pointer rounded-lg p-3 outline-none focus-visible:ring-2'>
-                          <div className='space-y-2'>
-                            <span className='ms-1 inline-flex max-w-full flex-wrap items-center gap-2 text-sm'>
-                              <span className='font-medium'>
-                                {t('requestLogs.attempt', {
-                                  ordinal:
-                                    attempt.retryCount === null
-                                      ? t('requestLogs.unknown')
-                                      : attempt.retryCount + 1,
-                                })}
-                              </span>
-                              <HttpStatusBadge
-                                status={attempt.status}
-                                httpStatus={attempt.httpStatus}
-                              />
-                              <span className='text-muted-foreground'>
-                                {attempt.latencyMs === null
-                                  ? t('requestLogs.unknown')
-                                  : formatLatency(attempt.latencyMs)}
-                              </span>
-                            </span>
-                            <AttemptWaterfall
-                              latencyMs={attempt.latencyMs}
-                              firstByteLatencyMs={attempt.firstByteLatencyMs}
-                              firstOutputLatencyMs={
-                                attempt.firstOutputLatencyMs
-                              }
-                              isStream={attempt.isStream}
-                              scaleMaxMs={scaleMaxMs}
-                            />
-                          </div>
-                        </summary>
-                        <div className='space-y-3 border-t p-3'>
-                          {attempt.modelActual && (
-                            <ModelPill model={attempt.modelActual} />
-                          )}
-                          <p className='text-muted-foreground text-xs break-all'>
-                            {[attempt.siteName, attempt.username]
-                              .filter(Boolean)
-                              .join(' · ') ||
-                              t('requestLogs.unknownCandidate')}{' '}
-                            · {formatDateTime(attempt.createdAt, locale)}
-                          </p>
-                          <div className='grid grid-cols-2 gap-4'>
-                            <TimingCell {...attempt} />
-                            <UsageCell log={attempt} />
-                          </div>
-                          <p className='text-muted-foreground text-xs'>
-                            {t('requestLogs.estimatedCost')}:{' '}
-                            {attempt.estimatedCost == null
-                              ? t('requestLogs.unknown')
-                              : formatCurrency(attempt.estimatedCost, {
-                                  fractionDigits: 6,
-                                })}
-                          </p>
-                          {attempt.errorMessage && (
-                            <ExpandableText
-                              text={
-                                parseProxyLogPathMeta(attempt.errorMessage)
-                                  .errorMessage
-                              }
-                            />
-                          )}
-                          {selectedAttempt?.id === attempt.id && (
-                            <>
-                              <QueryErrorBanner
-                                error={attemptQuery.error}
-                                messageKey='requestLogs.attemptError'
-                                onRetry={() => void attemptQuery.refetch()}
-                                isRetrying={attemptQuery.isFetching}
-                              />
-                              {attemptQuery.isLoading && (
-                                <Skeleton className='h-12 w-full' />
-                              )}
-                              {attemptQuery.data?.billingDetails && (
-                                <BillingSection
-                                  billing={attemptQuery.data.billingDetails}
+                  {detail.attempts.map((attempt) => {
+                    const isSelectedAttempt = selectedAttempt?.id === attempt.id
+                    const effectiveStreamTiming =
+                      attempt.streamTiming ??
+                      (isSelectedAttempt
+                        ? (attemptQuery.data?.streamTiming ?? null)
+                        : null)
+                    const effectiveConversion =
+                      attempt.conversion ??
+                      (isSelectedAttempt
+                        ? (attemptQuery.data?.conversion ?? null)
+                        : null)
+
+                    return (
+                      <li key={attempt.id} className='rounded-lg border'>
+                        <details
+                          open={isSelectedAttempt}
+                          onToggle={(event) => {
+                            if (event.currentTarget.open)
+                              setAttemptId(attempt.id)
+                            else
+                              setAttemptId((current) =>
+                                current === attempt.id ? null : current
+                              )
+                          }}
+                        >
+                          <summary className='focus-visible:ring-ring cursor-pointer rounded-lg p-3 outline-none focus-visible:ring-2'>
+                            <div className='space-y-2'>
+                              <span className='ms-1 inline-flex max-w-full flex-wrap items-center gap-2 text-sm'>
+                                <span className='font-medium'>
+                                  {t('requestLogs.attempt', {
+                                    ordinal:
+                                      attempt.retryCount === null
+                                        ? t('requestLogs.unknown')
+                                        : attempt.retryCount + 1,
+                                  })}
+                                </span>
+                                <HttpStatusBadge
+                                  status={attempt.status}
+                                  httpStatus={attempt.httpStatus}
                                 />
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </details>
-                    </li>
-                  ))}
+                                <span className='text-muted-foreground'>
+                                  {attempt.latencyMs === null
+                                    ? t('requestLogs.unknown')
+                                    : formatLatency(attempt.latencyMs)}
+                                </span>
+                              </span>
+                              <AttemptWaterfall
+                                latencyMs={attempt.latencyMs}
+                                firstByteLatencyMs={attempt.firstByteLatencyMs}
+                                firstOutputLatencyMs={
+                                  attempt.firstOutputLatencyMs
+                                }
+                                isStream={attempt.isStream}
+                                streamTiming={effectiveStreamTiming}
+                                scaleMaxMs={scaleMaxMs}
+                              />
+                            </div>
+                          </summary>
+                          <div className='space-y-3 border-t p-3'>
+                            {attempt.modelActual && (
+                              <ModelPill model={attempt.modelActual} />
+                            )}
+                            <p className='text-muted-foreground text-xs break-all'>
+                              {[attempt.siteName, attempt.username]
+                                .filter(Boolean)
+                                .join(' · ') ||
+                                t('requestLogs.unknownCandidate')}{' '}
+                              · {formatDateTime(attempt.createdAt, locale)}
+                            </p>
+                            <div className='grid grid-cols-2 gap-4'>
+                              <TimingCell {...attempt} />
+                              <UsageCell log={attempt} />
+                            </div>
+                            <p className='text-muted-foreground text-xs'>
+                              {t('requestLogs.estimatedCost')}:{' '}
+                              {attempt.estimatedCost == null
+                                ? t('requestLogs.unknown')
+                                : formatCurrency(attempt.estimatedCost, {
+                                    fractionDigits: 6,
+                                  })}
+                            </p>
+                            {attempt.errorMessage && (
+                              <ExpandableText
+                                text={
+                                  parseProxyLogPathMeta(attempt.errorMessage)
+                                    .errorMessage
+                                }
+                              />
+                            )}
+                            {effectiveStreamTiming && (
+                              <StreamTimingCard
+                                streamTiming={effectiveStreamTiming}
+                                latencyMs={attempt.latencyMs}
+                              />
+                            )}
+                            {effectiveConversion && (
+                              <RelayBridgeTraceCard
+                                conversion={effectiveConversion}
+                              />
+                            )}
+                            {isSelectedAttempt && (
+                              <>
+                                <QueryErrorBanner
+                                  error={attemptQuery.error}
+                                  messageKey='requestLogs.attemptError'
+                                  onRetry={() => void attemptQuery.refetch()}
+                                  isRetrying={attemptQuery.isFetching}
+                                />
+                                {attemptQuery.isLoading && (
+                                  <Skeleton className='h-12 w-full' />
+                                )}
+                                {attemptQuery.data?.billingDetails && (
+                                  <BillingSection
+                                    billing={attemptQuery.data.billingDetails}
+                                  />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </details>
+                      </li>
+                    )
+                  })}
                 </ol>
               </section>
             </>

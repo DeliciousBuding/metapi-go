@@ -4000,11 +4000,80 @@
         "output": "Output",
         "cacheRead": "Cache read",
         "cacheCreation": "Cache write",
+        "cacheCreationShort": "W {{count}}",
+        "cacheCreation5m": "Cache write (5m)",
+        "cacheCreation1h": "Cache write (1h)",
+        "cacheCreation12h": "Cache write (12h)",
+        "cacheCreationStandard": "Cache write (standard)",
+        "toolSurchargesTitle": "Managed tool surcharges",
+        "tools": {
+          "web_search": "Web search",
+          "file_search": "File search",
+          "grounding": "Grounding"
+        },
+        "toolSource": {
+          "provider": "Provider reported",
+          "inferred": "Response inferred"
+        },
+        "toolPriceMissing": "Unpriced",
+        "toolPriceFree": "Free $0",
         "billableInput": "Billable input",
         "stream": "Stream",
         "nonStream": "Non-stream",
         "rawBilling": "Raw billing data",
         "totalCost": "Total cost"
+      },
+      "telemetry": {
+        "streamTiming": {
+          "title": "Stream timing & decode speed",
+          "decodeTps": "Decode speed",
+          "tpsValue": "{{value}} tok/s",
+          "decodeTokens": "Decode tokens / window",
+          "decodeDetailTooltip": "{{tokens}} tokens across {{window}}",
+          "maxGap": "Max content gap",
+          "stage": {
+            "header": "Headers",
+            "firstReasoning": "First reasoning",
+            "firstText": "First text",
+            "streaming": "Streaming"
+          },
+          "status": {
+            "measured": "Measured",
+            "bufferedBurst": "Buffered burst (speed indicative)",
+            "hiddenReasoning": "Hidden reasoning (reasoning excluded)",
+            "interrupted": "Stream interrupted",
+            "insufficientEvidence": "Insufficient evidence",
+            "unknown": "Status unknown"
+          },
+          "reasoningEvidence": {
+            "visible": "Visible reasoning",
+            "hidden": "Hidden reasoning",
+            "summaryOnly": "Reasoning summary only"
+          }
+        },
+        "conversion": {
+          "title": "Protocol conversion trace",
+          "nativePassthrough": "Native passthrough · no protocol conversion overhead",
+          "responsePath": "Response path",
+          "diagnosticsTitle": "Conversion diagnostics ({{count}})",
+          "diagnosticMeta": "{{phase}} · {{fieldClass}}",
+          "owner": {
+            "native": "Native",
+            "relaykit": "RelayKit",
+            "specialized": "Specialized"
+          },
+          "quality": {
+            "good": "Good fidelity",
+            "fair": "Fair fidelity",
+            "discouraged": "Discouraged bridge",
+            "native": "Native"
+          },
+          "severity": {
+            "warning": "Warning",
+            "error": "Error",
+            "unknown": "Notice"
+          }
+        }
       },
       "timing": {
         "firstOutput": "First output",

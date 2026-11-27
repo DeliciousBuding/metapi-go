@@ -125,4 +125,50 @@ describe('gateway request wire validation', () => {
       })
     ).toThrow()
   })
+
+  it('parses optional conversion and streamTiming telemetry on attempts while staying backward compatible', () => {
+    const legacy = gatewayRequestDetailSchema.parse(gatewayRequestFixture())
+    expect(legacy.attempts[0]?.conversion).toBeUndefined()
+    expect(legacy.attempts[0]?.streamTiming).toBeUndefined()
+
+    const withTelemetry = gatewayRequestDetailSchema.parse(
+      gatewayRequestFixture({
+        attempts: [
+          {
+            ...gatewayRequestFixture().attempts[0],
+            conversion: {
+              sourceProtocol: 'anthropic_messages',
+              upstreamProtocol: 'openai_chat',
+              owner: 'relaykit',
+              quality: 'good',
+              requestSteps: ['anthropic_messages', 'openai_chat'],
+              responseSteps: ['openai_chat', 'anthropic_messages'],
+              diagnostics: [
+                {
+                  phase: 'request',
+                  code: 'dropped_field',
+                  severity: 'warning',
+                  fieldClass: 'metadata',
+                },
+              ],
+            },
+            streamTiming: {
+              headerMs: 90,
+              firstReasoningMs: 180,
+              firstTextMs: 320,
+              lastContentMs: 1200,
+              maxContentGapMs: 140,
+              reasoningEvidence: 'visible',
+              decodeTokens: 150,
+              decodeWindowMs: 880,
+              decodeTps: 72.4,
+              decodeStatus: 'measured',
+            },
+          },
+        ],
+      })
+    )
+    expect(withTelemetry.attempts[0]?.conversion?.owner).toBe('relaykit')
+    expect(withTelemetry.attempts[0]?.streamTiming?.decodeTps).toBe(72.4)
+  })
 })

@@ -4000,11 +4000,80 @@
         "output": "输出",
         "cacheRead": "缓存读取",
         "cacheCreation": "缓存写入",
+        "cacheCreationShort": "写 {{count}}",
+        "cacheCreation5m": "缓存写入 (5m)",
+        "cacheCreation1h": "缓存写入 (1h)",
+        "cacheCreation12h": "缓存写入 (12h)",
+        "cacheCreationStandard": "缓存写入 (普通)",
+        "toolSurchargesTitle": "托管工具附加费",
+        "tools": {
+          "web_search": "Web 搜索",
+          "file_search": "文件检索",
+          "grounding": "联网溯源 (Grounding)"
+        },
+        "toolSource": {
+          "provider": "供应商上报",
+          "inferred": "响应推算"
+        },
+        "toolPriceMissing": "缺价",
+        "toolPriceFree": "免费 $0",
         "billableInput": "计费输入",
         "stream": "流式",
         "nonStream": "非流式",
         "rawBilling": "原始计费数据",
         "totalCost": "费用合计"
+      },
+      "telemetry": {
+        "streamTiming": {
+          "title": "流式分段计时与生成速度",
+          "decodeTps": "生成速度",
+          "tpsValue": "{{value}} tok/s",
+          "decodeTokens": "生成 Token / 窗口",
+          "decodeDetailTooltip": "{{tokens}} tokens / {{window}}",
+          "maxGap": "最长内容间隔",
+          "stage": {
+            "header": "响应头",
+            "firstReasoning": "首推理",
+            "firstText": "首正文",
+            "streaming": "流式生成"
+          },
+          "status": {
+            "measured": "实测有效",
+            "bufferedBurst": "缓冲突释，速率仅供参考",
+            "hiddenReasoning": "隐藏推理，未计入推理段速率",
+            "interrupted": "中途断流",
+            "insufficientEvidence": "证据不足",
+            "unknown": "状态未知"
+          },
+          "reasoningEvidence": {
+            "visible": "可见推理",
+            "hidden": "隐藏推理",
+            "summaryOnly": "仅推理摘要"
+          }
+        },
+        "conversion": {
+          "title": "协议转换轨迹",
+          "nativePassthrough": "原生透传 · 无协议转换损耗",
+          "responsePath": "响应链路",
+          "diagnosticsTitle": "转换诊断（{{count}}）",
+          "diagnosticMeta": "{{phase}} · {{fieldClass}}",
+          "owner": {
+            "native": "原生",
+            "relaykit": "RelayKit",
+            "specialized": "专用适配器"
+          },
+          "quality": {
+            "good": "高保真",
+            "fair": "中等兼容",
+            "discouraged": "不推荐桥接",
+            "native": "原生"
+          },
+          "severity": {
+            "warning": "警告",
+            "error": "错误",
+            "unknown": "提示"
+          }
+        }
       },
       "timing": {
         "firstOutput": "首输出",

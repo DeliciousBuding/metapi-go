@@ -483,6 +483,51 @@ export type ProxyLogStatusFilter = 'all' | 'success' | 'failed'
 type ProxyLogClientConfidence = 'exact' | 'heuristic' | 'unknown' | null
 type ProxyLogUsageSource = 'upstream' | 'self-log' | 'unknown' | null
 
+type ProxyLogConversionDiagnostic = {
+  phase: string
+  code: string
+  severity: 'warning' | 'error' | 'unknown' | string
+  fieldClass: string
+}
+
+export type ProxyLogConversion = {
+  sourceProtocol?: string | null
+  upstreamProtocol?: string | null
+  owner?: string | null
+  quality?: string | null
+  requestSteps?: string[] | null
+  responseSteps?: string[] | null
+  diagnostics?: ProxyLogConversionDiagnostic[] | null
+}
+
+export type ProxyLogStreamTiming = {
+  headerMs: number | null
+  firstReasoningMs: number | null
+  firstTextMs: number | null
+  lastContentMs: number | null
+  maxContentGapMs: number | null
+  reasoningEvidence: 'none' | 'visible' | 'hidden' | 'summaryOnly' | string
+  decodeTokens: number
+  decodeWindowMs: number | null
+  decodeTps: number | null
+  decodeStatus:
+    | 'measured'
+    | 'bufferedBurst'
+    | 'hiddenReasoning'
+    | 'insufficientEvidence'
+    | 'interrupted'
+    | string
+}
+
+export type ProxyLogBillingToolSurcharge = {
+  tool: string
+  unit: string
+  quantity: number
+  source: string
+  unitPrice?: number | null
+  cost: number
+}
+
 export type ProxyLogBillingDetails = {
   quotaType: number
   usage: {
@@ -491,6 +536,9 @@ export type ProxyLogBillingDetails = {
     totalTokens: number
     cacheReadTokens: number
     cacheCreationTokens: number
+    cacheCreation5mTokens?: number
+    cacheCreation1hTokens?: number
+    cacheCreation12hTokens?: number
     billablePromptTokens: number
     promptTokensIncludeCache: boolean | null
   }
@@ -510,6 +558,10 @@ export type ProxyLogBillingDetails = {
     outputCost: number
     cacheReadCost: number
     cacheCreationCost: number
+    cacheCreation5mCost?: number
+    cacheCreation1hCost?: number
+    cacheCreation12hCost?: number
+    toolSurcharges?: ProxyLogBillingToolSurcharge[]
     totalCost: number
   }
 } | null
@@ -561,6 +613,8 @@ export type ProxyLogDetail = ProxyLogListItem & {
   channelId?: number | null
   httpStatus?: number | null
   billingDetails?: ProxyLogBillingDetails
+  conversion?: ProxyLogConversion | null
+  streamTiming?: ProxyLogStreamTiming | null
   requestAttempts?: ProxyLogRequestAttempts
 }
 
