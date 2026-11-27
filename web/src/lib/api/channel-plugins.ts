@@ -410,13 +410,14 @@ export const providerManifest = z
     )
       return false
     return manifest.protocols.every((protocol) => {
-      const required = imageTasks.includes(protocol)
-        ? ['submit', 'query', 'taskResult']
-        : protocol === 'responsesWebsocket'
-          ? ['request', 'event']
-          : ['video', 'seedanceVideo', 'zenmuxVideo'].includes(protocol)
-            ? ['submit', 'query', 'content', 'taskResult']
-            : ['request', 'response']
+      let required = ['request', 'response']
+      if (imageTasks.includes(protocol)) {
+        required = ['submit', 'query', 'taskResult']
+      } else if (protocol === 'responsesWebsocket') {
+        required = ['request', 'event']
+      } else if (['video', 'seedanceVideo', 'zenmuxVideo'].includes(protocol)) {
+        required = ['submit', 'query', 'content', 'taskResult']
+      }
       return required.every((hook) => hooks.includes(hook))
     })
   })

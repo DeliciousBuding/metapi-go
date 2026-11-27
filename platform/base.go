@@ -85,21 +85,24 @@ func (b *BaseAdapter) GetUserInfo(ctx context.Context, url, accessToken string, 
 		return nil, nil
 	}
 
+	return parseUserInfo(data), nil
+}
+
+func parseUserInfo(data map[string]interface{}) *UserInfo {
 	username, _ := getString(data, "username")
 	displayName, _ := getString(data, "display_name")
-	if username == "" && displayName != "" {
+	if username == "" {
 		username = displayName
 	}
 
 	email, _ := getString(data, "email")
-	role := getIntPtr(data, "role")
 
 	return &UserInfo{
 		Username:    username,
 		DisplayName: displayName,
 		Email:       email,
-		Role:        role,
-	}, nil
+		Role:        getIntPtr(data, "role"),
+	}
 }
 
 // VerifyToken provides default token verification (session + apikey paths).

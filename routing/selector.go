@@ -2,8 +2,6 @@ package routing
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/internal/channellimit"
@@ -47,42 +45,12 @@ func NewChannelSelector(
 
 // SelectChannel finds a matching route and selects the best channel.
 func (s *ChannelSelector) SelectChannel(ctx context.Context, requestedModel string, policy DownstreamRoutingPolicy) (*SelectedChannel, error) {
-	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) {
-		return nil, nil
-	}
-	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
-		return nil, err
-	}
-
-	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
-	match, err := s.findRoute(ctx, requestedModel, policy)
-	if err != nil {
-		return nil, err
-	}
-	if match == nil {
-		return nil, nil
-	}
-	return s.selectFromMatch(ctx, match, requestedModel, policy, nil, true)
+	return s.selectChannel(ctx, requestedModel, nil, nil, policy)
 }
 
 // SelectNextChannel selects a channel excluding already-tried channels.
 func (s *ChannelSelector) SelectNextChannel(ctx context.Context, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (*SelectedChannel, error) {
-	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) {
-		return nil, nil
-	}
-	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
-		return nil, err
-	}
-
-	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
-	match, err := s.findRoute(ctx, requestedModel, policy)
-	if err != nil {
-		return nil, err
-	}
-	if match == nil {
-		return nil, nil
-	}
-	return s.selectFromMatch(ctx, match, requestedModel, policy, excludeChannelIDs, true)
+	return s.selectChannel(ctx, requestedModel, nil, excludeChannelIDs, policy)
 }
 
 // SelectPreferredChannel selects a specific preferred channel if eligible.
@@ -93,7 +61,11 @@ func (s *ChannelSelector) SelectPreferredChannel(
 	policy DownstreamRoutingPolicy,
 	excludeChannelIDs []int64,
 ) (*SelectedChannel, error) {
-	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) || preferredChannelID == 0 {
+	return s.selectChannel(ctx, requestedModel, &preferredChannelID, excludeChannelIDs, policy)
+}
+
+func (s *ChannelSelector) selectChannel(ctx context.Context, requestedModel string, preferredID *int64, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (*SelectedChannel, error) {
+	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) || (preferredID != nil && *preferredID == 0) {
 		return nil, nil
 	}
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
@@ -102,40 +74,24 @@ func (s *ChannelSelector) SelectPreferredChannel(
 
 	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
 	match, err := s.findRoute(ctx, requestedModel, policy)
-	if err != nil {
+	if err != nil || match == nil {
 		return nil, err
 	}
-	if match == nil {
-		return nil, nil
+	if preferredID != nil {
+		return s.selectPreferredFromMatch(ctx, match, requestedModel, *preferredID, policy, excludeChannelIDs)
 	}
-
-	return s.selectPreferredFromMatch(ctx, match, requestedModel, preferredChannelID, policy, excludeChannelIDs)
+	return s.selectFromMatch(ctx, match, requestedModel, policy, excludeChannelIDs, true)
 }
 
 func (s *ChannelSelector) selectPreferredFromMatch(ctx context.Context, match *RouteMatch, requestedModel string, preferredChannelID int64, policy DownstreamRoutingPolicy, excludeChannelIDs []int64) (*SelectedChannel, error) {
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
-	bypassSourceModelCheck := requestedByDisplayName
 	strategy := effectiveStrategy(match.Route, policy)
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
 
-	// Find available candidates
-	var available []RouteChannelCandidate
-	for _, c := range match.Channels {
-		var blocker CandidateBlocker
-		c, blocker = resolveAssociationCandidate(c, policy)
-		if blocker.Code != "" {
-			continue
-		}
-		if len(s.getCandidateEligibilityReasons(c, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)) == 0 {
-			available = append(available, c)
-		}
-	}
-
-	// Find the preferred one
-	available = filterStreamPolicyCandidates(available, policy)
+	available := s.eligibleChannels(match, requestedModel, requestedByDisplayName, excludeChannelIDs, nowISO, policy)
 	var preferred *RouteChannelCandidate
 	for i := range available {
 		if available[i].Channel.ID == preferredChannelID {
@@ -156,20 +112,13 @@ func (s *ChannelSelector) selectPreferredFromMatch(ctx context.Context, match *R
 	// reuse that short-circuit: an open breaker should decline preferred so the
 	// caller can fall through to normal SelectChannel, which still applies the
 	// multi-candidate empty-filter fallback when every sibling is also broken.
-	runtimeModelResolver := mappedModel
-	if requestedByDisplayName {
-		sm := NormalizeChannelSourceModel(preferred.Channel.SourceModel)
-		if sm != "" {
-			runtimeModelResolver = sm
-		}
-	}
-	details := GetSiteRuntimeHealthDetails(preferred.Site.ID, runtimeModelResolver)
+	details := GetSiteRuntimeHealthDetails(preferred.Site.ID, candidateRuntimeModel(*preferred, mappedModel, requestedByDisplayName))
 	if details.GlobalBreakerOpen || details.ModelBreakerOpen ||
 		details.GlobalHalfOpen || details.ModelHalfOpen {
 		return nil, nil
 	}
 
-	// Check recent failure (skip for round_robin and stable_first)
+	// Round robin and OAuth units handle recent failures during rotation.
 	if strategy != StrategyRoundRobin && !IsOAuthRouteUnitCandidate(*preferred) {
 		if IsChannelRecentlyFailed(preferred.Channel.FailCount, preferred.Channel.LastFailAt, nowMs, s.configuredMaxSec) {
 			return nil, nil
@@ -179,7 +128,7 @@ func (s *ChannelSelector) selectPreferredFromMatch(ctx context.Context, match *R
 	recordSelection := strategy == StrategyRoundRobin || strategy == StrategyStableFirst
 	rotationKey := BuildStableFirstRotationKey(match.Route.ID, requestedModel)
 	return s.finalizeDispatch(ctx, preferred, match, requestedModel, mappedModel, policy,
-		recordSelection, rotationKey, rotationKey+":observe", false, excludeChannelIDs, nowISO, nowMs)
+		recordSelection, rotationKey, false, excludeChannelIDs, nowISO, nowMs)
 }
 
 func (s *ChannelSelector) selectFromMatch(
@@ -192,26 +141,12 @@ func (s *ChannelSelector) selectFromMatch(
 ) (*SelectedChannel, error) {
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
-	bypassSourceModelCheck := requestedByDisplayName
 	strategy := effectiveStrategy(match.Route, policy)
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
 
-	// Filter available
-	var available []RouteChannelCandidate
-	for _, c := range match.Channels {
-		var blocker CandidateBlocker
-		c, blocker = resolveAssociationCandidate(c, policy)
-		if blocker.Code != "" {
-			continue
-		}
-		if len(s.getCandidateEligibilityReasons(c, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)) == 0 {
-			available = append(available, c)
-		}
-	}
-
-	available = filterStreamPolicyCandidates(available, policy)
+	available := s.eligibleChannels(match, requestedModel, requestedByDisplayName, excludeChannelIDs, nowISO, policy)
 	if len(available) == 0 {
 		return nil, nil
 	}
@@ -242,853 +177,24 @@ func (s *ChannelSelector) selectFromMatch(
 		}
 	}
 
-	// Resolve runtime model per-candidate for display name matches
 	resolveModel := func(c RouteChannelCandidate) string {
-		if !requestedByDisplayName {
-			return mappedModel
-		}
-		sm := NormalizeChannelSourceModel(c.Channel.SourceModel)
-		if sm != "" {
-			return sm
-		}
-		return mappedModel
+		return candidateRuntimeModel(c, mappedModel, requestedByDisplayName)
 	}
-
-	if strategy == StrategyRoundRobin {
-		// Priority-layer strict soft-filter demotion, same walk as weighted.
-		// Per-layer soft filters use softFilterCandidatesStrict (no full-set pin). Without
-		// the layer walk, a failed prio-0 channel + global FilterRecentlyFailedCandidates
-		// fallback could pin RR onto the broken layer and starve healthy lower-priority
-		// siblings. RR still only hard-excludes cooldownUntil after
-		// RoundRobinFailureThreshold consecutive fails — soft demotion is the early avoid.
-		selected := selectAcrossPriorityLayers(
-			available,
-			resolveModel,
-			nowMs,
-			s.configuredMaxSec,
-			func(pool []RouteChannelCandidate) *RouteChannelCandidate {
-				return SelectRoundRobinCandidate(pool)
-			},
-		)
-		if selected == nil {
-			return nil, nil
-		}
-		return s.finalizeDispatch(ctx, selected, match, requestedModel, mappedModel, policy,
-			recordSelection, "", "", false, excludeChannelIDs, nowISO, nowMs)
-	}
-
-	if strategy == StrategyStableFirst {
-		// Priority-layer strict soft-filter demotion. Primary/observation pool
-		// planning runs only on the chosen layer's soft-healthy set so a broken prio-0
-		// site does not pin stable_first when a healthy prio-1 alternative exists.
-		rotationKey := BuildStableFirstRotationKey(match.Route.ID, requestedModel)
-		usedObservation := false
-		selected := selectAcrossPriorityLayers(
-			available,
-			resolveModel,
-			nowMs,
-			s.configuredMaxSec,
-			func(pool []RouteChannelCandidate) *RouteChannelCandidate {
-				poolPlan := BuildStableFirstPoolPlan(pool, resolveModel)
-
-				shouldUseObservation := len(poolPlan.ObservationCandidates) > 0 &&
-					(len(poolPlan.PrimaryCandidates) == 0 ||
-						(recordSelection && ShouldUseStableFirstObservationCandidate(rotationKey, poolPlan.ObservationCandidates)))
-
-				var selectionPool []RouteChannelCandidate
-				if shouldUseObservation {
-					selectionPool = poolPlan.ObservationCandidates
-				} else if len(poolPlan.PrimaryCandidates) > 0 {
-					selectionPool = poolPlan.PrimaryCandidates
-				} else {
-					selectionPool = poolPlan.ObservationCandidates
-				}
-				if len(selectionPool) == 0 {
-					return nil
-				}
-
-				picked := s.stableFirstSelect(selectionPool, resolveModel, policy,
-					shouldUseObservation, rotationKey)
-				if picked != nil {
-					usedObservation = shouldUseObservation
-				}
-				return picked
-			},
-		)
-		if selected == nil {
-			return nil, nil
-		}
-
-		obsKey := rotationKey + ":observe"
-		return s.finalizeDispatch(ctx, selected, match, requestedModel, mappedModel, policy,
-			recordSelection, rotationKey, obsKey, usedObservation, excludeChannelIDs, nowISO, nowMs)
-	}
-
-	// Deterministic pluggable strategies: least_busy / lowest_latency / lowest_cost.
-	// Same eligibility + recent-failure filters as weighted; exclude lists remain upstream.
-	if strategy == StrategyLeastBusy || strategy == StrategyLowestLatency || strategy == StrategyLowestCost {
-		breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
-		filteredCandidates := FilterRecentlyFailedCandidates(breakerHealthy,
-			func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
-			nowMs, s.configuredMaxSec)
-		var selected *RouteChannelCandidate
-		switch strategy {
-		case StrategyLeastBusy:
-			selected = SelectLeastBusyCandidate(filteredCandidates, s.channelLoadProvider)
-		case StrategyLowestLatency:
-			selected = SelectLowestLatencyCandidate(filteredCandidates, resolveModel)
-		default:
-			selected = SelectLowestCostCandidate(filteredCandidates, resolveModel, s.pricingFn, s.fallbackUnitCost)
-		}
-		if selected == nil {
-			return nil, nil
-		}
-		return s.finalizeDispatch(ctx, selected, match, requestedModel, mappedModel, policy,
-			recordSelection, "", "", false, excludeChannelIDs, nowISO, nowMs)
-	}
-
-	// Weighted: priority layers (soft-filter demotion; shared walk with).
-	selected := selectAcrossPriorityLayers(
-		available,
-		resolveModel,
-		nowMs,
-		s.configuredMaxSec,
-		func(pool []RouteChannelCandidate) *RouteChannelCandidate {
-			return s.weightedRandomSelect(pool, resolveModel, policy)
-		},
-	)
+	selected, rotationKey, usedObservation := s.pickCandidate(available, strategy, resolveModel, policy, match.Route.ID, requestedModel, nowMs, recordSelection)
 	if selected == nil {
 		return nil, nil
 	}
 	return s.finalizeDispatch(ctx, selected, match, requestedModel, mappedModel, policy,
-		recordSelection, "", "", false, excludeChannelIDs, nowISO, nowMs)
+		recordSelection, rotationKey, usedObservation, excludeChannelIDs, nowISO, nowMs)
 }
 
-// selectAcrossPriorityLayers walks priority layers low→high for weighted,
-// round_robin and stable_first. Per-layer soft filters use
-// softFilterCandidatesStrict (no full-set pin). If a layer is entirely soft-empty,
-// try the next priority. Only when ALL layers are soft-empty does the global
-// FilterRecentlyFailed / breaker full-set fallback apply (starvation guard).
-
-// Algorithm-specific pick happens via selectFromPool on each non-empty layer.
-// Hard excludes (eligibility / excludeChannelIDs) remain upstream.
-
-// Honest global fallback: when every layer is soft-empty we deliberately re-enter
-// FilterRecentlyFailedCandidates (full-set pin when soft-empty) so the request still
-// attempts something rather than returning nil. That pin is a last resort, not the
-// happy path — priority demotion above is what prevents a broken prio-0 layer from
-// starving healthy lower-priority siblings.
-func selectAcrossPriorityLayers(
-	available []RouteChannelCandidate,
-	resolveModel func(RouteChannelCandidate) string,
-	nowMs int64,
-	configuredMaxSec int,
-	selectFromPool func([]RouteChannelCandidate) *RouteChannelCandidate,
-) *RouteChannelCandidate {
-	if len(available) == 0 || selectFromPool == nil {
-		return nil
-	}
-
-	layers := make(map[int64][]RouteChannelCandidate)
-	for _, c := range available {
-		layers[c.Channel.PriorityOrZero()] = append(layers[c.Channel.PriorityOrZero()], c)
-	}
-
-	priorities := make([]int64, 0, len(layers))
-	for p := range layers {
-		priorities = append(priorities, p)
-	}
-	// Sort ascending (lower number = higher priority)
-	for i := 0; i < len(priorities); i++ {
-		for j := i + 1; j < len(priorities); j++ {
-			if priorities[j] < priorities[i] {
-				priorities[i], priorities[j] = priorities[j], priorities[i]
-			}
+func candidateRuntimeModel(candidate RouteChannelCandidate, mappedModel string, byDisplayName bool) string {
+	if byDisplayName {
+		if source := NormalizeChannelSourceModel(candidate.Channel.SourceModel); source != "" {
+			return source
 		}
 	}
-
-	for _, priority := range priorities {
-		rawLayer := layers[priority]
-		filteredLayer := softFilterCandidatesStrict(rawLayer, resolveModel, nowMs, configuredMaxSec)
-		if len(filteredLayer) == 0 {
-			continue
-		}
-		if selected := selectFromPool(filteredLayer); selected != nil {
-			return selected
-		}
-	}
-
-	// All priority layers soft-empty → honest global fallback with existing full-set
-	// pin behavior (FilterRecentlyFailedCandidates returns the input when soft-empty).
-	// Prefer this over returning nil when every candidate is in soft-failure state —
-	// request must still attempt something; hard excludes already ran upstream.
-	// known limitation: this global empty-filter full-set path is intentional
-	// starvation prevention, not cascade-complete (tests: known limitation).
-	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
-	filteredGlobal := FilterRecentlyFailedCandidates(breakerHealthy,
-		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
-		nowMs, configuredMaxSec)
-	return selectFromPool(filteredGlobal)
-}
-
-// softFilterCandidatesStrict applies site/model breaker then recent-failure
-// filters without full-set fallback. An empty result means every candidate is
-// soft-unhealthy and the caller should try the next priority layer (or global
-// fallback). Unlike FilterRecentlyFailedCandidates / FilterSiteRuntimeBroken*,
-// a single soft-unhealthy candidate still yields empty so a lone broken
-// priority-0 channel cannot block demotion to priority>=1.
-func softFilterCandidatesStrict(
-	candidates []RouteChannelCandidate,
-	resolveModel func(RouteChannelCandidate) string,
-	nowMs int64,
-	configuredMaxSec int,
-) []RouteChannelCandidate {
-	if len(candidates) == 0 {
-		return nil
-	}
-	healthy := make([]RouteChannelCandidate, 0, len(candidates))
-	for _, c := range candidates {
-		modelName := ""
-		if resolveModel != nil {
-			modelName = resolveModel(c)
-		}
-		details := GetSiteRuntimeHealthDetails(c.Site.ID, modelName)
-		if details.GlobalBreakerOpen || details.ModelBreakerOpen ||
-			details.GlobalHalfOpen || details.ModelHalfOpen {
-			continue
-		}
-		if IsChannelRecentlyFailed(c.Channel.FailCount, c.Channel.LastFailAt, nowMs, configuredMaxSec) {
-			continue
-		}
-		healthy = append(healthy, c)
-	}
-	return healthy
-}
-
-// loadEnabledRoutes returns enabled routes, serving them from the route cache
-// while it is fresh (IsRoutesFresh/GetRoutes) and falling back to the DB only
-// on a miss, then repopulating the cache (SetRoutes). Every route-mutation
-// path (route/channel CRUD, rebuild, account/site changes, failure-state
-// recovery) funnels through routing.InvalidateCache -> InvalidateAll, which
-// clears the cached list; worst-case staleness is therefore bounded by TTL.
-// The returned slice is shared across goroutines and must be treated as
-// read-only (findRoute only copies elements out of it).
-func (s *ChannelSelector) loadEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error) {
-	if s.cache != nil && s.cache.IsRoutesFresh() {
-		if routes := s.cache.GetRoutes(); routes != nil {
-			return routes, nil
-		}
-	}
-	routes, err := s.db.LoadEnabledRoutes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if s.cache != nil {
-		if routes == nil {
-			// Cache empty results too (as a non-nil slice): GetRoutes uses
-			// nil to signal miss/stale, and a deployment with zero enabled
-			// routes must not re-query on every request.
-			routes = []store.TokenRoute{}
-		}
-		s.cache.SetRoutes(routes)
-	}
-	return routes, nil
-}
-
-func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
-	routes, err := s.loadEnabledRoutes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("findRoute: load routes: %w", err)
-	}
-
-	// Apply allowedRouteIds filter
-	matchedSupportedPattern := false
-	for _, pattern := range policy.SupportedModels {
-		if MatchesModelPattern(model, pattern) {
-			matchedSupportedPattern = true
-			break
-		}
-	}
-	if len(policy.AllowedRouteIDs) > 0 && (!matchedSupportedPattern || policy.UserRouteIDs != nil) {
-		allowSet := make(map[int64]bool)
-		for _, id := range policy.AllowedRouteIDs {
-			allowSet[id] = true
-		}
-		filtered := make([]store.TokenRoute, 0, len(routes))
-		for _, r := range routes {
-			if allowSet[r.ID] {
-				filtered = append(filtered, r)
-			}
-		}
-		routes = filtered
-	}
-	// Filter a fresh slice: loadEnabledRoutes may return the shared cache.
-	if policy.UserRouteIDs != nil {
-		filtered := make([]store.TokenRoute, 0, len(routes))
-		for _, route := range routes {
-			if userRouteAllowed(route.ID, policy) {
-				filtered = append(filtered, route)
-			}
-		}
-		routes = filtered
-	}
-
-	// Match priority: 1) explicit_group displayName exact, 2) exact model pattern,
-	// 3) displayName exact, 4) wildcard. Within the first non-empty bucket,
-	// multi-tier context may re-rank when RequestedContextTokens > 0.
-	// Buckets 1-3 share a single pass over routes (cheap predicates); the
-	// wildcard/regex bucket is scanned only when all three cheap buckets came
-	// back empty, preserving the original priority order and early exit while
-	// cutting up to four full scans down to at most two.
-	var explicitGroupBucket, exactPatternBucket, displayNameBucket []store.TokenRoute
-	for i := range routes {
-		r := &routes[i]
-		if IsExplicitGroupRoute(r.RouteMode) {
-			if IsRouteDisplayNameMatch(model, r.DisplayName) {
-				explicitGroupBucket = append(explicitGroupBucket, *r)
-			}
-			continue
-		}
-		if IsExactRouteModelPattern(r.ModelPattern) && strings.TrimSpace(r.ModelPattern) == model {
-			exactPatternBucket = append(exactPatternBucket, *r)
-		}
-		if IsRouteDisplayNameMatch(model, r.DisplayName) {
-			displayNameBucket = append(displayNameBucket, *r)
-		}
-	}
-
-	var bucket []store.TokenRoute
-	switch {
-	case len(explicitGroupBucket) > 0:
-		bucket = explicitGroupBucket
-	case len(exactPatternBucket) > 0:
-		bucket = exactPatternBucket
-	case len(displayNameBucket) > 0:
-		bucket = displayNameBucket
-	default:
-		for i := range routes {
-			r := &routes[i]
-			if !IsExplicitGroupRoute(r.RouteMode) && MatchesModelPattern(model, r.ModelPattern) {
-				bucket = append(bucket, *r)
-			}
-		}
-	}
-
-	if len(bucket) == 0 {
-		return nil, nil
-	}
-
-	matched := PickContextTierRoute(bucket, policy.RequestedContextTokens)
-	if matched == nil {
-		return nil, nil
-	}
-	return s.loadRouteMatch(ctx, *matched)
-}
-
-func (s *ChannelSelector) loadRouteMatch(ctx context.Context, route store.TokenRoute) (*RouteMatch, error) {
-	// Check cache
-	if cached := s.cache.GetMatch(route.ID); cached != nil {
-		return cached, nil
-	}
-
-	// Load channels for this route
-	routeIDs := []int64{route.ID}
-	if IsExplicitGroupRoute(route.RouteMode) {
-		// Load source route IDs
-		sourceIDs, err := s.db.LoadRouteGroupSources(ctx, []int64{route.ID})
-		if err != nil {
-			return nil, err
-		}
-		if ids, ok := sourceIDs[route.ID]; ok {
-			routeIDs = ids
-		}
-	}
-
-	// Load channels
-	joined, err := s.db.LoadRouteChannels(ctx, routeIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	// Collect OAuth route unit IDs
-	unitIDsMap := make(map[int64]bool)
-	for _, j := range joined {
-		if j.Channel.OAuthRouteUnitID != nil && *j.Channel.OAuthRouteUnitID > 0 {
-			unitIDsMap[*j.Channel.OAuthRouteUnitID] = true
-		}
-	}
-	var unitIDs []int64
-	for id := range unitIDsMap {
-		unitIDs = append(unitIDs, id)
-	}
-
-	var unitSummaries map[int64]OAuthRouteUnitSummary
-	var unitMembers map[int64][]OAuthRouteUnitMemberCandidate
-	if len(unitIDs) > 0 {
-		unitSummaries, err = s.db.LoadOAuthRouteUnitSummaries(ctx, unitIDs)
-		if err != nil {
-			return nil, err
-		}
-		unitMembers, err = s.db.LoadOAuthRouteUnitMembers(ctx, unitIDs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Resolve source-model fallback from each channel's route model_pattern.
-	// Group routes expand to source route IDs; blank channel SourceModel
-	// must inherit that source route's pattern for eligibility/resolveModel.
-	fallbackSourceModelByRouteID, err := s.loadFallbackSourceModelByRouteID(ctx, route, routeIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	candidates := make([]RouteChannelCandidate, 0, len(joined))
-	for _, j := range joined {
-		channel := j.Channel
-		resolvedSourceModel := NormalizeChannelSourceModel(channel.SourceModel)
-		if resolvedSourceModel == "" {
-			if fb, ok := fallbackSourceModelByRouteID[channel.RouteID]; ok && fb != "" {
-				resolvedSourceModel = fb
-			}
-		}
-		if resolvedSourceModel != "" {
-			sm := resolvedSourceModel
-			channel.SourceModel = &sm
-		} else {
-			channel.SourceModel = nil
-		}
-
-		candidate := RouteChannelCandidate{
-			Channel: channel,
-			Account: j.Account,
-			Site:    j.Site,
-			Token:   j.Token,
-			Direct:  channel.Direct,
-		}
-
-		if j.Channel.OAuthRouteUnitID != nil && *j.Channel.OAuthRouteUnitID > 0 {
-			unitID := *j.Channel.OAuthRouteUnitID
-			if summary, ok := unitSummaries[unitID]; ok {
-				candidate.RouteUnit = &summary
-			}
-			if members, ok := unitMembers[unitID]; ok {
-				candidate.RouteUnitMembers = members
-			}
-		}
-
-		candidates = append(candidates, candidate)
-	}
-
-	match := &RouteMatch{
-		Route:    route,
-		Channels: candidates,
-	}
-	s.cache.SetMatch(route.ID, match)
-	return match, nil
-}
-
-// loadFallbackSourceModelByRouteID maps route IDs to model_pattern values used when
-// a channel's SourceModel is nil/empty. For group routes this is each source route's
-// pattern; for normal routes it is the matched route itself.
-func (s *ChannelSelector) loadFallbackSourceModelByRouteID(ctx context.Context, route store.TokenRoute, routeIDs []int64) (map[int64]string, error) {
-	fallback := make(map[int64]string, len(routeIDs))
-	if len(routeIDs) == 0 {
-		return fallback, nil
-	}
-
-	// Fast path: non-group routes only expand to themselves.
-	if len(routeIDs) == 1 && routeIDs[0] == route.ID {
-		pattern := strings.TrimSpace(route.ModelPattern)
-		if pattern != "" {
-			fallback[route.ID] = pattern
-		}
-		return fallback, nil
-	}
-
-	// Load enabled routes and map model patterns for every source route ID.
-	routes, err := s.loadEnabledRoutes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("loadRouteMatch: load source route patterns: %w", err)
-	}
-	byID := make(map[int64]store.TokenRoute, len(routes)+1)
-	for _, r := range routes {
-		byID[r.ID] = r
-	}
-	// Always include the matched route in case it is a group or not in the enabled list shape used above.
-	byID[route.ID] = route
-
-	for _, rID := range routeIDs {
-		if r, ok := byID[rID]; ok {
-			pattern := strings.TrimSpace(r.ModelPattern)
-			if pattern != "" {
-				fallback[rID] = pattern
-			}
-		}
-	}
-	return fallback, nil
-}
-
-func (s *ChannelSelector) getCandidateEligibilityReasons(
-	candidate RouteChannelCandidate, requestedModel string, bypassSourceModelCheck bool,
-	excludeChannelIDs []int64, nowISO string, policy DownstreamRoutingPolicy,
-) []string {
-	blockers := s.getCandidateBlockers(candidate, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)
-	reasons := make([]string, 0, len(blockers))
-	for _, blocker := range blockers {
-		reasons = append(reasons, blocker.Message)
-	}
-	return reasons
-}
-
-func (s *ChannelSelector) getCandidateBlockers(
-	candidate RouteChannelCandidate,
-	requestedModel string,
-	bypassSourceModelCheck bool,
-	excludeChannelIDs []int64,
-	nowISO string,
-	policy DownstreamRoutingPolicy,
-) []CandidateBlocker {
-	reasons := make([]CandidateBlocker, 0)
-	resolved, associationBlocker := resolveAssociationCandidate(candidate, policy)
-	candidate = resolved
-	if associationBlocker.Code != "" {
-		reasons = append(reasons, associationBlocker)
-	}
-	if blocker := streamPolicyBlocker(candidate, policy); blocker.Code != "" {
-		reasons = append(reasons, blocker)
-	}
-	if direct := candidate.Direct; direct != nil {
-		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
-			reasons = append(reasons, CandidateBlocker{"cooldown", "direct upstream grant cooling down"})
-		}
-		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
-			reasons = append(reasons, CandidateBlocker{"disabled", "direct upstream grant disabled"})
-		}
-		protocols := direct.Protocols
-		if direct.CredentialKind == store.DirectCredentialNone {
-			protocols &= direct.Endpoints.AnonymousProtocolMask()
-			if !store.DirectProviderAllowsAnonymous(direct.Provider) {
-				protocols = 0
-			}
-		}
-		if len(direct.ProtocolOrder) > 0 {
-			allowed := 0
-			for _, protocol := range direct.ProtocolOrder {
-				allowed |= protocol
-			}
-			protocols &= allowed
-		}
-		required := policy.RequiredUpstreamProtocol
-		if required&store.DirectGenerationProtocols != 0 && policy.AllowUpstreamProtocolConversion && direct.Endpoints.IsConfigured() {
-			required = store.DirectGenerationProtocols
-		}
-		if direct.Endpoints.IsConfigured() {
-			protocols &= direct.Endpoints.ProtocolMask()
-		}
-		if required != 0 && required&store.DirectGenerationProtocols == 0 && direct.Endpoints.ProtocolMask()&required == 0 {
-			protocols = 0
-		}
-		if required == 0 || protocols&required == 0 {
-			code := "protocol_not_authorized"
-			if required == 0 {
-				code = "protocol_context_missing"
-			}
-			reasons = append(reasons, CandidateBlocker{code, "direct upstream protocol not authorized"})
-		}
-		if len(policy.AllowedSiteIDs) > 0 {
-			reasons = append(reasons, CandidateBlocker{"site_not_allowed", "direct upstream is not in the downstream key site allow-list"})
-		}
-		if policy.UserRouteIDs == nil && len(policy.AllowedRouteIDs) > 0 && !matchesSupportedModelPolicy(requestedModel, policy.SupportedModels) {
-			allowed := false
-			for _, routeID := range policy.AllowedRouteIDs {
-				if routeID == direct.RouteID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				reasons = append(reasons, CandidateBlocker{"route_not_allowed", "direct upstream route is not allowed by downstream key"})
-			}
-		}
-		if reason := s.resolveDownstreamExclusionBlocker(candidate, policy); reason.Code != "" {
-			reasons = append(reasons, reason)
-		}
-		for _, id := range excludeChannelIDs {
-			if id == candidate.Channel.ID {
-				reasons = append(reasons, CandidateBlocker{"already_tried", "direct upstream grant already tried"})
-				break
-			}
-		}
-		return reasons
-	}
-
-	// Shared accounts and OAuth pools do not have a typed Decisions endpoint or
-	// grant. The -1 model-list sentinel remains a discovery query, not a dial.
-	if policy.RequiredUpstreamProtocol == store.DirectProtocolDecisions {
-		reasons = append(reasons, CandidateBlocker{"protocol_not_authorized", "Decisions requires an explicit direct endpoint and grant"})
-	}
-
-	if !bypassSourceModelCheck && !ChannelSupportsRequestedModelWithRedirects(candidate.Channel.SourceModel, requestedModel, candidate.Account.ID) {
-		srcModel := ""
-		if candidate.Channel.SourceModel != nil {
-			srcModel = *candidate.Channel.SourceModel
-		}
-		reasons = append(reasons, CandidateBlocker{"source_model_mismatch", "来源模型不匹配=" + srcModel})
-	}
-
-	if !candidate.Channel.Enabled {
-		reasons = append(reasons, CandidateBlocker{"disabled", "通道禁用"})
-	}
-
-	// OAuth route unit: check member availability
-	if IsOAuthRouteUnitCandidate(candidate) {
-		candidate = s.filterRouteUnitMembersByPolicy(candidate, policy)
-		eligibleMembers := getEligibleRouteUnitMembers(candidate, requestedModel, nowISO)
-		if len(eligibleMembers) == 0 {
-			name := "round_robin"
-			if candidate.RouteUnit != nil {
-				name = candidate.RouteUnit.Name
-			}
-			reasons = append(reasons, CandidateBlocker{"oauth_members_unavailable", "路由池成员不可用（" + name + "）"})
-		}
-		return reasons
-	}
-
-	// Account status
-	if IsExplicitTokenChannel(candidate) {
-		if candidate.Account.Status == "disabled" {
-			reasons = append(reasons, CandidateBlocker{"account_inactive", "账号状态=" + candidate.Account.Status})
-		}
-	} else if candidate.Account.Status != "active" {
-		reasons = append(reasons, CandidateBlocker{"account_inactive", "账号状态=" + candidate.Account.Status})
-	}
-
-	// Site status
-	if candidate.Site.Status == "disabled" {
-		reasons = append(reasons, CandidateBlocker{"site_disabled", "站点状态=" + candidate.Site.Status})
-	}
-
-	// Downstream exclusion
-	if reason := s.resolveDownstreamExclusionBlocker(candidate, policy); reason.Code != "" {
-		reasons = append(reasons, reason)
-	}
-
-	// Already tried
-	for _, id := range excludeChannelIDs {
-		if id == candidate.Channel.ID {
-			reasons = append(reasons, CandidateBlocker{"already_tried", "当前请求已尝试"})
-			break
-		}
-	}
-
-	// Token available
-	tokenValue := s.resolveChannelTokenValue(candidate)
-	if tokenValue == "" {
-		reasons = append(reasons, CandidateBlocker{"token_unavailable", "令牌不可用"})
-	}
-
-	// Cooldown — parse timestamps (millis-aware); do not lex-compare ISO strings.
-	if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
-		reasons = append(reasons, CandidateBlocker{"cooldown", "冷却中"})
-	}
-
-	return reasons
-}
-
-func matchesSupportedModelPolicy(model string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if MatchesModelPattern(model, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandidate) string {
-	if IsOAuthRouteUnitCandidate(candidate) {
-		return ResolveRouteUnitMemberTokenValue(candidate.Account)
-	}
-	if candidate.Direct != nil {
-		if !candidate.Direct.CredentialEnabled {
-			return ""
-		}
-		return candidate.Direct.Credential
-	}
-	if candidate.Channel.TokenID != nil && *candidate.Channel.TokenID > 0 {
-		if candidate.Token == nil {
-			return ""
-		}
-		// Check usable
-		if candidate.Token.Token == "" || !candidate.Token.Enabled {
-			return ""
-		}
-		return candidate.Token.Token
-	}
-
-	// OAuth account: use accessToken
-	if candidate.Account.OAuthProvider != nil && *candidate.Account.OAuthProvider != "" {
-		if candidate.Account.AccessToken != "" {
-			return candidate.Account.AccessToken
-		}
-		return ""
-	}
-
-	// Fallback: apiToken
-	if candidate.Account.APIToken != nil && *candidate.Account.APIToken != "" {
-		return *candidate.Account.APIToken
-	}
-
-	return ""
-}
-
-func (s *ChannelSelector) resolveDownstreamExclusionReason(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) string {
-	return s.resolveDownstreamExclusionBlocker(candidate, policy).Message
-}
-
-func (s *ChannelSelector) resolveDownstreamExclusionBlocker(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) CandidateBlocker {
-	channelID := int64(0)
-	if candidate.Direct != nil {
-		channelID = candidate.Direct.ChannelID
-	}
-	if !policy.AccessPolicy.AllowsUpstreamChannel(channelID) {
-		return CandidateBlocker{"channel_not_allowed", "upstream channel is not allowed by downstream access policy"}
-	}
-
-	if candidate.Direct != nil {
-		if len(policy.AllowedSiteIDs) > 0 {
-			return CandidateBlocker{"site_not_allowed", "direct upstream is not in the downstream key site allow-list"}
-		}
-		if len(policy.ExcludedCredentialRefs) > 0 {
-			for _, ref := range policy.ExcludedCredentialRefs {
-				if credentialRefMatchesOne(candidate, ref, s) {
-					return CandidateBlocker{"credential_excluded", "direct upstream credential excluded by downstream key"}
-				}
-			}
-		}
-		if len(policy.AllowedCredentialRefs) > 0 && !credentialRefMatchesCandidate(candidate, policy.AllowedCredentialRefs, s) {
-			return CandidateBlocker{"credential_not_allowed", "direct upstream credential is not in downstream key allow-list"}
-		}
-		return CandidateBlocker{}
-	}
-	// allow-list: when AllowedSiteIDs is non-empty, only listed sites are eligible.
-	if len(policy.AllowedSiteIDs) > 0 {
-		allowed := false
-		for _, siteID := range policy.AllowedSiteIDs {
-			if siteID == candidate.Site.ID {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			return CandidateBlocker{"site_not_allowed", "站点不在下游密钥允许列表中"}
-		}
-	}
-
-	for _, siteID := range policy.ExcludedSiteIDs {
-		if siteID == candidate.Site.ID {
-			return CandidateBlocker{"site_excluded", "站点已被下游密钥排除"}
-		}
-	}
-
-	// allow-list: when AllowedCredentialRefs is non-empty, candidate must match one.
-	if len(policy.AllowedCredentialRefs) > 0 {
-		if !credentialRefMatchesCandidate(candidate, policy.AllowedCredentialRefs, s) {
-			return CandidateBlocker{"credential_not_allowed", "API Key/令牌不在下游密钥允许列表中"}
-		}
-	}
-
-	if len(policy.ExcludedCredentialRefs) == 0 {
-		return CandidateBlocker{}
-	}
-
-	for _, ref := range policy.ExcludedCredentialRefs {
-		if credentialRefMatchesOne(candidate, ref, s) {
-			return CandidateBlocker{"credential_excluded", "API Key/令牌已被下游密钥排除"}
-		}
-	}
-	return CandidateBlocker{}
-}
-
-func credentialRefMatchesCandidate(candidate RouteChannelCandidate, refs []CredentialRef, s *ChannelSelector) bool {
-	for _, ref := range refs {
-		if credentialRefMatchesOne(candidate, ref, s) {
-			return true
-		}
-	}
-	return false
-}
-
-func credentialRefMatchesOne(candidate RouteChannelCandidate, ref CredentialRef, s *ChannelSelector) bool {
-	if candidate.Direct != nil {
-		return ref.Kind == "direct_grant" && ref.GrantID == candidate.Direct.GrantID
-	}
-	if ref.Kind == "account_token" {
-		return candidate.Channel.TokenID != nil && *candidate.Channel.TokenID == ref.TokenID &&
-			candidate.Token != nil && candidate.Token.ID == ref.TokenID &&
-			candidate.Account.ID == ref.AccountID &&
-			candidate.Site.ID == ref.SiteID
-	}
-	// default_api_key (or empty kind legacy): channel without explicit token, using account apiToken.
-	if candidate.Channel.TokenID == nil &&
-		candidate.Account.ID == ref.AccountID &&
-		candidate.Site.ID == ref.SiteID {
-		tokenValue := s.resolveChannelTokenValue(candidate)
-		apiToken := ""
-		if candidate.Account.APIToken != nil {
-			apiToken = *candidate.Account.APIToken
-		}
-		return tokenValue != "" && apiToken != "" && tokenValue == apiToken
-	}
-	return false
-}
-
-func (s *ChannelSelector) weightedRandomSelect(
-	candidates []RouteChannelCandidate,
-	modelResolver func(RouteChannelCandidate) string,
-	policy DownstreamRoutingPolicy,
-) *RouteChannelCandidate {
-	result := CalculateWeightedSelection(
-		candidates,
-		modelResolver,
-		s.routingWeights,
-		policy.SiteWeightMultipliers,
-		policy.KeyWeight,
-		s.channelLoadProvider,
-		time.Now().UnixMilli(),
-		WeightedMode,
-		"",
-		s.pricingFn,
-		s.fallbackUnitCost,
-	)
-	return result.Selected
-}
-
-func (s *ChannelSelector) stableFirstSelect(
-	candidates []RouteChannelCandidate,
-	modelResolver func(RouteChannelCandidate) string,
-	policy DownstreamRoutingPolicy,
-	shouldUseObservation bool,
-	rotationKey string,
-) *RouteChannelCandidate {
-	key := rotationKey
-	if shouldUseObservation {
-		key = rotationKey + ":observe"
-	}
-	result := CalculateWeightedSelection(
-		candidates,
-		modelResolver,
-		s.routingWeights,
-		policy.SiteWeightMultipliers,
-		policy.KeyWeight,
-		s.channelLoadProvider,
-		time.Now().UnixMilli(),
-		StableFirstMode,
-		key,
-		s.pricingFn,
-		s.fallbackUnitCost,
-	)
-	return result.Selected
+	return mappedModel
 }
 
 func (s *ChannelSelector) finalizeDispatch(
@@ -1100,7 +206,6 @@ func (s *ChannelSelector) finalizeDispatch(
 	policy DownstreamRoutingPolicy,
 	recordSelection bool,
 	stableFirstRotationKey string,
-	stableFirstObservationKey string,
 	usedObservation bool,
 	excludeChannelIDs []int64,
 	nowISO string,
@@ -1138,12 +243,7 @@ func (s *ChannelSelector) finalizeDispatch(
 	// probe while the rest keep being rejected until the probe outcome is
 	// recorded. Open now means no traffic — the pre-existing fail-open
 	// starvation fallback no longer dispatches against hard-open sites.
-	runtimeModelKey := mappedModel
-	if IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName) {
-		if sm := NormalizeChannelSourceModel(selected.Channel.SourceModel); sm != "" {
-			runtimeModelKey = sm
-		}
-	}
+	runtimeModelKey := candidateRuntimeModel(*selected, mappedModel, IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName))
 	if dispatchCandidate.Direct == nil && !TryAdmitSiteModelRuntimeRequest(dispatchCandidate.Site.ID, runtimeModelKey) {
 		return nil, nil
 	}
@@ -1164,10 +264,10 @@ func (s *ChannelSelector) finalizeDispatch(
 	}
 
 	if recordSelection {
-		if stableFirstRotationKey != "" && stableFirstObservationKey != "" && dispatchCandidate.Direct == nil {
+		if stableFirstRotationKey != "" && dispatchCandidate.Direct == nil {
 			targetKey := stableFirstRotationKey
 			if usedObservation {
-				targetKey = stableFirstObservationKey
+				targetKey += ":observe"
 			}
 			rememberStableFirstSiteSelectionForKey(targetKey, dispatchCandidate.Site.ID)
 			UpdateStableFirstObservationProgress(stableFirstRotationKey, usedObservation, dispatchCandidate.Site.ID)

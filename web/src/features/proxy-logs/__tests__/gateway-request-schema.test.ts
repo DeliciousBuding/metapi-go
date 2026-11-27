@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { assert, describe, expect, it, vi } from 'vitest'
 
 import {
   gatewayOverviewFieldsSchema,
@@ -96,7 +96,9 @@ describe('gateway request wire validation', () => {
         coverageStartedAt: null,
       })
       await gatewayRequestsApi.getGatewayRequests({ from, to, limit: 50 })
-      const [url] = vi.mocked(request).mock.calls.at(-1)!
+      const call = vi.mocked(request).mock.lastCall
+      assert.isDefined(call)
+      const [url] = call
       const query = new URL(url, 'http://localhost').searchParams
       expect(query.get('from')).toBe(new Date(from).toISOString())
       expect(query.get('to')).toBe(new Date(to).toISOString())

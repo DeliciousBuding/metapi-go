@@ -1235,7 +1235,7 @@ func dispatchEndpointAttemptWithContinue(
 			respBody = errBody.bytes
 			rawErrText := string(respBody)
 			failUsage := errBody.parseUsage()
-			executed := responseHasExecutionEvidence(respBody, failUsage)
+			executed := responseHasExecutionEvidence(respBody, failUsage, resp.StatusCode)
 			if !executed && shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, errBody.readable) {
 				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, true, failUsage, retry, requestID, truncateErrText(rawErrText))
 				return false, nil, true
@@ -1405,7 +1405,7 @@ func dispatchEndpointAttemptWithContinue(
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
 		failUsage := body.parseUsage()
-		executed := responseHasExecutionEvidence(respBody, failUsage)
+		executed := responseHasExecutionEvidence(respBody, failUsage, resp.StatusCode)
 		if !executed && shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, body.readable) {
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, false, failUsage, retry, requestID, truncateErrText(rawErrText))
 			return false, nil, true
@@ -1540,7 +1540,7 @@ func dispatchEndpointAttemptWithContinue(
 			"request_id", requestID,
 			"retry", retry,
 		)
-		executed := responseHasExecutionEvidence(respBody, usage) || aggregatedUsage != nil
+		executed := responseHasExecutionEvidence(respBody, usage, resp.StatusCode) || aggregatedUsage != nil
 		if !executed && shouldContinueEndpointFallback(verdict.Status, verdict.Reason, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, verdict.Status, false, usage, retry, requestID, truncateErrText(verdict.Reason))
 			return false, nil, true
@@ -1865,14 +1865,15 @@ func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *pl
 
 // Retryable status codes and protocol hints must not replay observed work.
 // Only failed responses take this path; normal successes need no second parse.
-func responseHasExecutionEvidence(body []byte, usage ParsedUsage) bool {
-	if usage.TotalTokens > 0 || usage.invalidForUserBudget {
+func responseHasExecutionEvidence(body []byte, usage ParsedUsage, status int) bool {
+	retryableError := status == http.StatusTooManyRequests || status >= 500 && status < 600
+	if usage.TotalTokens > 0 || usage.invalidForUserBudget && !retryableError {
 		return true
 	}
 	var payload map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
-	return decoder.Decode(&payload) == nil && directResponseHasActivity(payload)
+	return decoder.Decode(&payload) == nil && directResponseHasActivity(payload, retryableError, true)
 }
 
 func selectedHealthAccountID(selected *routing.SelectedChannel) *int64 {

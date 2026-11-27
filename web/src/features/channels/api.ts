@@ -38,6 +38,7 @@ export type ChannelProbeResult = {
   truncatedBody: string
   error: string | null
   channelId?: number
+  oauthRouteUnitId?: number | null
   routeId?: number
   siteId?: number
   siteName?: string
@@ -93,6 +94,7 @@ export function parseChannelProbeResult(result: unknown): ChannelProbeResult {
       typeof body.truncatedBody === 'string' ? body.truncatedBody : '',
     error: typeof body.error === 'string' && body.error ? body.error : null,
     channelId: readOptionalFiniteNumber(body.channelId) ?? undefined,
+    oauthRouteUnitId: readOptionalFiniteNumber(body.oauthRouteUnitId),
     routeId: readOptionalFiniteNumber(body.routeId) ?? undefined,
     siteId: readOptionalFiniteNumber(body.siteId) ?? undefined,
     siteName: typeof body.siteName === 'string' ? body.siteName : undefined,

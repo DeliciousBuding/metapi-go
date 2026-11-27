@@ -192,21 +192,23 @@ func TestMediaChunkGapsBeyondWriteBudgetStayHealthy(t *testing.T) {
 			setStreamWriteBudgetForTest(t, 1, 10)
 
 			pr, pw := io.Pipe()
-			go func() {
-				defer pw.Close()
-				time.Sleep(firstChunkDelay)
-				if _, err := pw.Write(first); err != nil {
-					return
-				}
-				time.Sleep(gapBetweenChunks)
-				_, _ = pw.Write(second)
-			}()
-
 			results := make(chan streamRelayResult, 1)
-			srv := tc.start(t, runMediaRelayHandler(results, pr, http.Header{
+			relay := runMediaRelayHandler(results, pr, http.Header{
 				"Content-Type":        []string{"audio/mpeg"},
 				"Content-Disposition": []string{`attachment; filename="fixture.mp3"`},
 				"Content-Language":    []string{"zh"},
+			})
+			srv := tc.start(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				go func() {
+					defer pw.Close()
+					time.Sleep(firstChunkDelay)
+					if _, err := pw.Write(first); err != nil {
+						return
+					}
+					time.Sleep(gapBetweenChunks)
+					_, _ = pw.Write(second)
+				}()
+				relay.ServeHTTP(w, r)
 			}), 200*time.Millisecond)
 
 			started := time.Now()
@@ -238,7 +240,7 @@ func TestMediaChunkGapsBeyondWriteBudgetStayHealthy(t *testing.T) {
 			if got := resp.Header.Get("Content-Language"); got != "zh" {
 				t.Fatalf("Content-Language = %q, want zh", got)
 			}
-			if elapsed := time.Since(started); elapsed < firstChunkDelay+gapBetweenChunks-100*time.Millisecond {
+			if elapsed := time.Since(started); elapsed < firstChunkDelay+gapBetweenChunks {
 				t.Fatalf("stream finished after %v, before both deliberate gaps", elapsed)
 			}
 

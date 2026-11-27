@@ -19,6 +19,7 @@ import axios from 'axios'
 import {
   CalendarCheck,
   CalendarRange,
+  RefreshCw,
   RotateCw,
   Users,
   Zap,
@@ -28,6 +29,7 @@ import { useTranslation } from 'react-i18next'
 
 import { DateRangePresets } from '@/components/common/date-range-presets'
 import { PageHeader } from '@/components/common/page-header'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
 import {
   DataTablePage,
   type UrlTableState,
@@ -47,6 +49,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
 import { useSites } from '@/features/sites'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
@@ -279,11 +282,13 @@ export function CheckinPage() {
     data: logsPage,
     isLoading,
     isFetching,
+    dataUpdatedAt,
     error,
     refetch,
   } = useCheckinLogs(queryPayload)
   const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
   const total = logsPage?.total ?? 0
+  const showRefreshSpin = useDelayedSpin(isFetching)
 
   const handleTriggerOne = useCallback(
     async (row: CheckinLogRow) => {
@@ -398,6 +403,24 @@ export function CheckinPage() {
         description={t('checkin.page.description')}
         actions={
           <>
+            <QuietRefreshStatus
+              updatedAt={dataUpdatedAt ?? 0}
+              hasError={Boolean(error)}
+              className='hidden sm:inline'
+            />
+            <Button
+              variant='outline'
+              size='icon-sm'
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              aria-label={t('proxyLogs.page.refresh')}
+              data-hit-area
+            >
+              <RefreshCw
+                aria-hidden='true'
+                className={showRefreshSpin ? 'animate-spin' : undefined}
+              />
+            </Button>
             <Button
               variant='outline'
               onClick={() => setManualOpen(true)}
@@ -483,7 +506,7 @@ export function CheckinPage() {
           >
             <SelectTrigger
               aria-label={t('checkin.page.filterAccountTitle')}
-              className='w-50'
+              className='w-50 max-sm:w-full'
             >
               <SelectValue>
                 {(selected) => {

@@ -4,6 +4,7 @@
 // (`firstByteLatencyMs`, `upstreamReportedModel`), and keyboard submission.
 
 import '@testing-library/jest-dom/vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
   fireEvent,
@@ -16,7 +17,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n/config'
 
 import { parseChannelProbeResult, probeChannel } from '../api'
+import { ChannelDetailSheet } from '../components/channel-detail-sheet'
 import { ChannelInlineProbe } from '../components/channel-inline-probe'
+import { CooldownReasonDialog } from '../components/cooldown-reason-dialog'
+import type { ChannelRow } from '../types'
 
 const transportState = vi.hoisted(() => ({
   request: vi.fn(),
@@ -39,6 +43,7 @@ describe('probeChannel API contract', () => {
       statusCode: 200,
       latencyMs: 142,
       firstByteLatencyMs: 68,
+      oauthRouteUnitId: 42,
       upstreamReportedModel: 'gpt-4o-2026-01',
       truncatedBody: '{"id":"chatcmpl-1"}',
       error: null,
@@ -66,10 +71,20 @@ describe('probeChannel API contract', () => {
       statusCode: 200,
       latencyMs: 142,
       firstByteLatencyMs: 68,
+      oauthRouteUnitId: 42,
       upstreamReportedModel: 'gpt-4o-2026-01',
       truncatedBody: '{"id":"chatcmpl-1"}',
       error: null,
     })
+  })
+
+  it('accepts a null or absent OAuth route unit ID', () => {
+    const response = { success: true, statusCode: 200, latencyMs: 12 }
+    expect(parseChannelProbeResult(response).oauthRouteUnitId).toBeUndefined()
+    expect(
+      parseChannelProbeResult({ ...response, oauthRouteUnitId: null })
+        .oauthRouteUnitId
+    ).toBeNull()
   })
 
   it('omits model when empty and rejects malformed envelopes', async () => {
@@ -255,3 +270,56 @@ describe('ChannelInlineProbe component', () => {
     })
   })
 })
+
+it.each([
+  ['channel details', ChannelDetailSheet],
+  ['cooldown reason', CooldownReasonDialog],
+] as const)(
+  'probes an OAuth unit from %s and aborts when closed',
+  async (_, Panel) => {
+    const channel: ChannelRow = {
+      id: 17,
+      routeId: 3,
+      name: 'OAuth fixture',
+      site: { id: 4, name: 'Fixture' },
+      type: 'oauth_unit',
+      status: 'cooldown',
+      models: 'fixture-model',
+      priority: 1,
+      weight: 1,
+      responseMs: null,
+      cooldownUntil: null,
+      cooldownReason: null,
+      cooldownReasonAt: null,
+      cooldownReasonCode: null,
+      enabled: true,
+      manualOverride: false,
+    }
+    transportState.request.mockImplementation(
+      (_url: string, { signal }: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          )
+        )
+    )
+    const client = new QueryClient()
+    const panel = (open: boolean) => (
+      <QueryClientProvider client={client}>
+        <Panel channel={channel} open={open} onOpenChange={() => {}} />
+      </QueryClientProvider>
+    )
+    const view = render(panel(true))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run probe' }))
+    const [url, options] = transportState.request.mock.calls[0]
+    expect(url).toBe('/api/admin/test-channel')
+    expect(JSON.parse(options.body)).toEqual({
+      channelId: 17,
+      mode: 'models',
+      model: 'fixture-model',
+    })
+    expect(options.signal.aborted).toBe(false)
+    view.rerender(panel(false))
+    expect(options.signal.aborted).toBe(true)
+  }
+)

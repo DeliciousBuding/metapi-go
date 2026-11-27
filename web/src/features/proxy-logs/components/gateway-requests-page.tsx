@@ -200,19 +200,21 @@ export function GatewayRequestsPage({
           mobileTitle: true,
           mobileOrder: 0,
         },
-        cell: ({ row }) => (
-          <div className='flex min-w-0 items-center'>
-            {kind === 'access' ? (
+        cell: ({ row }) => {
+          let content
+          if (kind === 'access') {
+            content = (
               <span className='truncate font-mono text-xs'>
                 {row.original.downstreamPath ?? t('requestLogs.unknown')}
               </span>
-            ) : row.original.modelRequested ? (
-              <ModelPill model={row.original.modelRequested} />
-            ) : (
-              <span>{t('requestLogs.unknownModel')}</span>
-            )}
-          </div>
-        ),
+            )
+          } else if (row.original.modelRequested) {
+            content = <ModelPill model={row.original.modelRequested} />
+          } else {
+            content = <span>{t('requestLogs.unknownModel')}</span>
+          }
+          return <div className='flex min-w-0 items-center'>{content}</div>
+        },
       },
       {
         id: 'result',

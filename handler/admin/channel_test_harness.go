@@ -18,6 +18,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -70,17 +71,13 @@ type channelTestRequest struct {
 }
 
 type channelTestTarget struct {
-	ChannelID   int64
-	RouteID     int64
-	AccountID   int64
-	SiteID      int64
-	SourceModel string
-	SiteName    string
-	SiteURL     string
-	Platform    string
-	TokenValue  string
-	Account     store.Account
-	Site        store.Site
+	OAuthRouteUnitID *int64
+	ChannelID        int64
+	RouteID          int64
+	SourceModel      string
+	TokenValue       string
+	Account          store.Account
+	Site             store.Site
 }
 
 type harnessAccountRow struct {
@@ -106,12 +103,13 @@ type harnessSiteRow struct {
 }
 
 type harnessChannelRow struct {
-	ID          int64   `db:"id"`
-	RouteID     int64   `db:"route_id"`
-	AccountID   int64   `db:"account_id"`
-	TokenID     *int64  `db:"token_id"`
-	SourceModel *string `db:"source_model"`
-	Enabled     bool    `db:"enabled"`
+	OAuthRouteUnitID *int64  `db:"oauth_route_unit_id"`
+	ID               int64   `db:"id"`
+	RouteID          int64   `db:"route_id"`
+	AccountID        int64   `db:"account_id"`
+	TokenID          *int64  `db:"token_id"`
+	SourceModel      *string `db:"source_model"`
+	Enabled          bool    `db:"enabled"`
 }
 
 type harnessTokenRow struct {
@@ -191,26 +189,27 @@ func (h *channelTestHandler) runChannelTest(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	var result map[string]any
 	if target.TokenValue == "" {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"basis":              "forcedProbe",
-			"firstByteLatencyMs": nil,
-			"success":            false,
-			"statusCode":         0,
-			"latencyMs":          0,
-			"truncatedBody":      "",
-			"error":              "No usable token on channel/account (api token / oauth access token required)",
-			"channelId":          target.ChannelID,
-			"siteId":             target.SiteID,
-			"accountId":          target.AccountID,
-			"model":              model,
-			"mode":               mode,
-			"bodyTruncated":      false,
-		})
-		return
+		diagnostic := "No usable token on channel/account (api token / oauth access token required)"
+		if target.OAuthRouteUnitID != nil {
+			diagnostic = "OAuth route unit has no eligible member (check pool status, member credentials and cooldowns)"
+		}
+		result = harnessFail(target, mode, model, "", "", 0, 0, "", diagnostic)
+	} else {
+		result = h.executeProbe(r.Context(), target, mode, model, prompt, timeoutMs, body.Chat)
 	}
-
-	result := h.executeProbe(r.Context(), target, mode, model, prompt, timeoutMs, body.Chat)
+	if target.OAuthRouteUnitID != nil {
+		result["oauthRouteUnitId"] = *target.OAuthRouteUnitID
+		// OAuth access tokens can be opaque and lack a recognizable prefix.
+		if target.TokenValue != "" {
+			for _, key := range []string{"truncatedBody", "error", "upstreamReportedModel"} {
+				if text, ok := result[key].(string); ok {
+					result[key] = strings.ReplaceAll(text, target.TokenValue, "[redacted]")
+				}
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -228,7 +227,7 @@ func (h *channelTestHandler) resolveTarget(ctx context.Context, channelID, siteI
 func (h *channelTestHandler) loadByChannelID(ctx context.Context, channelID int64) (*channelTestTarget, error) {
 	var ch harnessChannelRow
 	err := h.db.GetContext(ctx, &ch, h.db.Rebind(`
-		SELECT id, route_id, account_id, token_id, source_model, enabled
+		SELECT id, route_id, account_id, token_id, oauth_route_unit_id, source_model, enabled
 		FROM route_channels WHERE id = ?`), channelID)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("channel not found")
@@ -246,7 +245,7 @@ func (h *channelTestHandler) loadBySiteID(ctx context.Context, siteID int64, mod
 	var err error
 	if modelHint != "" {
 		err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
-			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.source_model, rc.enabled
+			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 			FROM route_channels rc
 			JOIN accounts a ON a.id = rc.account_id
 			WHERE a.site_id = ? AND rc.enabled = ?
@@ -259,7 +258,7 @@ func (h *channelTestHandler) loadBySiteID(ctx context.Context, siteID int64, mod
 	}
 	if ch.ID == 0 {
 		err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
-			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.source_model, rc.enabled
+			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 			FROM route_channels rc
 			JOIN accounts a ON a.id = rc.account_id
 			WHERE a.site_id = ? AND rc.enabled = ?
@@ -268,7 +267,7 @@ func (h *channelTestHandler) loadBySiteID(ctx context.Context, siteID int64, mod
 		if err == sql.ErrNoRows {
 			// Fall back to any channel on site even if disabled.
 			err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
-				SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.source_model, rc.enabled
+				SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 				FROM route_channels rc
 				JOIN accounts a ON a.id = rc.account_id
 				WHERE a.site_id = ?
@@ -286,6 +285,9 @@ func (h *channelTestHandler) loadBySiteID(ctx context.Context, siteID int64, mod
 }
 
 func (h *channelTestHandler) assembleTarget(ctx context.Context, ch harnessChannelRow) (*channelTestTarget, error) {
+	if ch.OAuthRouteUnitID != nil {
+		return h.loadRouteUnitTarget(ctx, ch)
+	}
 	var acc harnessAccountRow
 	if err := h.db.GetContext(ctx, &acc, h.db.Rebind(`
 		SELECT id, site_id, access_token, api_token, oauth_provider, extra_config, status
@@ -343,16 +345,48 @@ func (h *channelTestHandler) assembleTarget(ctx context.Context, ch harnessChann
 	return &channelTestTarget{
 		ChannelID:   ch.ID,
 		RouteID:     ch.RouteID,
-		AccountID:   acc.ID,
-		SiteID:      site.ID,
 		SourceModel: sourceModel,
-		SiteName:    site.Name,
-		SiteURL:     site.URL,
-		Platform:    site.Platform,
 		TokenValue:  resolveHarnessToken(ch.TokenID, token, acc),
 		Account:     account,
 		Site:        siteModel,
 	}, nil
+}
+
+// A forced probe observes the same eligible member as routing without updating
+// last_selected_at, cooldowns or the outer channel's representative account.
+func (h *channelTestHandler) loadRouteUnitTarget(ctx context.Context, ch harnessChannelRow) (*channelTestTarget, error) {
+	id := *ch.OAuthRouteUnitID
+	target := &channelTestTarget{ChannelID: ch.ID, RouteID: ch.RouteID, OAuthRouteUnitID: ch.OAuthRouteUnitID}
+	if ch.SourceModel != nil {
+		target.SourceModel = strings.TrimSpace(*ch.SourceModel)
+	}
+	routes := service.NewProxyRoutingStore(wrapStoreDB(h.db))
+	ids := []int64{id}
+	units, err := routes.LoadOAuthRouteUnitSummaries(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("load OAuth route unit: %w", err)
+	}
+	unit := units[id]
+	if !unit.Enabled {
+		return target, nil
+	}
+	target.Site.ID = unit.SiteID
+	members, err := routes.LoadOAuthRouteUnitMembers(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("load OAuth route unit members: %w", err)
+	}
+	now := time.Now().UTC()
+	candidate := routing.RouteChannelCandidate{RouteUnit: &unit, RouteUnitMembers: members[id]}
+	maxCooldown := config.TokenRouterFailureCooldownMaxSecCeiling
+	if rt := config.RuntimeSafe(); rt != nil {
+		maxCooldown = rt.TokenRouterFailureCooldownMaxSec
+	}
+	member := routing.SelectRouteUnitMember(candidate, target.SourceModel, now.Format(time.RFC3339), now.UnixMilli(), maxCooldown, nil)
+	if member != nil {
+		target.Account, target.Site = member.Account, member.Site
+		target.TokenValue = routing.ResolveRouteUnitMemberTokenValue(member.Account)
+	}
+	return target, nil
 }
 
 // resolveHarnessToken mirrors routing.ChannelSelector.resolveChannelTokenValue
@@ -405,7 +439,7 @@ func (h *channelTestHandler) executeProbe(
 		}
 	}
 
-	upstreamURL := proxy.BuildUpstreamURL(target.SiteURL, upstreamPath)
+	upstreamURL := proxy.BuildUpstreamURL(target.Site.URL, upstreamPath)
 	host := safeHost(upstreamURL)
 
 	timeout := time.Duration(timeoutMs) * time.Millisecond
@@ -491,9 +525,9 @@ func (h *channelTestHandler) executeProbe(
 		"error":              nil,
 		"channelId":          target.ChannelID,
 		"routeId":            target.RouteID,
-		"siteId":             target.SiteID,
-		"siteName":           target.SiteName,
-		"accountId":          target.AccountID,
+		"siteId":             target.Site.ID,
+		"siteName":           target.Site.Name,
+		"accountId":          target.Account.ID,
 		"model":              model,
 		"mode":               mode,
 		"upstreamPath":       upstreamPath,
@@ -525,9 +559,9 @@ func harnessFail(target *channelTestTarget, mode, model, path, host string, stat
 		"error":              errMsg,
 		"channelId":          target.ChannelID,
 		"routeId":            target.RouteID,
-		"siteId":             target.SiteID,
-		"siteName":           target.SiteName,
-		"accountId":          target.AccountID,
+		"siteId":             target.Site.ID,
+		"siteName":           target.Site.Name,
+		"accountId":          target.Account.ID,
 		"model":              model,
 		"mode":               mode,
 		"upstreamPath":       path,

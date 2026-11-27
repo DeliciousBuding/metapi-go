@@ -148,4 +148,45 @@ describe('model tester selection', () => {
       'model-b'
     )
   })
+
+  it('re-applies the same deep-link model after clearing the URL param and navigating back', async () => {
+    const { rerender } = showForm('model-a')
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'model-a'
+    )
+    fireEvent.click(screen.getByRole('combobox', { name: 'Model' }))
+    const option = await screen.findByRole('option', { name: 'model-b' })
+    fireEvent.pointerDown(option)
+    fireEvent.click(option)
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'model-b'
+    )
+
+    // Navigate away from the deep-link param (search becomes empty).
+    rerender(
+      <TestForm
+        isRunning={false}
+        defaultModel={undefined}
+        onSubmit={vi.fn()}
+        onStop={vi.fn()}
+      />
+    )
+    // User's manual choice remains intact while no deep link is present.
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'model-b'
+    )
+
+    // Returning via a fresh deep link to the original model applies cleanly.
+    rerender(
+      <TestForm
+        isRunning={false}
+        defaultModel='model-a'
+        onSubmit={vi.fn()}
+        onStop={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'model-a'
+    )
+  })
 })

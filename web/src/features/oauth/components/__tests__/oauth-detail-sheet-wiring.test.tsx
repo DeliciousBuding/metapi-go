@@ -55,6 +55,15 @@ const pageState = vi.hoisted(() => ({
   capturedActions: null as OAuthColumnActions | null,
   refreshMutate: vi.fn(),
   rebindMutate: vi.fn(),
+  refetch: vi.fn(),
+  queryData: { items: [], total: 0 } as {
+    items: OAuthClient[]
+    total: number
+  },
+  isLoading: false,
+  isFetching: false,
+  error: null as Error | null,
+  dataUpdatedAt: Date.now(),
 }))
 
 vi.mock('@/lib/toast', () => ({
@@ -63,10 +72,12 @@ vi.mock('@/lib/toast', () => ({
 
 vi.mock('../../api', () => ({
   useOAuthConnections: () => ({
-    data: { items: [connection], total: 1 },
-    isLoading: false,
-    isFetching: false,
-    error: null,
+    data: pageState.queryData,
+    isLoading: pageState.isLoading,
+    isFetching: pageState.isFetching,
+    error: pageState.error,
+    dataUpdatedAt: pageState.dataUpdatedAt,
+    refetch: pageState.refetch,
   }),
   useDeleteOAuthConnection: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRefreshOAuthQuota: () => ({
@@ -138,6 +149,12 @@ beforeEach(() => {
   pageState.capturedActions = null
   pageState.refreshMutate.mockReset()
   pageState.rebindMutate.mockReset()
+  pageState.refetch.mockReset()
+  pageState.queryData = { items: [connection], total: 1 }
+  pageState.isLoading = false
+  pageState.isFetching = false
+  pageState.error = null
+  pageState.dataUpdatedAt = Date.now()
 })
 
 afterEach(() => cleanup())
@@ -185,5 +202,30 @@ describe('OAuthPage detail sheet wiring', () => {
 
     expect(pageState.rebindMutate).toHaveBeenCalledTimes(1)
     expect(pageState.rebindMutate.mock.calls[0][0]).toBe(42)
+  })
+
+  it('shows quiet freshness status, summary strip, and triggers manual refresh', () => {
+    render(<OAuthPage />)
+
+    expect(screen.getByTestId('quiet-refresh-status')).toBeInTheDocument()
+    const strip = screen.getByTestId('oauth-summary-strip')
+    expect(strip).toHaveTextContent('Total')
+    expect(strip).toHaveTextContent('Healthy')
+    expect(strip).toHaveTextContent('Quota tracked')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(pageState.refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides summary strip and freshness indicator on empty or error states', () => {
+    pageState.queryData = { items: [], total: 0 }
+    const { rerender } = render(<OAuthPage />)
+    expect(screen.queryByTestId('oauth-summary-strip')).not.toBeInTheDocument()
+
+    pageState.queryData = { items: [connection], total: 1 }
+    pageState.error = new Error('network failed')
+    rerender(<OAuthPage />)
+    expect(screen.queryByTestId('oauth-summary-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('quiet-refresh-status')).not.toBeInTheDocument()
   })
 })

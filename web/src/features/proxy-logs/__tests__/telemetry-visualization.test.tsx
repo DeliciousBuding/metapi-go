@@ -144,6 +144,32 @@ describe('StreamTimingCard and upgraded AttemptWaterfall', () => {
     }
   )
 
+  it('renders a single-row compact bar without duplicate stage legend when compact is true', () => {
+    const timing = makeStreamTiming()
+    const { container } = render(
+      <AttemptWaterfall
+        latencyMs={1420}
+        firstByteLatencyMs={120}
+        firstOutputLatencyMs={260}
+        isStream
+        streamTiming={timing}
+        scaleMaxMs={2000}
+        compact
+      />
+    )
+    expect(
+      container.querySelector('[data-waterfall-compact="true"]')
+    ).not.toBeNull()
+    expect(container.querySelectorAll('[data-stage]').length).toBe(4)
+    expect(
+      screen.queryByTestId('attempt-waterfall-legend')
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('attempt-waterfall-tps')).toHaveTextContent(
+      '64.5 tok/s'
+    )
+    expect(screen.queryByText(/Max gap/)).not.toBeInTheDocument()
+  })
+
   it('falls back cleanly to the basic waterfall when streamTiming is null', () => {
     const { container } = render(
       <AttemptWaterfall

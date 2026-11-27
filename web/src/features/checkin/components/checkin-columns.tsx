@@ -6,7 +6,10 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Eye, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
+import {
+  SoftToneBadge,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -16,7 +19,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
-import { cn } from '@/lib/utils'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
 import {
@@ -27,41 +29,51 @@ import {
 import { FailureReasonBadge } from './failure-reason-badge'
 
 interface StatusConfig {
+  tone: SoftTone
   variant: 'success' | 'secondary' | 'destructive'
-  dotClassName: string
   labelKey: string
 }
 
 function resolveStatusConfig(status: string): StatusConfig {
   if (status === 'success') {
     return {
+      tone: 'success',
       variant: 'success',
-      dotClassName: 'bg-success',
       labelKey: 'checkin.columns.statusSuccess',
     }
   }
   if (status === 'skipped') {
     return {
+      tone: 'neutral',
       variant: 'secondary',
-      dotClassName: 'bg-muted-foreground',
       labelKey: 'checkin.columns.statusSkipped',
     }
   }
   return {
+    tone: 'destructive',
     variant: 'destructive',
-    dotClassName: 'bg-destructive',
     labelKey: 'checkin.columns.statusFailed',
   }
 }
 
-function StatusBadge({ status }: { status: string }) {
+export function CheckinStatusBadge({
+  status,
+  className,
+}: {
+  status: string
+  className?: string
+}) {
   const { t } = useTranslation()
   const config = resolveStatusConfig(status)
   return (
-    <Badge variant={config.variant}>
-      <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
+    <SoftToneBadge
+      tone={config.tone}
+      data-slot='badge'
+      data-variant={config.variant}
+      className={className}
+    >
       {t(config.labelKey)}
-    </Badge>
+    </SoftToneBadge>
   )
 }
 
@@ -176,7 +188,7 @@ export function useCheckinColumns(
       header: t('common.status'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
-        return <StatusBadge status={log.checkin_logs.status} />
+        return <CheckinStatusBadge status={log.checkin_logs.status} />
       },
       filterFn: (row, _columnId, filterValue: unknown) => {
         if (!Array.isArray(filterValue) || filterValue.length === 0) return true

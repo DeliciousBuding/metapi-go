@@ -6,21 +6,29 @@ function shellQuote(value: string): string {
   return "'" + value.replaceAll("'", "'\\''") + "'"
 }
 
+function requestBodyForProtocol(
+  model: string,
+  protocol: PersonalModel['protocols'][number]
+) {
+  if (protocol === 'embeddings') {
+    return { model, input: 'Hello' }
+  }
+  if (protocol === 'responses') {
+    return { model, input: 'Hello', max_output_tokens: 64 }
+  }
+  return {
+    model,
+    messages: [{ role: 'user', content: 'Hello' }],
+    max_tokens: 64,
+  }
+}
+
 export function connectionExample(
   origin: string,
   model: string,
   protocol: PersonalModel['protocols'][number]
 ): string {
-  const body =
-    protocol === 'embeddings'
-      ? { model, input: 'Hello' }
-      : protocol === 'responses'
-        ? { model, input: 'Hello', max_output_tokens: 64 }
-        : {
-            model,
-            messages: [{ role: 'user', content: 'Hello' }],
-            max_tokens: 64,
-          }
+  const body = requestBodyForProtocol(model, protocol)
   const headers =
     protocol === 'messages'
       ? [

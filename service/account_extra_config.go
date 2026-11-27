@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // AutoReloginConfig holds credentials for auto-relogin.
@@ -255,4 +257,45 @@ func IsManagedSub2ApiTokenDue(tokenExpiresAt any) bool {
 	// Use a 5-minute lead window.
 	const sub2apiRefreshLeadMs int64 = 5 * 60 * 1000
 	return exp-nowMs <= sub2apiRefreshLeadMs
+}
+
+// MergeExtraConfig merges a patch into an existing extraConfig JSON string.
+// A nil patch value (untyped nil) deletes the key; callers must not pass a
+// typed nil pointer, which would marshal to JSON null instead of deleting.
+func MergeExtraConfig(existing *string, patch map[string]any) *string {
+	base := ParseExtraConfig(existing)
+	if base == nil {
+		base = make(map[string]any)
+	}
+	for k, v := range patch {
+		if v == nil {
+			delete(base, k)
+		} else {
+			base[k] = v
+		}
+	}
+	return MarshalExtraConfig(base)
+}
+
+// ResolvePlatformUserID resolves the platform user ID from extraConfig.
+func ResolvePlatformUserID(extraConfig *string, username *string) int64 {
+	id, _ := GetPlatformUserIdFromExtraConfig(extraConfig)
+	return id
+}
+
+// ResolvePlatformUserIDPtr returns a *int platform user id when one can be
+// resolved from account extraConfig or a numeric username.
+func ResolvePlatformUserIDPtr(account *store.Account) *int {
+	if account == nil {
+		return nil
+	}
+	if id, ok := GetPlatformUserIdFromExtraConfig(account.ExtraConfig); ok && id > 0 {
+		v := int(id)
+		return &v
+	}
+	if id := GuessPlatformUserIdFromUsername(account.Username); id > 0 {
+		v := int(id)
+		return &v
+	}
+	return nil
 }

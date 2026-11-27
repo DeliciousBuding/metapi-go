@@ -51,7 +51,7 @@ describe('Dialog axe gate', () => {
 
     const dialog = document.querySelector('[data-slot="dialog-content"]')
     expect(dialog).not.toBeNull()
-    const labelledBy = dialog!.getAttribute('aria-labelledby') ?? ''
+    const labelledBy = dialog?.getAttribute('aria-labelledby') ?? ''
     const title = document.getElementById(labelledBy)
     expect(title).not.toBeNull()
     expect(title).toHaveTextContent('Rename site')

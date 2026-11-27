@@ -604,3 +604,37 @@ func TestNewApiAdapter_VerifyToken_NewApiUserHeader200Message(t *testing.T) {
 		t.Fatalf("TokenType = %q, want session", result.TokenType)
 	}
 }
+
+func TestNewApiVerifyTokenListsKeysWithVerifiedCookieIdentity(t *testing.T) {
+	// With the supplied cookie identity, self.data.id owns the listing. After
+	// an alternate-ID probe succeeds, the accepted header owns it instead.
+	for _, tc := range []struct{ name, acceptedID, listingID string }{
+		{"supplied", "42", "7"},
+		{"probed", "1", "1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTokenTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/user/self":
+					if r.Header.Get("Cookie") != "session=fixture" || r.Header.Get("New-Api-User") != tc.acceptedID {
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+					tokenJSONResponse(w, `{"success":true,"data":{"id":7,"username":"reader"}}`)
+				case "/api/token/":
+					if got := r.Header.Get("New-Api-User"); got != tc.listingID {
+						t.Errorf("token listing used user %q, want %q", got, tc.listingID)
+					}
+					tokenJSONResponse(w, `{"success":true,"data":{"items":[{"id":2,"key":"sk-fixture","status":1}],"total":1}}`)
+				default:
+					http.NotFound(w, r)
+				}
+			})
+			userID := 42
+			result, err := newApiTokenAdapter().VerifyToken(t.Context(), srv.URL, "fixture", &userID, nil)
+			if err != nil || result == nil || result.TokenType != "session" || result.APIToken != "sk-fixture" {
+				t.Fatalf("VerifyToken = %+v, %v", result, err)
+			}
+		})
+	}
+}

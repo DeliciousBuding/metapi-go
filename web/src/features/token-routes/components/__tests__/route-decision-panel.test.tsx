@@ -159,7 +159,8 @@ describe('current routing preview', () => {
       ],
     })
     const recovered = structuredClone(pool)
-    const member = recovered.candidates![0].oauthMembers![0]
+    const member = recovered.candidates?.[0]?.oauthMembers?.[0]
+    if (!member) throw new Error('Expected OAuth pool member fixture')
     member.eligibility = 'eligible'
     member.blockers = []
     member.cooldownUntil = null

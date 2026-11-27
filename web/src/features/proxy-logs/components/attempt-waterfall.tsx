@@ -16,6 +16,13 @@ type AttemptWaterfallProps = {
   isStream?: boolean | null
   streamTiming?: ProxyLogStreamTiming | null
   scaleMaxMs: number
+  /**
+   * Compact mode for expanded attempt summaries when a dedicated
+   * `StreamTimingCard` below already renders the full stage legend and metrics.
+   * Keeps the scaled 4-stage bar aligned to `scaleMaxMs` plus a single concise
+   * TPS or status pill without duplicating the legend row.
+   */
+  compact?: boolean
 }
 
 function isValidNonNeg(value: unknown): value is number {
@@ -60,6 +67,7 @@ export function AttemptWaterfall({
   isStream,
   streamTiming,
   scaleMaxMs,
+  compact = false,
 }: AttemptWaterfallProps) {
   const { t } = useTranslation()
 
@@ -94,13 +102,34 @@ export function AttemptWaterfall({
       const inlineBadge = getInlineDecodeBadge(streamTiming.decodeStatus)
       const hasMaxGap = isValidNonNeg(streamTiming.maxContentGapMs)
 
+      let compactIndicator: React.ReactNode = null
+      if (hasMeasuredTps) {
+        compactIndicator = (
+          <span
+            className='text-foreground shrink-0 text-xs font-medium whitespace-nowrap tabular-nums'
+            data-testid='attempt-waterfall-tps'
+          >
+            {t('proxyLogs.telemetry.streamTiming.tpsValue', {
+              value: streamTiming.decodeTps?.toFixed(1),
+            })}
+          </span>
+        )
+      } else if (inlineBadge) {
+        compactIndicator = (
+          <SoftToneBadge tone={inlineBadge.tone} className='shrink-0'>
+            {t(inlineBadge.labelKey)}
+          </SoftToneBadge>
+        )
+      }
+
       return (
         <div
-          className='space-y-1.5'
+          className={compact ? 'flex items-center gap-2.5' : 'space-y-1.5'}
           data-testid='attempt-waterfall'
           data-waterfall-mode='stream-timing'
+          data-waterfall-compact={compact ? 'true' : undefined}
         >
-          <div className='bg-muted flex h-2.5 w-full overflow-hidden rounded-sm'>
+          <div className='bg-muted flex h-2.5 min-w-0 flex-1 overflow-hidden rounded-sm'>
             {fineResult.stages.map((stage) => {
               const share =
                 effectiveTotal > 0
@@ -117,41 +146,51 @@ export function AttemptWaterfall({
               )
             })}
           </div>
-          <div className='text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums'>
-            {fineResult.stages.map((stage) => (
-              <span key={stage.key} className='inline-flex items-center gap-1'>
+          {compact ? (
+            compactIndicator
+          ) : (
+            <div
+              className='text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums'
+              data-testid='attempt-waterfall-legend'
+            >
+              {fineResult.stages.map((stage) => (
                 <span
-                  className={`${stage.colorClass} size-2 rounded-xs`}
-                  aria-hidden='true'
-                />
-                {t(stage.labelKey)}:{' '}
-                {stage.key === 'stream'
-                  ? formatLatency(stage.durationMs)
-                  : formatLatency(stage.timestampMs)}
-              </span>
-            ))}
-            {hasMeasuredTps && (
-              <span
-                className='text-foreground font-medium'
-                data-testid='attempt-waterfall-tps'
-              >
-                {t('proxyLogs.telemetry.streamTiming.tpsValue', {
-                  value: streamTiming.decodeTps?.toFixed(1),
-                })}
-              </span>
-            )}
-            {!hasMeasuredTps && inlineBadge && (
-              <SoftToneBadge tone={inlineBadge.tone}>
-                {t(inlineBadge.labelKey)}
-              </SoftToneBadge>
-            )}
-            {hasMaxGap && (
-              <span>
-                {t('proxyLogs.telemetry.streamTiming.maxGap')}:{' '}
-                {formatLatency(streamTiming.maxContentGapMs)}
-              </span>
-            )}
-          </div>
+                  key={stage.key}
+                  className='inline-flex items-center gap-1'
+                >
+                  <span
+                    className={`${stage.colorClass} size-2 rounded-xs`}
+                    aria-hidden='true'
+                  />
+                  {t(stage.labelKey)}:{' '}
+                  {stage.key === 'stream'
+                    ? formatLatency(stage.durationMs)
+                    : formatLatency(stage.timestampMs)}
+                </span>
+              ))}
+              {hasMeasuredTps && (
+                <span
+                  className='text-foreground font-medium'
+                  data-testid='attempt-waterfall-tps'
+                >
+                  {t('proxyLogs.telemetry.streamTiming.tpsValue', {
+                    value: streamTiming.decodeTps?.toFixed(1),
+                  })}
+                </span>
+              )}
+              {!hasMeasuredTps && inlineBadge && (
+                <SoftToneBadge tone={inlineBadge.tone}>
+                  {t(inlineBadge.labelKey)}
+                </SoftToneBadge>
+              )}
+              {hasMaxGap && (
+                <span>
+                  {t('proxyLogs.telemetry.streamTiming.maxGap')}:{' '}
+                  {formatLatency(streamTiming.maxContentGapMs)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )
     }

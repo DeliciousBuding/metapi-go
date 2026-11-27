@@ -439,6 +439,49 @@ describe('request quota details', () => {
     expect(router.state.location.searchStr).not.toContain('requestId')
   })
 
+  it('supports ArrowUp and ArrowDown keyboard navigation across loaded requests in the detail sheet', async () => {
+    const first = { ...request, id: 'req-first', modelRequested: 'model-alpha' }
+    const second = {
+      ...request,
+      id: 'req-second',
+      modelRequested: 'model-beta',
+    }
+    handler = (url) => {
+      if (url.includes('/requests?')) {
+        return { items: [first, second], total: 2, page: 1, pageSize: 20 }
+      }
+      if (url.endsWith('/req-second')) return { ...second, quota }
+      return { ...first, quota }
+    }
+    const router = await mount('/user?view=requests&requestId=req-first')
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('req-first')
+
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    await waitFor(() =>
+      expect(router.state.location.searchStr).toContain('requestId=req-second')
+    )
+    await within(dialog).findByText('req-second')
+
+    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    await waitFor(() =>
+      expect(router.state.location.searchStr).toContain('requestId=req-first')
+    )
+    await within(dialog).findByText('req-first')
+  })
+
+  it('renders dual-channel SoftToneBadge for request status and quota settlement state', async () => {
+    await mount()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('Quota for this request')
+    const badges = dialog.querySelectorAll('[data-tone]')
+    expect(badges.length).toBeGreaterThanOrEqual(2)
+    expect(badges[0]).toHaveAttribute('data-tone', 'success')
+    expect(
+      badges[0]?.querySelector('[data-tone-marker="success"]')
+    ).not.toBeNull()
+  })
+
   it('updates every quota label and explanation when switching to Chinese', async () => {
     await mount()
     const dialog = await screen.findByRole('dialog')

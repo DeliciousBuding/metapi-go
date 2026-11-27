@@ -11,9 +11,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  classifyOAuthQuotaSeverity,
   hasOAuthSubscriptionDetails,
   resolveOAuthQuotaAvailability,
+  resolveOAuthQuotaUsageRatio,
   resolveOAuthQuotaWindowState,
+  resolveOAuthSubscriptionExpiryState,
   type OAuthQuotaSnapshot,
 } from '../lib/oauth-quota'
 
@@ -132,5 +135,52 @@ describe('hasOAuthSubscriptionDetails', () => {
         buildSnapshot({ subscription: { activeUntil: '2026-09-01T00:00:00Z' } })
       )
     ).toBe(true)
+  })
+})
+
+describe('resolveOAuthQuotaUsageRatio & classifyOAuthQuotaSeverity', () => {
+  it('returns null when window is unsupported or lacks a positive limit', () => {
+    expect(resolveOAuthQuotaUsageRatio(null)).toBeNull()
+    expect(
+      resolveOAuthQuotaUsageRatio({ supported: false, used: 5, limit: 10 })
+    ).toBeNull()
+    expect(
+      resolveOAuthQuotaUsageRatio({ supported: true, used: 5, limit: 0 })
+    ).toBeNull()
+    expect(
+      resolveOAuthQuotaUsageRatio({ supported: true, used: null, limit: 10 })
+    ).toBeNull()
+  })
+
+  it('clamps ratio to [0, 1] and classifies ok / high / exhausted bands', () => {
+    expect(
+      resolveOAuthQuotaUsageRatio({ supported: true, used: 25, limit: 100 })
+    ).toBe(0.25)
+    expect(
+      resolveOAuthQuotaUsageRatio({ supported: true, used: 120, limit: 100 })
+    ).toBe(1)
+    expect(classifyOAuthQuotaSeverity(0.5)).toBe('ok')
+    expect(classifyOAuthQuotaSeverity(0.8)).toBe('high')
+    expect(classifyOAuthQuotaSeverity(1)).toBe('exhausted')
+  })
+})
+
+describe('resolveOAuthSubscriptionExpiryState', () => {
+  const now = Date.parse('2026-11-28T00:00:00Z')
+
+  it('classifies missing/invalid, expired, expiringSoon, and active timestamps', () => {
+    expect(resolveOAuthSubscriptionExpiryState(null, now)).toBe('unknown')
+    expect(resolveOAuthSubscriptionExpiryState('not-a-date', now)).toBe(
+      'unknown'
+    )
+    expect(
+      resolveOAuthSubscriptionExpiryState('2026-11-27T23:59:59Z', now)
+    ).toBe('expired')
+    expect(
+      resolveOAuthSubscriptionExpiryState('2026-12-03T00:00:00Z', now)
+    ).toBe('expiringSoon')
+    expect(
+      resolveOAuthSubscriptionExpiryState('2026-12-20T00:00:00Z', now)
+    ).toBe('active')
   })
 })

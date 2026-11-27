@@ -19,8 +19,11 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  SoftToneBadge,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -34,6 +37,10 @@ import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import {
+  classifyOAuthQuotaSeverity,
+  resolveOAuthQuotaUsageRatio,
+} from '../lib/oauth-quota'
 import type { OAuthClient, OAuthClientStatus } from '../types'
 
 export type OAuthColumnActions = {
@@ -48,18 +55,15 @@ const STATUS_LABEL_KEY: Record<OAuthClientStatus, string> = {
   abnormal: 'oauth.status.abnormal',
 }
 
-const STATUS_BADGE_VARIANT: Record<
-  OAuthClientStatus,
-  'success' | 'destructive'
-> = {
+const STATUS_SOFT_TONE: Record<OAuthClientStatus, SoftTone> = {
   healthy: 'success',
   abnormal: 'destructive',
 }
 
 /**
- * Health badge for one connection. Exported so the detail sheet renders the
- * exact same semantic variant as the list column (a private copy would let
- * the two drift).
+ * Dual-channel health badge for one connection. Exported so the detail sheet
+ * renders the exact same OKLCH soft-tone silhouette as the list column (a
+ * private copy would let the two drift).
  */
 export function OAuthStatusBadge({
   status,
@@ -70,9 +74,9 @@ export function OAuthStatusBadge({
   const resolved: OAuthClientStatus =
     status === 'abnormal' ? 'abnormal' : 'healthy'
   return (
-    <Badge variant={STATUS_BADGE_VARIANT[resolved]}>
+    <SoftToneBadge tone={STATUS_SOFT_TONE[resolved]}>
       {t(STATUS_LABEL_KEY[resolved])}
-    </Badge>
+    </SoftToneBadge>
   )
 }
 
@@ -108,11 +112,18 @@ function formatQuotaWindowUsage(window: OAuthQuotaWindow): string {
   return '—'
 }
 
+const QUOTA_BAR_TONE: Record<'ok' | 'high' | 'exhausted', string> = {
+  ok: 'bg-success',
+  high: 'bg-warning',
+  exhausted: 'bg-destructive',
+}
+
 /**
  * Renders the provider quota windows (5-hour / 7-day) as compact
- * `used/limit` lines. Only supported windows that carry at least one number
- * render; anything else (unsupported provider, sync error, empty payload)
- * degrades to an em dash instead of a fabricated "0/0".
+ * `used/limit` lines with an honest proportional progress bar when both
+ * `used` and positive `limit` are reported. Only supported windows that carry
+ * at least one number render; anything else (unsupported provider, sync error,
+ * empty payload) degrades to an em dash instead of a fabricated "0/0".
  */
 function QuotaCell({ client }: { client: OAuthClient }) {
   const { t } = useTranslation()
@@ -131,13 +142,35 @@ function QuotaCell({ client }: { client: OAuthClient }) {
     return <span className='text-muted-foreground text-sm'>—</span>
   }
   return (
-    <div className='flex flex-col gap-0.5 text-xs tabular-nums'>
-      {supportedWindows.map(({ labelKey, window }) => (
-        <span key={labelKey} className='whitespace-nowrap'>
-          <span className='text-muted-foreground'>{t(labelKey)}</span>{' '}
-          {formatQuotaWindowUsage(window)}
-        </span>
-      ))}
+    <div className='flex min-w-22 flex-col gap-1 text-xs tabular-nums'>
+      {supportedWindows.map(({ labelKey, window }) => {
+        const ratio = resolveOAuthQuotaUsageRatio(window)
+        const barTone =
+          ratio !== null
+            ? QUOTA_BAR_TONE[classifyOAuthQuotaSeverity(ratio)]
+            : ''
+        return (
+          <div key={labelKey} className='space-y-0.5'>
+            <div className='flex items-center justify-between gap-2 whitespace-nowrap'>
+              <span className='text-muted-foreground'>{t(labelKey)}</span>
+              <span className='font-medium'>
+                {formatQuotaWindowUsage(window)}
+              </span>
+            </div>
+            {ratio !== null && (
+              <div
+                className='bg-muted h-1 w-full overflow-hidden rounded-full'
+                aria-hidden='true'
+              >
+                <div
+                  className={cn('h-full rounded-full', barTone)}
+                  style={{ width: `${Math.round(ratio * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -358,7 +391,7 @@ export function useOAuthColumns(
     {
       id: 'quota',
       enableSorting: false,
-      size: 100,
+      size: 132,
       meta: { mobileHidden: true, mobileOrder: 22 },
       header: ({ column }) => (
         <DataTableColumnHeader

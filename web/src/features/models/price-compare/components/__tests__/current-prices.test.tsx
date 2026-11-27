@@ -103,6 +103,8 @@ describe('published prices', () => {
     await i18n.changeLanguage('en')
   })
   it('keeps free prices visible, unknown ratios blank, and stale snapshots labeled', () => {
+    const firstGroup = row.groups[0]
+    if (!firstGroup) throw new Error('Expected sample group fixture')
     render(
       <AccountModelPrice
         row={{
@@ -110,7 +112,7 @@ describe('published prices', () => {
           lastError: 'upstream_error',
           groups: [
             {
-              ...row.groups[0]!,
+              ...firstGroup,
               multiplier: null,
               rates: { ...rates, input: 0, output: null },
               relative: { ...rates, input: null, output: null },
@@ -125,6 +127,8 @@ describe('published prices', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(1)
   })
   it('renders conditional billing as text, and keeps per-call units separate', () => {
+    const firstGroup = row.groups[0]
+    if (!firstGroup) throw new Error('Expected sample group fixture')
     const { rerender } = render(
       <AccountModelPrice
         row={{
@@ -146,7 +150,7 @@ describe('published prices', () => {
           pricing: { ...row.pricing, quotaType: 1, pricePerRequest: 0.05 },
           groups: [
             {
-              ...row.groups[0]!,
+              ...firstGroup,
               rates: {
                 input: null,
                 output: null,

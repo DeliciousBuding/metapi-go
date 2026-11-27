@@ -72,11 +72,11 @@ describe('SidebarRail hit area', () => {
 
     const sidebarRoot = document.querySelector('[data-slot="sidebar"]')
     expect(sidebarRoot).not.toBeNull()
-    expect(sidebarRoot!.getAttribute('data-state')).toBe('expanded')
+    expect(sidebarRoot?.getAttribute('data-state')).toBe('expanded')
 
     fireEvent.click(getRail())
 
-    expect(sidebarRoot!.getAttribute('data-state')).toBe('collapsed')
+    expect(sidebarRoot?.getAttribute('data-state')).toBe('collapsed')
   })
 })
 
@@ -91,10 +91,10 @@ describe('SidebarRail keyboard alternative', () => {
     renderDesktopSidebar()
 
     const sidebarRoot = document.querySelector('[data-slot="sidebar"]')
-    expect(sidebarRoot!.getAttribute('data-state')).toBe('expanded')
+    expect(sidebarRoot?.getAttribute('data-state')).toBe('expanded')
 
     fireEvent.keyDown(document.body, { key: 'b', ctrlKey: true })
 
-    expect(sidebarRoot!.getAttribute('data-state')).toBe('collapsed')
+    expect(sidebarRoot?.getAttribute('data-state')).toBe('collapsed')
   })
 })

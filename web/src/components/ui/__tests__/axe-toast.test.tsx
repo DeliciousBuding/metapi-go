@@ -54,7 +54,7 @@ describe('Toaster axe gate', () => {
     // Sonner wraps the toast list in a named section with aria-live.
     const region = container.querySelector('section[aria-label]')
     expect(region).not.toBeNull()
-    expect(region!.getAttribute('aria-live')).toBe('polite')
+    expect(region?.getAttribute('aria-live')).toBe('polite')
     expect(region).toContainElement(message)
   })
 })

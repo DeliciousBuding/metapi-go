@@ -245,3 +245,63 @@ func TestFastFailureAllowsHealthyFallbackAndPreservesFirstCause(t *testing.T) {
 		t.Fatalf("fallback usage mismatch: %#v", logs)
 	}
 }
+
+func TestRetryableHTTPErrorExecutionEvidence(t *testing.T) {
+	previous := config.GetSafe()
+	config.Set(&config.Config{ProxyMaxChannelAttempts: 2})
+	t.Cleanup(func() { config.Set(previous) })
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		retry  bool
+	}{
+		{"zero with tier", 429, `{"error":{"message":"rate limit"},"usage":{"prompt_tokens":0,"service_tier":"default"}}`, true},
+		{"overload detail", 503, `{"status":503,"data":{"content":"overloaded"}}`, true},
+		{"message detail", 502, `{"message":{"content":"rate limit"}}`, true},
+		{"wrapped error with zero usage", 503, `{"error":"overloaded","data":{"content":"overloaded","usage":{"prompt_tokens":0}}}`, true},
+		{"damaged counter", 503, `{"usage":{"prompt_tokens":null}}`, false},
+		{"empty usage", 503, `{"error":"rate limit","usage":""}`, true},
+		{"false usage", 429, `{"error":"rate limit","usage":false}`, true},
+		{"empty usage array", 503, `{"usage":[]}`, true},
+		{"observed usage", 429, `{"error":"rate limit","usage":{"prompt_tokens":50}}`, false},
+		{"observed output", 503, `{"error":"overloaded","choices":[{"message":{"content":"real"}}]}`, false},
+		{"observed nested output", 502, `{"message":{"role":"assistant","content":"real"}}`, false},
+		{"observed tiny cost", 503, `{"usage":{"cost":1e-1000}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var primaryCalls, backupCalls atomic.Int32
+			primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				primaryCalls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				io.WriteString(w, tc.body)
+			}))
+			defer primary.Close()
+			backup := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				backupCalls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"backup"}}]}`)
+			}))
+			defer backup.Close()
+			channel := func(id int64, url string) routing.SelectedChannel {
+				return routing.SelectedChannel{Channel: store.RouteChannel{ID: id, Enabled: true}, Account: store.Account{ID: id, Status: "active"}, Site: store.Site{ID: id, URL: url, Status: "active"}, TokenValue: "fixture", ActualModel: "gpt-4o"}
+			}
+			next := channel(2, backup.URL)
+			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: channel(1, primary.URL), next: &next}})
+			defer SetUpstreamConfig(nil)
+			out := httptest.NewRecorder()
+			HandleChatCompletions(out, makeProxyReq(http.MethodPost, "/v1/chat/completions", `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`))
+			if primaryCalls.Load() != 1 {
+				t.Errorf("primary calls=%d", primaryCalls.Load())
+			}
+			if tc.retry {
+				if out.Code != 200 || backupCalls.Load() != 1 || !strings.Contains(out.Body.String(), "backup") {
+					t.Fatalf("failover status=%d backup calls=%d body=%s", out.Code, backupCalls.Load(), out.Body.String())
+				}
+			} else if out.Code != tc.status || backupCalls.Load() != 0 {
+				t.Fatalf("executed request status=%d backup calls=%d", out.Code, backupCalls.Load())
+			}
+		})
+	}
+}

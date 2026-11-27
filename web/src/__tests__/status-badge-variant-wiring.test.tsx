@@ -166,7 +166,9 @@ const routeCell = (
 
 function readBadgeVariant(container: HTMLElement): string | null {
   const badge = container.querySelector('[data-slot="badge"]')
-  return badge?.getAttribute('data-variant') ?? null
+  if (badge) return badge.getAttribute('data-variant')
+  const softTone = container.querySelector('[data-tone]')
+  return softTone?.getAttribute('data-tone') ?? null
 }
 
 afterEach(() => cleanup())

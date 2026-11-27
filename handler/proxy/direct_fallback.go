@@ -42,7 +42,7 @@ func directProtocolRejection(status int, body string) bool {
 		var payload map[string]any
 		decoder := json.NewDecoder(strings.NewReader(text))
 		decoder.UseNumber()
-		if !json.Valid([]byte(text)) || decoder.Decode(&payload) != nil || payload == nil || directResponseHasActivity(payload) {
+		if !json.Valid([]byte(text)) || decoder.Decode(&payload) != nil || payload == nil || directResponseHasActivity(payload, false, true) {
 			return false
 		}
 		var hints []string
@@ -74,9 +74,20 @@ func directErrorHints(value any, hints *[]string, depth int) {
 	}
 }
 
-func directResponseHasActivity(payload map[string]any) bool {
+// Retryable HTTP errors can contain placeholder usage and nested error text.
+// A protocol switch still requires an unambiguous rejection.
+func directResponseHasActivity(payload map[string]any, retryableError, countTextContent bool) bool {
 	for _, key := range []string{"usage", "usageMetadata", "cost", "total_cost"} {
-		if directUsageHasActivity(payload[key]) {
+		v := payload[key]
+		if retryableError && (key == "usage" || key == "usageMetadata") {
+			if v == false || v == "" {
+				continue
+			}
+			if counters, ok := v.(map[string]any); ok && !validUserBudgetUsageMap(counters, key == "usageMetadata") {
+				return true
+			}
+		}
+		if directUsageHasActivity(v) {
 			return true
 		}
 	}
@@ -88,6 +99,9 @@ func directResponseHasActivity(payload map[string]any) bool {
 				return true
 			}
 		case string:
+			if key == "content" && !countTextContent {
+				continue
+			}
 			if value != "" {
 				return true
 			}
@@ -96,7 +110,13 @@ func directResponseHasActivity(payload map[string]any) bool {
 		}
 	}
 	for _, key := range []string{"response", "message", "data"} {
-		if nested, ok := payload[key].(map[string]any); ok && directResponseHasActivity(nested) {
+		nested, ok := payload[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		countText := !retryableError || key == "response" || nested["role"] == "assistant" ||
+			(nested["usage"] != nil && nested["error"] == nil && payload["error"] == nil)
+		if directResponseHasActivity(nested, retryableError, countText) {
 			return true
 		}
 	}
@@ -117,12 +137,20 @@ func directUsageHasActivity(value any) bool {
 		}
 		return strings.ContainsAny(number, "123456789")
 	case map[string]any:
-		for _, child := range v {
+		for key, child := range v {
+			if key == "service_tier" || key == "tier" {
+				switch child.(type) {
+				case string, bool:
+					continue
+				}
+			}
 			if directUsageHasActivity(child) {
 				return true
 			}
 		}
 		return false
+	case []any:
+		return len(v) != 0
 	default:
 		// An unknown/malformed usage value is not evidence of zero cost.
 		return true

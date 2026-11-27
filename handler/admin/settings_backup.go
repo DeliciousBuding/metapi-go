@@ -196,7 +196,7 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid import data: %v", err))
 		return
 	}
-	result, err := backupsvc.ImportTSV21(backupStoreDB(h.db), raw)
+	result, err := backupsvc.ImportTSV21(wrapStoreDB(h.db), raw)
 	if err != nil {
 		writeError(w, backupImportErrorStatus(err), err.Error())
 		return
@@ -245,7 +245,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if magpie {
 		originKey := magpieOriginKey(r)
-		preview, err := backupsvc.PreviewMagpieBackup(backupStoreDB(h.db), raw, passphrase, originKey)
+		preview, err := backupsvc.PreviewMagpieBackup(wrapStoreDB(h.db), raw, passphrase, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, magpieImportErrorMessage(err))
 			return
@@ -255,7 +255,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if backupsvc.IsOctopusV5Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-		preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
+		preview, err := backupsvc.PreviewOctopusV5(wrapStoreDB(h.db), raw, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -265,7 +265,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if backupsvc.IsAxonHubV14Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-		preview, err := backupsvc.PreviewAxonHubV14(backupStoreDB(h.db), raw, originKey)
+		preview, err := backupsvc.PreviewAxonHubV14(wrapStoreDB(h.db), raw, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -280,7 +280,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid import data: %v", err))
 			return
 		}
-		preview, err := backupsvc.PreviewTSV21(backupStoreDB(h.db), raw)
+		preview, err := backupsvc.PreviewTSV21(wrapStoreDB(h.db), raw)
 		if err != nil {
 			writeError(w, backupImportErrorStatus(err), err.Error())
 			return
@@ -378,7 +378,7 @@ func magpieImportErrorMessage(err error) string {
 // explicit confirmation header, matching the other external importers.
 func (h *backupHandler) importMagpieBackup(w http.ResponseWriter, r *http.Request, raw []byte, passphrase string) {
 	originKey := magpieOriginKey(r)
-	db := backupStoreDB(h.db)
+	db := wrapStoreDB(h.db)
 	preview, err := backupsvc.PreviewMagpieBackup(db, raw, passphrase, originKey)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, magpieImportErrorMessage(err))
@@ -416,7 +416,7 @@ func (h *backupHandler) importMagpieBackup(w http.ResponseWriter, r *http.Reques
 
 func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Request, raw []byte) {
 	originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-	preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
+	preview, err := backupsvc.PreviewOctopusV5(wrapStoreDB(h.db), raw, originKey)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -438,7 +438,7 @@ func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "Octopus backup contains unsupported sections; explicitly select channels-only import after reviewing the preview")
 		return
 	}
-	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true", r.Header.Get("X-External-Replacement-Revision"))
+	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(wrapStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true", r.Header.Get("X-External-Replacement-Revision"))
 	if err != nil {
 		if errors.Is(err, backupsvc.ErrOctopusReplacementRequired) {
 			writeError(w, http.StatusConflict, err.Error())
@@ -463,7 +463,7 @@ func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Req
 // entries needs an explicit confirmation header.
 func (h *backupHandler) importAxonHubV14Backup(w http.ResponseWriter, r *http.Request, raw []byte) {
 	originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-	db := backupStoreDB(h.db)
+	db := wrapStoreDB(h.db)
 	preview, err := backupsvc.PreviewAxonHubV14(db, raw, originKey)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -534,9 +534,8 @@ func decodeBackupImportBodyFrom(raw []byte) (map[string]json.RawMessage, error) 
 	return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 }
 
-// backupStoreDB wraps the handler's *sqlx.DB in a store.DB so v2.1 import
-// helpers get automatic ? → $N rebinding on PostgreSQL.
-func backupStoreDB(db *sqlx.DB) *store.DB {
+// wrapStoreDB preserves dialect rebinding for services called by sqlx-backed handlers.
+func wrapStoreDB(db *sqlx.DB) *store.DB {
 	dialect := store.DialectSQLite
 	if db.DriverName() == "pgx" {
 		dialect = store.DialectPostgres

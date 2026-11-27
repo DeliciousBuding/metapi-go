@@ -88,8 +88,8 @@ function OAuthOverviewSection(props: { connection: OAuthClient }) {
         <DetailField label={t('oauth.detail.provider')}>
           <span className='font-medium'>{connection.provider}</span>
         </DetailField>
-        <DetailField label={t('oauth.detail.status')}>
-          <OAuthStatusBadge status={connection.status} />
+        <DetailField label={t('oauth.detail.accountId')}>
+          <span className='tabular-nums'>#{connection.accountId}</span>
         </DetailField>
         <DetailField
           label={t('oauth.detail.username')}
@@ -103,16 +103,12 @@ function OAuthOverviewSection(props: { connection: OAuthClient }) {
         >
           {resolveSiteLabel(connection)}
         </DetailField>
-        <DetailField label={t('oauth.detail.accountId')}>
-          <span className='tabular-nums'>#{connection.accountId}</span>
-        </DetailField>
         <DetailField label={t('oauth.detail.planType')}>
           {planType?.trim() || EM_DASH}
         </DetailField>
         <DetailField
           label={t('oauth.detail.projectId')}
           title={connection.projectId ?? undefined}
-          full
         >
           {connection.projectId?.trim() || EM_DASH}
         </DetailField>
@@ -223,13 +219,36 @@ export function OAuthDetailSheet(props: OAuthDetailSheetProps) {
         className='flex w-full flex-col gap-0 sm:max-w-md'
       >
         <SheetHeader>
-          <SheetTitle className='truncate pr-6'>
-            {resolveOAuthConnectionLabel(connection)}
-          </SheetTitle>
+          <div className='flex items-center gap-2 pr-8'>
+            <SheetTitle className='min-w-0 truncate'>
+              {resolveOAuthConnectionLabel(connection)}
+            </SheetTitle>
+            <OAuthStatusBadge status={connection.status} />
+          </div>
           <SheetDescription>{t('oauth.detail.description')}</SheetDescription>
         </SheetHeader>
 
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
+          {connection.status === 'abnormal' && (
+            <Notice
+              tone='warning'
+              size='compact'
+              data-testid='oauth-abnormal-recovery'
+            >
+              <TriangleAlertIcon
+                aria-hidden='true'
+                className='mt-0.5 size-3.5 shrink-0'
+              />
+              <div className='min-w-0'>
+                <p className='font-medium'>
+                  {t('oauth.detail.abnormalRecoveryTitle')}
+                </p>
+                <p className='mt-0.5 break-words'>
+                  {t('oauth.detail.abnormalRecoveryHint')}
+                </p>
+              </div>
+            </Notice>
+          )}
           <OAuthOverviewSection connection={connection} />
           <Separator />
           <OAuthQuotaPanel quota={connection.quota} />

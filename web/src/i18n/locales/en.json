@@ -1119,7 +1119,14 @@
       },
       "toolbar": {
         "searchPlaceholder": "Search connections…",
-        "startAuth": "Start authorization"
+        "startAuth": "Start authorization",
+        "refresh": "Refresh"
+      },
+      "summary": {
+        "total": "Total",
+        "healthy": "Healthy",
+        "abnormal": "Abnormal",
+        "quotaTracked": "Quota tracked"
       },
       "delete": {
         "title": "Delete connection",
@@ -1167,6 +1174,9 @@
         "quotaLimit": "Limit",
         "quotaRemaining": "Remaining",
         "quotaResetAt": "Resets at",
+        "quotaResetsIn": "Resets in {{duration}}",
+        "quotaExhausted": "Exhausted",
+        "quotaHighUsage": "Near limit",
         "windowFiveHour": "5-hour window",
         "windowSevenDay": "7-day window",
         "windowUnsupported": "Not reported by upstream.",
@@ -1175,6 +1185,10 @@
         "subscriptionPlanType": "Subscription plan",
         "subscriptionActiveStart": "Active from",
         "subscriptionActiveUntil": "Active until",
+        "subscriptionExpired": "Expired",
+        "subscriptionExpiringSoon": "Expiring soon",
+        "abnormalRecoveryTitle": "Connection needs attention",
+        "abnormalRecoveryHint": "Re-authorize to refresh credentials, or refresh quota to re-check upstream status.",
         "modelCount": "Discovered models",
         "modelsPreviewHint": "Preview only — {{shown}} of {{total}} discovered models.",
         "modelsEmpty": "No models discovered for this connection yet.",

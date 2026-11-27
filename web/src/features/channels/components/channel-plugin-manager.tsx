@@ -69,6 +69,11 @@ export function request(input) {
 }
 `
 
+function pluginStatusKey(item: ChannelPlugin) {
+  if (item.loadError) return 'channels.plugins.unavailable'
+  return item.enabled ? 'channels.plugins.enabled' : 'channels.plugins.disabled'
+}
+
 export function ChannelPluginManager() {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -165,13 +170,7 @@ export function ChannelPluginManager() {
             </div>
             <div className='flex flex-wrap items-center gap-3'>
               <Badge variant={item.enabled ? 'secondary' : 'outline'}>
-                {t(
-                  item.loadError
-                    ? 'channels.plugins.unavailable'
-                    : item.enabled
-                      ? 'channels.plugins.enabled'
-                      : 'channels.plugins.disabled'
-                )}
+                {t(pluginStatusKey(item))}
               </Badge>
               <Switch
                 aria-label={t('channels.plugins.enableName', {

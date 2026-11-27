@@ -1,41 +1,43 @@
-/* eslint-disable react/only-export-components -- badge component co-located with category config */
 // metapi-go features/checkin/components — FailureReason badge.
 //
 // The centerpiece of the check-in failure-reason work: the backend's
 // ClassifyFailureReason now persists a structured `failureReason` object on
-// every non-success log row, and this component renders it with
-// category-coded colouring so operators can triage failures at a glance.
+// every non-success log row, and this component renders it with dual-channel
+// geometric SoftToneBadge tokens so operators can triage failures at a glance
+// without relying on color alone.
 //
-// Category → colour mapping (mirrors service/checkin/failure_reason.go):
-//   auth         → destructive (red)    — credentials expired, re-login
-//   verification → warning     (amber)  — Cloudflare / Turnstile, human action
-//   network      → info        (blue)   — transient, retry later
-//   site         → outline     (gray)   — site-side issue
-//   state        → success     (green)  — already checked in, not an error
-//   unknown      → outline     (gray)   — investigate
+// Category → tone mapping (mirrors service/checkin/failure_reason.go):
+//   auth         → destructive (red, X-mark)      — credentials expired, re-login
+//   verification → warning     (amber, triangle)  — Cloudflare / Turnstile, human action
+//   network      → info        (blue, diamond)    — transient, retry later
+//   site         → neutral     (gray, ring)       — site-side issue
+//   state        → success     (green, dot)       — already checked in, not an error
+//   unknown      → neutral     (gray, ring)       — investigate
 
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import {
+  SoftToneBadge,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 
 import type { FailureReason, FailureReasonCategory } from '../types'
 
-export interface FailureCategoryConfig {
+interface FailureCategoryConfig {
+  tone: SoftTone
   variant: 'destructive' | 'warning' | 'info' | 'success' | 'outline'
-  dotClassName: string
 }
 
 const FAILURE_CATEGORY_CONFIG: Record<
   FailureReasonCategory,
   FailureCategoryConfig
 > = {
-  auth: { variant: 'destructive', dotClassName: 'bg-destructive' },
-  verification: { variant: 'warning', dotClassName: 'bg-warning' },
-  network: { variant: 'info', dotClassName: 'bg-info' },
-  site: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
-  state: { variant: 'success', dotClassName: 'bg-success' },
-  unknown: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
+  auth: { tone: 'destructive', variant: 'destructive' },
+  verification: { tone: 'warning', variant: 'warning' },
+  network: { tone: 'info', variant: 'info' },
+  site: { tone: 'neutral', variant: 'outline' },
+  state: { tone: 'success', variant: 'success' },
+  unknown: { tone: 'neutral', variant: 'outline' },
 }
 
 function resolveCategoryConfig(category: string): FailureCategoryConfig {
@@ -78,9 +80,14 @@ export function FailureReasonBadge({
   const tooltip = localizedDetail || localizedAction || undefined
 
   return (
-    <Badge variant={config.variant} className={className} title={tooltip}>
-      <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
+    <SoftToneBadge
+      tone={config.tone}
+      data-slot='badge'
+      data-variant={config.variant}
+      className={className}
+      title={tooltip}
+    >
       <span className='max-w-35 truncate'>{label}</span>
-    </Badge>
+    </SoftToneBadge>
   )
 }

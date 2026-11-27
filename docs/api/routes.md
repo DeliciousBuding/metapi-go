@@ -656,6 +656,8 @@ Either `channelId` or `siteId` is required. `mode` is `chat` (default) or `model
 }
 ```
 
+For an OAuth route unit, the probe uses the pool's routing strategy and returns `oauthRouteUnitId` with the selected `accountId`, `siteId`, and `siteName`. If the pool is disabled or has no eligible member, the probe returns HTTP 200 with `success: false`, `statusCode: 0`, and a diagnostic in `error`.
+
 Returns a ~2 KiB redacted body summary (`bodyTruncated` flags truncation). Secret-like tokens in the body/error are redacted. A channel with no usable token returns `success: false` with `error: "No usable token on channel/account ..."`.
 
 ---

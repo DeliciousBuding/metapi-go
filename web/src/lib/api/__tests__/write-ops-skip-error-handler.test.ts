@@ -44,33 +44,38 @@ describe('caller-toasted write ops skip the global error toast', () => {
   ])(
     'sends the reviewed replacement revision for $source',
     async ({ replaceHeader }) => {
-      const payload =
-        replaceHeader === 'X-Octopus-Replace-Origin'
-          ? { version: 5, exported_at: '2026-10-06T00:00:00Z' }
-          : replaceHeader === 'X-AxonHub-Replace-Origin'
-            ? {
-                version: '1.4',
-                timestamp: '2026-10-06T00:00:00Z',
-                channels: [],
-                models: [],
-              }
-            : {
-                format: 'magpie-backup',
-                version: 1,
-                kdf: 'pbkdf2-sha256',
-                salt: 'c2FsdA==',
-                nonce: 'bm9uY2U=',
-                data: 'Y2lwaGVydGV4dA==',
-              }
+      let payload: Record<string, unknown>
+      let replaceOption:
+        | { replaceOctopusOrigin: true }
+        | { replaceAxonHubOrigin: true }
+        | { replaceMagpieOrigin: true }
+      if (replaceHeader === 'X-Octopus-Replace-Origin') {
+        payload = { version: 5, exported_at: '2026-10-06T00:00:00Z' }
+        replaceOption = { replaceOctopusOrigin: true }
+      } else if (replaceHeader === 'X-AxonHub-Replace-Origin') {
+        payload = {
+          version: '1.4',
+          timestamp: '2026-10-06T00:00:00Z',
+          channels: [],
+          models: [],
+        }
+        replaceOption = { replaceAxonHubOrigin: true }
+      } else {
+        payload = {
+          format: 'magpie-backup',
+          version: 1,
+          kdf: 'pbkdf2-sha256',
+          salt: 'c2FsdA==',
+          nonce: 'bm9uY2U=',
+          data: 'Y2lwaGVydGV4dA==',
+        }
+        replaceOption = { replaceMagpieOrigin: true }
+      }
       const magpie = replaceHeader === 'X-Magpie-Replace-Origin'
       await settingsApi.importBackup(payload, {
         externalOriginKey: 'source',
         replacementRevision: 'reviewed-revision',
-        ...(replaceHeader === 'X-Octopus-Replace-Origin'
-          ? { replaceOctopusOrigin: true }
-          : replaceHeader === 'X-AxonHub-Replace-Origin'
-            ? { replaceAxonHubOrigin: true }
-            : { replaceMagpieOrigin: true }),
+        ...replaceOption,
         ...(magpie ? { magpiePassphrase: 'fixture-passphrase' } : {}),
       })
       expect(lastRequestConfig()).toMatchObject({
@@ -85,13 +90,13 @@ describe('caller-toasted write ops skip the global error toast', () => {
         },
         skipErrorHandler: true,
       })
-      expect(lastRequestConfig().headers).not.toHaveProperty(
-        [
-          'X-Octopus-Replace-Origin',
-          'X-AxonHub-Replace-Origin',
-          'X-Magpie-Replace-Origin',
-        ].find((header) => header !== replaceHeader)!
-      )
+      const otherHeader = [
+        'X-Octopus-Replace-Origin',
+        'X-AxonHub-Replace-Origin',
+        'X-Magpie-Replace-Origin',
+      ].find((header) => header !== replaceHeader)
+      if (!otherHeader) throw new Error('Expected alternate replace header')
+      expect(lastRequestConfig().headers).not.toHaveProperty(otherHeader)
     }
   )
 

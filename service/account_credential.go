@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 const (
@@ -111,4 +112,124 @@ func base64URLEncode(data []byte) string {
 // base64URLDecode decodes base64url without padding.
 func base64URLDecode(s string) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(s)
+}
+
+// AccountCredentialMode is the credential mode for an account.
+type AccountCredentialMode string
+
+const (
+	CredentialModeAuto    AccountCredentialMode = "auto"
+	CredentialModeSession AccountCredentialMode = "session"
+	CredentialModeAPIKey  AccountCredentialMode = "apikey"
+)
+
+// AccountCapabilities describes what an account can do.
+type AccountCapabilities struct {
+	CanCheckin        bool `json:"canCheckin"`
+	CanRefreshBalance bool `json:"canRefreshBalance"`
+	ProxyOnly         bool `json:"proxyOnly"`
+}
+
+// ---- Credential mode resolution ----
+
+// GetCredentialModeFromExtraConfig reads credentialMode from extraConfig JSON.
+func GetCredentialModeFromExtraConfig(extraConfig *string) AccountCredentialMode {
+	config := ParseExtraConfig(extraConfig)
+	if config == nil {
+		return ""
+	}
+	if mode, ok := config["credentialMode"].(string); ok {
+		normalized := NormalizeCredentialMode(mode)
+		if normalized != "" {
+			return normalized
+		}
+	}
+	return ""
+}
+
+// NormalizeCredentialMode normalizes a credential mode string.
+func NormalizeCredentialMode(input string) AccountCredentialMode {
+	normalized := AccountCredentialMode(strings.TrimSpace(strings.ToLower(input)))
+	switch normalized {
+	case CredentialModeAuto, CredentialModeSession, CredentialModeAPIKey:
+		return normalized
+	}
+	return ""
+}
+
+// ResolveStoredCredentialMode resolves the effective credential mode from storage.
+// 1. Read extraConfig.credentialMode; if explicit and != "auto", return it
+// 2. Treat legacy mirrored accessToken/apiToken rows as "apikey"
+// 3. If accessToken is non-empty, return "session"
+// 4. Otherwise return "apikey"
+func ResolveStoredCredentialMode(account *store.Account) AccountCredentialMode {
+	fromConfig := GetCredentialModeFromExtraConfig(account.ExtraConfig)
+	if fromConfig != "" && fromConfig != CredentialModeAuto {
+		return fromConfig
+	}
+	if hasMirroredAPIKeyToken(account) {
+		return CredentialModeAPIKey
+	}
+	if HasSessionToken(account.AccessToken) {
+		return CredentialModeSession
+	}
+	return CredentialModeAPIKey
+}
+
+// ResolveRequestedCredentialMode resolves the requested credential mode from input.
+func ResolveRequestedCredentialMode(input *string) AccountCredentialMode {
+	if input == nil {
+		return CredentialModeAuto
+	}
+	mode := NormalizeCredentialMode(*input)
+	if mode == "" {
+		return CredentialModeAuto
+	}
+	return mode
+}
+
+// HasSessionToken checks whether the account has a valid session token value.
+func HasSessionToken(accessToken string) bool {
+	return strings.TrimSpace(accessToken) != ""
+}
+
+// IsAPIKeyConnection checks if an account is an API key connection.
+func IsAPIKeyConnection(account *store.Account) bool {
+	return ResolveStoredCredentialMode(account) == CredentialModeAPIKey
+}
+
+func hasMirroredAPIKeyToken(account *store.Account) bool {
+	if account == nil || account.APIToken == nil {
+		return false
+	}
+	accessToken := strings.TrimSpace(account.AccessToken)
+	apiToken := strings.TrimSpace(*account.APIToken)
+	return accessToken != "" && apiToken != "" && accessToken == apiToken
+}
+
+// BuildCapabilitiesForAccount returns the capabilities for an account.
+func BuildCapabilitiesForAccount(account *store.Account) AccountCapabilities {
+	mode := ResolveStoredCredentialMode(account)
+	hasToken := HasSessionToken(account.AccessToken)
+	return BuildCapabilitiesFromCredentialMode(mode, hasToken)
+}
+
+// BuildCapabilitiesFromCredentialMode returns capabilities from credential mode.
+func BuildCapabilitiesFromCredentialMode(mode AccountCredentialMode, hasSessionToken bool) AccountCapabilities {
+	sessionCapable := mode != CredentialModeAPIKey && hasSessionToken
+	return AccountCapabilities{
+		CanCheckin:        sessionCapable,
+		CanRefreshBalance: sessionCapable,
+		ProxyOnly:         !sessionCapable,
+	}
+}
+
+// EncryptPassword encrypts a password for storage in extraConfig.autoRelogin.passwordCipher.
+func EncryptPassword(cfg *config.Config, password string) (string, error) {
+	return EncryptAccountPassword(cfg, password)
+}
+
+// DecryptPassword decrypts a password from extraConfig.
+func DecryptPassword(cfg *config.Config, cipherText string) string {
+	return DecryptAccountPassword(cfg, cipherText)
 }

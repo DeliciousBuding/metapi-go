@@ -1119,7 +1119,14 @@
       },
       "toolbar": {
         "searchPlaceholder": "搜索连接…",
-        "startAuth": "开始授权"
+        "startAuth": "开始授权",
+        "refresh": "刷新"
+      },
+      "summary": {
+        "total": "总计",
+        "healthy": "正常",
+        "abnormal": "异常",
+        "quotaTracked": "配额已上报"
       },
       "delete": {
         "title": "删除连接",
@@ -1167,6 +1174,9 @@
         "quotaLimit": "上限",
         "quotaRemaining": "剩余",
         "quotaResetAt": "重置时间",
+        "quotaResetsIn": "{{duration}} 后重置",
+        "quotaExhausted": "已耗尽",
+        "quotaHighUsage": "接近上限",
         "windowFiveHour": "5 小时窗口",
         "windowSevenDay": "7 天窗口",
         "windowUnsupported": "上游未上报该窗口。",
@@ -1175,6 +1185,10 @@
         "subscriptionPlanType": "订阅套餐",
         "subscriptionActiveStart": "生效时间",
         "subscriptionActiveUntil": "到期时间",
+        "subscriptionExpired": "已过期",
+        "subscriptionExpiringSoon": "即将到期",
+        "abnormalRecoveryTitle": "连接状态异常",
+        "abnormalRecoveryHint": "请重新绑定以刷新授权凭据，或先尝试刷新配额确认上游状态。",
         "modelCount": "已发现模型数",
         "modelsPreviewHint": "仅为预览——共 {{total}} 个已发现模型，此处显示 {{shown}} 个。",
         "modelsEmpty": "该连接尚未发现任何模型。",

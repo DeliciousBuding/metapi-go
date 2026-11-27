@@ -275,57 +275,65 @@ export function PluginOptionField(props: {
 }) {
   const id = useId()
   const option = props.option
+  let control
+  if (option.type === 'boolean') {
+    control = (
+      <Switch
+        id={id}
+        checked={props.value === true}
+        onCheckedChange={props.onChange}
+        disabled={props.disabled}
+      />
+    )
+  } else if (option.type === 'select') {
+    control = (
+      <Select
+        value={String(props.value)}
+        onValueChange={(value) => props.onChange(String(value))}
+        disabled={props.disabled}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent aria-labelledby={`${id}-label`}>
+          {option.choices?.map((choice) => (
+            <SelectItem key={choice} value={choice}>
+              {choice}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  } else {
+    control = (
+      <Input
+        id={id}
+        type={
+          option.type === 'number' || option.type === 'integer'
+            ? 'number'
+            : 'text'
+        }
+        min={option.min}
+        max={option.max}
+        step={option.type === 'integer' ? 1 : 'any'}
+        value={String(props.value)}
+        disabled={props.disabled}
+        onChange={(event) =>
+          props.onChange(
+            option.type === 'number' || option.type === 'integer'
+              ? event.target.valueAsNumber
+              : event.target.value
+          )
+        }
+      />
+    )
+  }
   return (
     <div className='space-y-1.5'>
       <label id={`${id}-label`} htmlFor={id} className='text-sm'>
         {option.label}
       </label>
-      {option.type === 'boolean' ? (
-        <Switch
-          id={id}
-          checked={props.value === true}
-          onCheckedChange={props.onChange}
-          disabled={props.disabled}
-        />
-      ) : option.type === 'select' ? (
-        <Select
-          value={String(props.value)}
-          onValueChange={(value) => props.onChange(String(value))}
-          disabled={props.disabled}
-        >
-          <SelectTrigger id={id}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent aria-labelledby={`${id}-label`}>
-            {option.choices?.map((choice) => (
-              <SelectItem key={choice} value={choice}>
-                {choice}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <Input
-          id={id}
-          type={
-            option.type === 'number' || option.type === 'integer'
-              ? 'number'
-              : 'text'
-          }
-          min={option.min}
-          max={option.max}
-          step={option.type === 'integer' ? 1 : 'any'}
-          value={String(props.value)}
-          disabled={props.disabled}
-          onChange={(event) =>
-            props.onChange(
-              option.type === 'number' || option.type === 'integer'
-                ? event.target.valueAsNumber
-                : event.target.value
-            )
-          }
-        />
-      )}
+      {control}
     </div>
   )
 }

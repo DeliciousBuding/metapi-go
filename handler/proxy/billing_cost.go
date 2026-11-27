@@ -74,7 +74,12 @@ func EstimateBillingCostFromUsage(modelName, platform string, usage ParsedUsage)
 // EstimateBillingCostFromUsageWithCatalog prices the canonical billing model in
 // one immutable snapshot. The endpoint class controls provenance and ratio priority.
 func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usage ParsedUsage, snapshot *pricingcatalog.CatalogSnapshot, class pricingcatalog.SiteClass) BillingCostResult {
-	billingModel = strings.TrimSpace(billingModel)
+	pm := routing.PricingModel{ModelName: strings.TrimSpace(billingModel), ModelRatio: 1, CompletionRatio: 1}
+	return estimateBillingCostWithPricingModel(pm, platform, usage, snapshot, class)
+}
+
+func estimateBillingCostWithPricingModel(pm routing.PricingModel, platform string, usage ParsedUsage, snapshot *pricingcatalog.CatalogSnapshot, class pricingcatalog.SiteClass) BillingCostResult {
+	billingModel := pm.ModelName
 	total := usage.TotalTokens
 	if total <= 0 {
 		total = usage.PromptTokens + usage.CompletionTokens
@@ -110,7 +115,6 @@ func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usag
 		CacheCreation12hTokens: usage.CacheCreation12hTokens,
 		ToolUsage:              usage.ToolUsage,
 	}
-	pm := routing.PricingModel{ModelName: billingModel, ModelRatio: 1, CompletionRatio: 1}
 	entry, found := snapshot.Lookup(billingModel)
 	list := found && entry.ListPriceKnown
 	ratios := found && entry.HasRatioData() && (!list || class != pricingcatalog.SiteClassOfficial)

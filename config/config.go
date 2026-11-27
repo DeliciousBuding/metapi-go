@@ -1,474 +1,10 @@
 package config
 
 import (
-	"encoding/json"
 	"log/slog"
 	"math"
-	"runtime"
-	"strconv"
 	"strings"
-	"sync/atomic"
 )
-
-var staticCfg atomic.Pointer[Config]
-
-// Set stores the global config singleton. The published Config is static:
-// every field is frozen at boot before this call. Fields that may change at
-// runtime live in RuntimeSettings (see SetRuntime/UpdateRuntime).
-func Set(cfg *Config) {
-	staticCfg.Store(cfg)
-}
-
-// Get returns the global config singleton.
-// Panics if config has not been loaded.
-func Get() *Config {
-	cfg := staticCfg.Load()
-	if cfg == nil {
-		panic("config.Get() called before config.Set() — load config first")
-	}
-	return cfg
-}
-
-// GetSafe returns the global config singleton, or nil when it has not been
-// loaded yet. Prefer Get() in the composition root; GetSafe is for optional
-// callbacks that may run before (or without) config initialization.
-func GetSafe() *Config {
-	return staticCfg.Load()
-}
-
-// RoutingWeights holds the weight factors for the routing algorithm.
-type RoutingWeights struct {
-	BaseWeightFactor float64
-	ValueScoreFactor float64
-	CostWeight       float64
-	BalanceWeight    float64
-	UsageWeight      float64
-}
-
-// Config holds ALL configuration fields for the Metapi server.
-// Field names use Go exported (PascalCase) but each maps 1:1 to a TS config field
-// as documented in section 3.
-type Config struct {
-	AccountCredentialSecret string
-	CodexClientId           string
-
-	// OAuth Clients (3 fields)
-	ClaudeClientId          string
-	GeminiCliClientId       string
-	GeminiCliClientSecret   string
-	AntigravityClientSecret string
-
-	// Server (7 fields)
-	Port       int
-	ListenHost string
-	DataDir    string
-	DbSslMode  string
-	// PostgreSQL pool budget. Production operators must size MaxOpenConns no
-	// higher than the database role CONNECTION LIMIT.
-	// DbProfile is a convenience preset (shared-tiny|normal|dedicated);
-	// explicit DB_MAX_* values always win when set.
-	DbProfile            string
-	DbMaxOpenConns       int
-	DbMaxIdleConns       int
-	DbConnMaxLifetimeSec int
-	DbConnMaxIdleTimeSec int
-	// DbApplicationName is injected into the PostgreSQL DSN as
-	// application_name (default metapi-<hostname>) for pg_stat_activity.
-	DbApplicationName string
-	Tz                string
-
-	// LogLevel controls the slog threshold applied at startup (env LOG_LEVEL).
-	// Accepted values: debug, info, warn, error. Default "info". Raising the
-	// threshold silences per-request / SSE / WS Debug-downgraded hot-path logs
-	// that are already observable via Prometheus metrics, cutting log volume in
-	// production without losing Warn/Error signal.
-	LogLevel string
-
-	// LogCleanupConfigured reports whether the log_cleanup regime owns the log
-	// tables (true) or the legacy PROXY_LOG_RETENTION_DAYS pruner does (false).
-	// Resolved during startup settings hydration, not by Load.
-	LogCleanupConfigured bool
-
-	// LogCleanupEnvEnabled records that an env toggle explicitly asked for the
-	// log_cleanup regime: LOG_CLEANUP_USAGE_LOGS_ENABLED=true or
-	// LOG_CLEANUP_PROGRAM_LOGS_ENABLED=true. Startup hydration ORs it into
-	// LogCleanupConfigured so an env-driven deployment keeps its intent even
-	// with an empty settings table.
-	//
-	// Deliberately one-directional: neither LOG_CLEANUP_RETENTION_DAYS nor
-	// LOG_CLEANUP_CRON counts, and an explicit false does not count either.
-	// Claiming the regime while both toggles are off would run the new scheduler
-	// (which then skips for want of a target) and disable the legacy pruner, so
-	// nothing would ever be pruned.
-	LogCleanupEnvEnabled bool
-
-	// Resin sticky proxy pool (3 fields, env-only — no schema change).
-	// RESIN_URL carries the base URL + token, e.g. http://resin.local:2260/my-token.
-	// RESIN_PLATFORM_NAME is the Platform identity (falls back to site.Platform).
-	// RESIN_ENABLED is the global opt-in (default false).
-	ResinURL          string
-	ResinPlatformName string
-	ResinEnabled      bool
-
-	// uTLS TLS fingerprint masking (1 field, env-only — no schema change).
-	// UTLS_ENABLED is the global opt-in (default false). When true, all
-	// outbound platform requests use a uTLS Chrome-ClientHello transport
-	// instead of Go's default crypto/tls ClientHello, masking the JA3/JA4
-	// fingerprint that Cloudflare and similar WAFs use to block automated
-	// traffic. Per-site use_utls overrides this flag (see service.UTLSEnabled).
-	UTLSEnabled bool
-
-	// Outbound proxy / upstream HTTP timeouts (5 fields, env-only — no DDL).
-	// Integer seconds applied to every outbound site-proxy / upstream request
-	// (platform.SiteProxy, DoWithProxy, pooled transports). Parsed from the
-	// PROXY_*_TIMEOUT_SEC env vars; 0/negative/invalid falls back to the
-	// Default* constants at Load time, which match the pre-#1009 hardcoded
-	// values so unset deployments keep identical behavior.
-	ProxyConnectTimeoutSec        int // dial / TCP connect
-	ProxyTLSHandshakeTimeoutSec   int // TLS handshake
-	ProxyResponseHeaderTimeoutSec int // wait for upstream response headers
-	ProxyIdleConnTimeoutSec       int // idle keep-alive connection TTL
-	ProxyRequestTimeoutSec        int // whole-request http.Client timeout
-	// ProxyStreamIdleTimeoutSec bounds the gap between SSE chunks once a
-	// stream is flowing: each relayed chunk resets the window, and expiry
-	// aborts the stalled stream. Parsed from PROXY_STREAM_IDLE_TIMEOUT_SEC;
-	// 0/negative/invalid falls back to DefaultProxyStreamIdleTimeoutSec.
-	// Unlike the five transport timeouts above this applies to the relayed
-	// body phase only — non-streaming responses never see it.
-	ProxyStreamIdleTimeoutSec int
-	// ProxyStreamWriteTimeoutSec bounds one downstream write+flush for every
-	// relayed stream: SSE and native audio/video byte streams share it. The
-	// relay arms it immediately before writing and clears it immediately after,
-	// so it never limits total stream duration or the wait for the next
-	// upstream chunk; a client that stops reading cannot pin a relay (and its
-	// site slot) forever. Parsed from PROXY_STREAM_WRITE_TIMEOUT_SEC, with the
-	// pre-generalization PROXY_SSE_WRITE_TIMEOUT_SEC accepted as an alias;
-	// 0/negative/invalid falls back to DefaultProxyStreamWriteTimeoutSec.
-	ProxyStreamWriteTimeoutSec int
-	// ProxyDirectAccountMaxConcurrency caps concurrent proxy dispatches per
-	// direct upstream account, keyed by upstream_credentials.id. Direct
-	// channels have no site row to carry MaxConcurrency, so this is their
-	// equivalent isolation knob. Parsed from
-	// PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY; 0 (or any non-positive value)
-	// means unlimited, which is the historical behavior. The cap is
-	// process-local and read once at startup.
-	ProxyDirectAccountMaxConcurrency int
-
-	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
-	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
-	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
-	// iframe at a self-hosted LDOH instance without a code change.
-	LDOHBaseURL string
-	// LDOHProxyTimeoutSec is the per-request timeout for the LDOH upstream
-	// HTTP client used by the /monitor-proxy/ldoh/* admin surface (env-only —
-	// no DDL). Parsed from LDOH_PROXY_TIMEOUT_SEC (default 30). Previously
-	// hardcoded to 30s in handler/admin/monitor.go; making it configurable
-	// lets operators raise the budget for slow LDOH instances or tighten it
-	// to fail fast. 0/negative/invalid falls back to the default at Load time.
-	LDOHProxyTimeoutSec int
-
-	// RedisURL enables optional shared admission counters.
-	RedisURL string
-
-	AdminCorsAllowedOrigins []string
-	TrustedProxyCidrs       []string
-	// AdminRateLimitRPS / AdminRateLimitBurst control the per-IP token bucket
-	// for /api/* admin routes. Parsed from ADMIN_RATE_LIMIT_RPS (default 100)
-	// and ADMIN_RATE_LIMIT_BURST (default 200). A burst of 0 means the bucket
-	// never refills above the RPS rate; values <= 0 disable the limiter.
-	AdminRateLimitRPS   int
-	AdminRateLimitBurst int
-	// OAuthRateLimitRPS / OAuthRateLimitBurst control the stricter per-IP
-	// token bucket applied to /api/oauth/* routes. Parsed from
-	// OAUTH_RATE_LIMIT_RPS (default 10) and OAUTH_RATE_LIMIT_BURST (default 20).
-	OAuthRateLimitRPS   int
-	OAuthRateLimitBurst int
-	// AuthRateLimitRPS / AuthRateLimitBurst control the stricter per-IP
-	// token bucket applied to /api/auth/* routes (login is the only place
-	// the master token is presented, so brute-force protection matters).
-	// Parsed from AUTH_RATE_LIMIT_RPS (default 10) and AUTH_RATE_LIMIT_BURST
-	// (default 20).
-	AuthRateLimitRPS   int
-	AuthRateLimitBurst int
-	// AdminSessionTTLMinutes is the sliding lifetime of a server-side admin
-	// UI session (#1034). Every authenticated request refreshes the expiry;
-	// the raw master token never reaches the browser. Parsed from
-	// ADMIN_SESSION_TTL_MINUTES (default 720 = 12h, matching the legacy
-	// client-side session window). Values < 1 clamp to 1.
-	AdminSessionTTLMinutes int
-	// AdminSessionCookieSecure controls the Secure flag of the session
-	// cookie: "auto" (default; Secure when the request is HTTPS), "true"
-	// (always Secure -- use behind a TLS terminator), or "false" (never
-	// Secure -- plain-HTTP dev only). Parsed from ADMIN_SESSION_COOKIE_SECURE.
-	AdminSessionCookieSecure string
-
-	// Proxy: Core (5 fields)
-	RequestBodyLimit int
-	// FileUploadLimitBytes is the higher body limit applied to multipart upload
-	// routes (/v1/files, /v1/images/*) so large uploads are not rejected by the
-	// general RequestBodyLimit. Parsed from FILE_UPLOAD_LIMIT_MB.
-	FileUploadLimitBytes int
-	// ProxyRateLimitRPM is the per-IP request-per-minute cap for /v1 proxy
-	// routes. Parsed from PROXY_RATE_LIMIT_RPM (default 60; 0 = disabled).
-	ProxyRateLimitRPM int
-	// ProxyGlobalTokenRPM supplies the initial max_rpm for a migrated root key. Parsed
-	// from PROXY_GLOBAL_TOKEN_RPM (default 0 = unlimited). Safety net: even if
-	// the token leaks, upstream spend is bounded.
-	ProxyGlobalTokenRPM int
-
-	TokenRouterCacheTtlMs int
-
-	// PricingCatalog (model data source registry) feeds the cold-start
-	// catalog cost signal for cost-aware routing and hydrates the models
-	// marketplace.
-	//   PRICING_CATALOG_ENABLED      — default true
-	//   PRICING_CATALOG_REFRESH_MIN  — auto-sync period in minutes (default 720 = 12h)
-	//   PRICING_CATALOG_URL          — legacy single-source dataset URL; migrated
-	//                                  into the registry as the top custom source
-	PricingCatalogEnabled      bool
-	PricingCatalogRefreshMin   int
-	PricingCatalogURL          string
-	PricingCatalogAllowPrivate bool
-
-	// Proxy: Channel (2 fields)
-	ProxyMaxChannelAttempts int
-	ProxyStickySessionTtlMs int
-
-	// ProxyMaxStreamResponseBytes caps the total bytes relayed for a single
-	// SSE stream before a controlled termination (default 1 MB). Parsed once
-	// at startup from PROXY_MAX_STREAM_RESPONSE_BYTES so the hot stream path
-	// reads a struct field instead of calling os.Getenv per request.
-	ProxyMaxStreamResponseBytes int
-	// ProxyMaxBufferedResponseBytes caps the total bytes read for a single
-	// non-streaming upstream response before a controlled termination
-	// (default 20 MB). Parsed once at startup from
-	// PROXY_MAX_BUFFERED_RESPONSE_BYTES so the buffered-response hot path
-	// (upstream.go / upstream_stream.go / executor.go) reads a struct field
-	// instead of re-parsing os.Getenv + strconv.ParseInt on every proxied
-	// request. 0/negative/invalid falls back to the default at Load time.
-	ProxyMaxBufferedResponseBytes int
-
-	// Prompt Filter (OAuth account pool protection, #681).
-	// PROMPT_FILTER_ENABLED gates a pre-upstream pattern-based safety filter
-	// that blocks jailbreak/exfiltration prompts before they reach shared OAuth
-	// accounts. Default false — opt-in only. PROMPT_FILTER_DENY_PATTERNS is a
-	// comma-separated list of extra substring patterns appended to the seed list.
-	PromptFilterEnabled      bool
-	PromptFilterDenyPatterns []string
-
-	// Codex-specific (2 fields)
-	CodexResponsesWebsocketBeta string
-
-	// Model Probe (3 fields; ModelAvailabilityProbeEnabled is runtime-mutable
-	// and lives in RuntimeSettings)
-	ModelAvailabilityProbeIntervalMs  int
-	ModelAvailabilityProbeTimeoutMs   int
-	ModelAvailabilityProbeConcurrency int
-
-	// RouteRebuildProbeFilterEnabled gates the route-rebuild probe filter (#625).
-	// Default false keeps the legacy non-probe rebuild path byte-for-byte.
-	RouteRebuildProbeFilterEnabled       bool
-	RouteRebuildProbeFilterIncludeModels []string
-	RouteRebuildProbeFilterExcludeModels []string
-
-	// Retention (4 fields)
-	ProxyLogRetentionDays                       int
-	ProxyLogRetentionPruneIntervalMinutes       int
-	ProxyVideoTaskRetentionDays                 int
-	ProxyVideoTaskRetentionPruneIntervalMinutes int
-
-	// Proxy Log Batch Writer (3 fields). PROXY_LOG_ASYNC (default true) routes
-	// proxy_logs INSERTs through a background batch writer that decouples the
-	// hot proxy path from DB write latency / SQLite write-lock contention.
-	// Set false for tests/e2e that need write-through visibility. BATCH_SIZE
-	// (default 50) is the row count that triggers a flush; FLUSH_INTERVAL_MS
-	// (default 1000) is the max time between flushes.
-	ProxyLogAsync           bool
-	ProxyLogBatchSize       int
-	ProxyLogFlushIntervalMs int
-
-	// Usage aggregation (1 field). USAGE_PROJECTION_INTERVAL_MS is the cadence
-	// of the proxy_logs -> site_day_usage / site_hour_usage / model_day_usage
-	// projection pass. Clamped to [1000, 3600000] ms.
-	UsageProjectionIntervalMs int
-
-	OpenAiServiceTierRules any
-}
-
-// ---------------------------------------------------------------------------
-// §1 Parse functions — must match TS behavior byte-for-byte
-// ---------------------------------------------------------------------------
-
-// §1.1 parseBoolean: "" → fallback; trim+lower → "1"/"true"/"yes"/"on" → true; else false.
-func parseBoolean(value string, fallback bool) bool {
-	if value == "" {
-		return fallback
-	}
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on"
-}
-
-// §1.2 parseNumber: "" → fallback; ParseFloat → NaN/Inf → fallback.
-func parseNumber(value string, fallback float64) float64 {
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseFloat(value, 64)
-	if err != nil || math.IsInf(parsed, 0) || math.IsNaN(parsed) {
-		return fallback
-	}
-	return parsed
-}
-
-// §1.2b parseTimeoutSec: integer-seconds timeout env var. "" / invalid /
-// <=0 → def, so a misconfigured value never disables a timeout (same clamp
-// pattern as LDOH_PROXY_TIMEOUT_SEC).
-func parseTimeoutSec(value string, def int) int {
-	parsed := int(math.Trunc(parseNumber(value, float64(def))))
-	if parsed <= 0 {
-		return def
-	}
-	return parsed
-}
-
-// parseConcurrencyLimit parses an optional concurrency cap where 0 is a
-// meaningful value (unlimited) rather than a typo to clamp. Unset, invalid or
-// negative values fall back to def so the documented default keeps working.
-// Fractional values truncate, but a positive value below 1 becomes 1 rather
-// than silently turning the cap into "unlimited".
-func parseConcurrencyLimit(value string, def int) int {
-	raw := parseNumber(value, float64(def))
-	if raw < 0 {
-		return def
-	}
-	if raw > 0 && raw < 1 {
-		return 1
-	}
-	return int(math.Trunc(raw))
-}
-
-// §1.3 parseCsvList: "" → []; split by "," → trim each → filter len>0.
-func parseCsvList(value string) []string {
-	if value == "" {
-		return []string{}
-	}
-	parts := strings.Split(value, ",")
-	result := make([]string, 0, len(parts))
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if len(trimmed) > 0 {
-			result = append(result, trimmed)
-		}
-	}
-	return result
-}
-
-// §1.4 parseOptionalSecret: TrimSpace; "" stays "".
-func parseOptionalSecret(value string) string {
-	return strings.TrimSpace(value)
-}
-
-// §1.5 parseJsonValue: "" → nil; Unmarshal failure → nil (no panic).
-func parseJsonValue(value string) any {
-	if value == "" {
-		return nil
-	}
-	var result any
-	if err := json.Unmarshal([]byte(value), &result); err != nil {
-		return nil
-	}
-	return result
-}
-
-// §1.6 parseDbType: "" → "sqlite"; trim+lower → "mysql"/"postgres"/"postgresql" → "postgres"; else "sqlite".
-func parseDbType(value string) string {
-	if value == "" {
-		return DefaultDbType
-	}
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	switch normalized {
-	case "mysql":
-		return "mysql"
-	case "postgres", "postgresql":
-		return "postgres"
-	default:
-		return DefaultDbType
-	}
-}
-
-func inferDbType(value string, dbURL string) string {
-	if strings.TrimSpace(value) != "" {
-		return parseDbType(value)
-	}
-	normalizedURL := strings.ToLower(strings.TrimSpace(dbURL))
-	if strings.HasPrefix(normalizedURL, "postgres://") || strings.HasPrefix(normalizedURL, "postgresql://") {
-		return "postgres"
-	}
-	return DefaultDbType
-}
-
-func normalizeDbSslMode(value string) string {
-	return strings.ToLower(strings.TrimSpace(value))
-}
-
-func validDbSslMode(value string) bool {
-	switch normalizeDbSslMode(value) {
-	case "", "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
-		return true
-	default:
-		return false
-	}
-}
-
-// PostgresSSLMode returns the explicit DB_SSLMODE setting, or the legacy
-// DB_SSL=true behavior mapped to sslmode=require.
-func (c *Config) PostgresSSLMode(dbSsl bool) string {
-	if mode := normalizeDbSslMode(c.DbSslMode); mode != "" {
-		return mode
-	}
-	if dbSsl {
-		return "require"
-	}
-	return ""
-}
-
-// §1.7 NormalizeTokenRouterFailureCooldownMaxSec:
-// !finite || <= 0 → (0, false); trunc → clamp[1, ceiling] → (int, true).
-// Exported so the settings-table hydration path (store.ApplyRuntimeSettings)
-// clamps a persisted cap exactly like the env path instead of growing a second
-// copy of the rule.
-func NormalizeTokenRouterFailureCooldownMaxSec(value float64) (int, bool) {
-	if math.IsInf(value, 0) || math.IsNaN(value) || value <= 0 {
-		return 0, false
-	}
-	truncated := math.Trunc(value)
-	clamped := int(math.Max(1, math.Min(float64(TokenRouterFailureCooldownMaxSecCeiling), truncated)))
-	return clamped, true
-}
-
-// §1.8 parseListenHost: explicit HOST always wins. Local Windows binaries
-// default to loopback so changing go-build/go-run executable paths does not
-// trigger recurring inbound firewall prompts. Server/container platforms keep
-// the historical all-interface default.
-func parseListenHost(env map[string]string) string {
-	return parseListenHostForOS(env, runtime.GOOS)
-}
-
-func parseListenHostForOS(env map[string]string, goos string) string {
-	host := env["HOST"]
-	trimmed := strings.TrimSpace(host)
-	if trimmed != "" {
-		return trimmed
-	}
-	if goos == "windows" {
-		return "127.0.0.1"
-	}
-	return "0.0.0.0"
-}
-
-// ---------------------------------------------------------------------------
-// §3 Load — build Config from env map
-// ---------------------------------------------------------------------------
 
 // Load reads environment variables from the given map and returns a fully
 // populated Config. The caller (main.go) is responsible for loading.env files
@@ -479,40 +15,13 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 		return env[key]
 	}
 
-	// Resolve ACCOUNT_CREDENTIAL_SECRET: env var → AUTH_TOKEN → default
-	resolveAccountCredentialSecret := func() string {
-		if v := get("ACCOUNT_CREDENTIAL_SECRET"); v != "" {
-			return v
-		}
-		if v := get("AUTH_TOKEN"); v != "" {
-			return v
-		}
-		return DefaultAuthToken
-	}
-
-	// Resolve PAYLOAD_RULES from legacy alias
-	resolvePayloadRules := func() string {
-		if v := get("PAYLOAD_RULES_JSON"); v != "" {
-			return v
-		}
-		return get("PAYLOAD_RULES")
-	}
-
-	// Resolve OPENAI_SERVICE_TIER_RULES from legacy alias
-	resolveOpenAiServiceTierRules := func() string {
-		if v := get("OPENAI_SERVICE_TIER_RULES_JSON"); v != "" {
-			return v
-		}
-		return get("OPENAI_SERVICE_TIER_RULES")
-	}
-
 	cfg := &Config{}
 	rt := &RuntimeSettings{}
 
 	// ---- §3.1 Auth ----
 	rt.AuthToken = firstNonEmpty(get("AUTH_TOKEN"), DefaultAuthToken)
 	rt.ProxyToken = get("PROXY_TOKEN") // One-time legacy key import; never used for authentication.
-	cfg.AccountCredentialSecret = resolveAccountCredentialSecret()
+	cfg.AccountCredentialSecret = firstNonEmpty(get("ACCOUNT_CREDENTIAL_SECRET"), rt.AuthToken)
 	if cfg.AccountCredentialSecret == DefaultAuthToken {
 		slog.Warn("config: AccountCredentialSecret is using the default value — this is insecure for production. Set ACCOUNT_CREDENTIAL_SECRET or AUTH_TOKEN environment variable.")
 	}
@@ -525,7 +34,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.AntigravityClientSecret = parseOptionalSecret(get("ANTIGRAVITY_CLIENT_SECRET"))
 
 	// ---- §3.3 Server ----
-	cfg.Port = int(math.Trunc(parseNumber(get("PORT"), DefaultPort)))
+	cfg.Port = parseTruncatedInt(get("PORT"), DefaultPort)
 	cfg.ListenHost = parseListenHost(env)
 	cfg.DataDir = firstNonEmpty(get("DATA_DIR"), DefaultDataDir)
 	rt.DbUrl = strings.TrimSpace(firstNonEmpty(get("DB_URL"), get("DATABASE_URL")))
@@ -534,10 +43,10 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.DbSslMode = normalizeDbSslMode(get("DB_SSLMODE"))
 	cfg.DbProfile = normalizeDbProfile(firstNonEmpty(get("DB_PROFILE"), get("METAPI_DB_PROFILE"), DefaultDbProfile))
 	openDefault, idleDefault := dbPoolDefaultsForProfile(cfg.DbProfile)
-	cfg.DbMaxOpenConns = int(math.Trunc(parseNumber(get("DB_MAX_OPEN_CONNS"), float64(openDefault))))
-	cfg.DbMaxIdleConns = int(math.Trunc(parseNumber(get("DB_MAX_IDLE_CONNS"), float64(idleDefault))))
-	cfg.DbConnMaxLifetimeSec = int(math.Trunc(parseNumber(get("DB_CONN_MAX_LIFETIME_SEC"), float64(DefaultDbConnMaxLifetimeSec))))
-	cfg.DbConnMaxIdleTimeSec = int(math.Trunc(parseNumber(get("DB_CONN_MAX_IDLE_TIME_SEC"), float64(DefaultDbConnMaxIdleTimeSec))))
+	cfg.DbMaxOpenConns = parseTruncatedInt(get("DB_MAX_OPEN_CONNS"), openDefault)
+	cfg.DbMaxIdleConns = parseTruncatedInt(get("DB_MAX_IDLE_CONNS"), idleDefault)
+	cfg.DbConnMaxLifetimeSec = parseTruncatedInt(get("DB_CONN_MAX_LIFETIME_SEC"), DefaultDbConnMaxLifetimeSec)
+	cfg.DbConnMaxIdleTimeSec = parseTruncatedInt(get("DB_CONN_MAX_IDLE_TIME_SEC"), DefaultDbConnMaxIdleTimeSec)
 	cfg.DbApplicationName = strings.TrimSpace(firstNonEmpty(get("DB_APPLICATION_NAME"), get("METAPI_DB_APPLICATION_NAME")))
 	cfg.Tz = get("TZ")
 	cfg.LogLevel = normalizeLogLevel(firstNonEmpty(get("LOG_LEVEL"), DefaultLogLevel))
@@ -556,7 +65,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	rt.CheckinWindowStart = firstNonEmpty(get("CHECKIN_WINDOW_START"), "00:00")
 	rt.CheckinWindowEnd = firstNonEmpty(get("CHECKIN_WINDOW_END"), "23:59")
 	rt.CheckinIntervalHours = ClampInt(
-		int(math.Trunc(parseNumber(get("CHECKIN_INTERVAL_HOURS"), DefaultCheckinIntervalHours))),
+		parseTruncatedInt(get("CHECKIN_INTERVAL_HOURS"), DefaultCheckinIntervalHours),
 		1, 24,
 	)
 	rt.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
@@ -578,50 +87,50 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.5 Log Cleanup ----
 	rt.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)
 	rt.LogCleanupProgramLogsEnabled = parseBoolean(get("LOG_CLEANUP_PROGRAM_LOGS_ENABLED"), false)
-	rt.LogCleanupRetentionDays = max(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
+	rt.LogCleanupRetentionDays = max(1, parseTruncatedInt(get("LOG_CLEANUP_RETENTION_DAYS"), 30))
 	// An env toggle set to true is an explicit ask for the log_cleanup regime;
 	// retention and cron alone are not (see Config.LogCleanupEnvEnabled).
 	cfg.LogCleanupEnvEnabled = rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled
 	cfg.LogCleanupConfigured = false // resolved at hydration: explicit DB keys OR the env toggle above
 
 	// ---- §3.6 Notify: Webhook ----
-	rt.WebhookUrl = firstNonEmpty(get("WEBHOOK_URL"), "")
+	rt.WebhookUrl = get("WEBHOOK_URL")
 	rt.WebhookEnabled = parseBoolean(get("WEBHOOK_ENABLED"), true)
 
 	// ---- §3.7 Notify: Bark ----
-	rt.BarkUrl = firstNonEmpty(get("BARK_URL"), "")
+	rt.BarkUrl = get("BARK_URL")
 	rt.BarkEnabled = parseBoolean(get("BARK_ENABLED"), true)
 
 	// ---- §3.8 Notify: ServerChan ----
-	rt.ServerChanKey = firstNonEmpty(get("SERVERCHAN_KEY"), "")
+	rt.ServerChanKey = get("SERVERCHAN_KEY")
 	rt.ServerChanEnabled = parseBoolean(get("SERVERCHAN_ENABLED"), true)
 
 	// ---- §3.9 Notify: Telegram ----
 	rt.TelegramEnabled = parseBoolean(get("TELEGRAM_ENABLED"), false)
 	rt.TelegramApiBaseUrl = TelegramApiBaseUrl
-	rt.TelegramBotToken = firstNonEmpty(get("TELEGRAM_BOT_TOKEN"), "")
-	rt.TelegramChatId = firstNonEmpty(get("TELEGRAM_CHAT_ID"), "")
+	rt.TelegramBotToken = get("TELEGRAM_BOT_TOKEN")
+	rt.TelegramChatId = get("TELEGRAM_CHAT_ID")
 	rt.TelegramUseSystemProxy = parseBoolean(get("TELEGRAM_USE_SYSTEM_PROXY"), false)
 	rt.TelegramMessageThreadId = strings.TrimSpace(get("TELEGRAM_MESSAGE_THREAD_ID"))
 
 	// ---- §3.10 Notify: SMTP ----
 	rt.SmtpEnabled = parseBoolean(get("SMTP_ENABLED"), false)
-	rt.SmtpHost = firstNonEmpty(get("SMTP_HOST"), "")
+	rt.SmtpHost = get("SMTP_HOST")
 	rt.SmtpPort = atoiOr(get("SMTP_PORT"), DefaultSmtpPort)
 	rt.SmtpSecure = parseBoolean(get("SMTP_SECURE"), false)
-	rt.SmtpUser = firstNonEmpty(get("SMTP_USER"), "")
-	rt.SmtpPass = firstNonEmpty(get("SMTP_PASS"), "")
-	rt.SmtpFrom = firstNonEmpty(get("SMTP_FROM"), "")
-	rt.SmtpTo = firstNonEmpty(get("SMTP_TO"), "")
+	rt.SmtpUser = get("SMTP_USER")
+	rt.SmtpPass = get("SMTP_PASS")
+	rt.SmtpFrom = get("SMTP_FROM")
+	rt.SmtpTo = get("SMTP_TO")
 	rt.SmtpAllowCustomPort = parseBoolean(get("SMTP_ALLOW_CUSTOM_PORT"), false)
 
 	// ---- §3.11 Notify: General ----
-	rt.NotifyCooldownSec = max(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
-	rt.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
+	rt.NotifyCooldownSec = max(0, parseTruncatedInt(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))
+	rt.SystemProxyUrl = get("SYSTEM_PROXY_URL")
 
 	// ---- §3.11b Resin sticky proxy pool ----
-	cfg.ResinURL = firstNonEmpty(get("RESIN_URL"), "")
-	cfg.ResinPlatformName = firstNonEmpty(get("RESIN_PLATFORM_NAME"), "")
+	cfg.ResinURL = get("RESIN_URL")
+	cfg.ResinPlatformName = get("RESIN_PLATFORM_NAME")
 	cfg.ResinEnabled = parseBoolean(get("RESIN_ENABLED"), false)
 
 	// ---- §3.11c uTLS TLS fingerprint masking ----
@@ -632,27 +141,23 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// LDOH_PROXY_TIMEOUT_SEC: per-request timeout for the LDOH upstream HTTP
 	// client. 0/negative/invalid falls back to the default (30s) so a
 	// misconfigured value never produces an unbounded-context LDOH call.
-	ldohTimeoutParsed := int(math.Trunc(parseNumber(get("LDOH_PROXY_TIMEOUT_SEC"), float64(DefaultLDOHProxyTimeoutSec))))
-	if ldohTimeoutParsed <= 0 {
-		ldohTimeoutParsed = DefaultLDOHProxyTimeoutSec
-	}
-	cfg.LDOHProxyTimeoutSec = ldohTimeoutParsed
+	cfg.LDOHProxyTimeoutSec = parsePositiveInt(get("LDOH_PROXY_TIMEOUT_SEC"), DefaultLDOHProxyTimeoutSec)
 
 	// ---- §3.11f Outbound proxy / upstream HTTP timeouts (#1009) ----
 	// Integer seconds; 0/negative/invalid falls back to the default so a
 	// misconfigured value never disables a timeout. Defaults match the
 	// pre-#1009 hardcoded values in platform/site_proxy.go.
-	cfg.ProxyConnectTimeoutSec = parseTimeoutSec(get("PROXY_CONNECT_TIMEOUT_SEC"), DefaultProxyConnectTimeoutSec)
-	cfg.ProxyTLSHandshakeTimeoutSec = parseTimeoutSec(get("PROXY_TLS_HANDSHAKE_TIMEOUT_SEC"), DefaultProxyTLSHandshakeTimeoutSec)
-	cfg.ProxyResponseHeaderTimeoutSec = parseTimeoutSec(get("PROXY_RESPONSE_HEADER_TIMEOUT_SEC"), DefaultProxyResponseHeaderTimeoutSec)
-	cfg.ProxyIdleConnTimeoutSec = parseTimeoutSec(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
-	cfg.ProxyRequestTimeoutSec = parseTimeoutSec(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
-	cfg.ProxyStreamIdleTimeoutSec = parseTimeoutSec(get("PROXY_STREAM_IDLE_TIMEOUT_SEC"), DefaultProxyStreamIdleTimeoutSec)
+	cfg.ProxyConnectTimeoutSec = parsePositiveInt(get("PROXY_CONNECT_TIMEOUT_SEC"), DefaultProxyConnectTimeoutSec)
+	cfg.ProxyTLSHandshakeTimeoutSec = parsePositiveInt(get("PROXY_TLS_HANDSHAKE_TIMEOUT_SEC"), DefaultProxyTLSHandshakeTimeoutSec)
+	cfg.ProxyResponseHeaderTimeoutSec = parsePositiveInt(get("PROXY_RESPONSE_HEADER_TIMEOUT_SEC"), DefaultProxyResponseHeaderTimeoutSec)
+	cfg.ProxyIdleConnTimeoutSec = parsePositiveInt(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
+	cfg.ProxyRequestTimeoutSec = parsePositiveInt(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
+	cfg.ProxyStreamIdleTimeoutSec = parsePositiveInt(get("PROXY_STREAM_IDLE_TIMEOUT_SEC"), DefaultProxyStreamIdleTimeoutSec)
 	// PROXY_STREAM_WRITE_TIMEOUT_SEC is the canonical name: the same per-write
 	// window governs SSE and native media streams. PROXY_SSE_WRITE_TIMEOUT_SEC
 	// remains the pre-generalization alias so existing deployments keep their
 	// configured value; the canonical key wins when both are set.
-	cfg.ProxyStreamWriteTimeoutSec = parseTimeoutSec(
+	cfg.ProxyStreamWriteTimeoutSec = parsePositiveInt(
 		firstNonEmpty(get("PROXY_STREAM_WRITE_TIMEOUT_SEC"), get("PROXY_SSE_WRITE_TIMEOUT_SEC")),
 		DefaultProxyStreamWriteTimeoutSec,
 	)
@@ -660,17 +165,17 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	rt.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
-	rt.FeishuWebhook = firstNonEmpty(get("FEISHU_WEBHOOK"), "")
-	rt.FeishuSecret = firstNonEmpty(get("FEISHU_SECRET"), "")
+	rt.FeishuWebhook = get("FEISHU_WEBHOOK")
+	rt.FeishuSecret = get("FEISHU_SECRET")
 	rt.DingtalkEnabled = parseBoolean(get("DINGTALK_ENABLED"), false)
-	rt.DingtalkWebhook = firstNonEmpty(get("DINGTALK_WEBHOOK"), "")
-	rt.DingtalkSecret = firstNonEmpty(get("DINGTALK_SECRET"), "")
+	rt.DingtalkWebhook = get("DINGTALK_WEBHOOK")
+	rt.DingtalkSecret = get("DINGTALK_SECRET")
 	rt.WecomEnabled = parseBoolean(get("WECOM_ENABLED"), false)
-	rt.WecomWebhook = firstNonEmpty(get("WECOM_WEBHOOK"), "")
+	rt.WecomWebhook = get("WECOM_WEBHOOK")
 	rt.NtfyEnabled = parseBoolean(get("NTFY_ENABLED"), false)
-	rt.NtfyUrl = firstNonEmpty(get("NTFY_URL"), "")
-	rt.NtfyTopic = firstNonEmpty(get("NTFY_TOPIC"), "")
-	rt.NtfyToken = firstNonEmpty(get("NTFY_TOKEN"), "")
+	rt.NtfyUrl = get("NTFY_URL")
+	rt.NtfyTopic = get("NTFY_TOPIC")
+	rt.NtfyToken = get("NTFY_TOKEN")
 	cfg.RedisURL = firstNonEmpty(get("REDIS_URL"), get("METAPI_REDIS_URL"))
 
 	// ---- §3.12 Admin ----
@@ -680,19 +185,19 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// Admin/OAuth per-IP token-bucket rate limits. Defaults preserve the
 	// original hardcoded values (Admin 100/200, OAuth 10/20) so existing
 	// deployments are byte-for-byte compatible without env changes.
-	cfg.AdminRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_RPS"), float64(DefaultAdminRateLimitRPS)))))
-	cfg.AdminRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_BURST"), float64(DefaultAdminRateLimitBurst)))))
-	cfg.OAuthRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_RPS"), float64(DefaultOAuthRateLimitRPS)))))
-	cfg.OAuthRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_BURST"), float64(DefaultOAuthRateLimitBurst)))))
+	cfg.AdminRateLimitRPS = max(0, parseTruncatedInt(get("ADMIN_RATE_LIMIT_RPS"), DefaultAdminRateLimitRPS))
+	cfg.AdminRateLimitBurst = max(0, parseTruncatedInt(get("ADMIN_RATE_LIMIT_BURST"), DefaultAdminRateLimitBurst))
+	cfg.OAuthRateLimitRPS = max(0, parseTruncatedInt(get("OAUTH_RATE_LIMIT_RPS"), DefaultOAuthRateLimitRPS))
+	cfg.OAuthRateLimitBurst = max(0, parseTruncatedInt(get("OAUTH_RATE_LIMIT_BURST"), DefaultOAuthRateLimitBurst))
 	// /api/auth/* brute-force cap (#1034): login is the only surface that
 	// accepts the master token, so it gets the strict bucket regardless of
 	// the general admin bucket size.
-	cfg.AuthRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_RPS"), float64(DefaultAuthRateLimitRPS)))))
-	cfg.AuthRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_BURST"), float64(DefaultAuthRateLimitBurst)))))
+	cfg.AuthRateLimitRPS = max(0, parseTruncatedInt(get("AUTH_RATE_LIMIT_RPS"), DefaultAuthRateLimitRPS))
+	cfg.AuthRateLimitBurst = max(0, parseTruncatedInt(get("AUTH_RATE_LIMIT_BURST"), DefaultAuthRateLimitBurst))
 	// Server-side admin session (#1034): sliding TTL + cookie Secure policy.
 	// Zero-config defaults must stay safe (12h sliding session, Secure
 	// auto-adapting to the request protocol).
-	cfg.AdminSessionTTLMinutes = max(1, int(math.Trunc(parseNumber(get("ADMIN_SESSION_TTL_MINUTES"), float64(DefaultAdminSessionTTLMinutes)))))
+	cfg.AdminSessionTTLMinutes = max(1, parseTruncatedInt(get("ADMIN_SESSION_TTL_MINUTES"), DefaultAdminSessionTTLMinutes))
 	cfg.AdminSessionCookieSecure = normalizeSessionCookieSecure(get("ADMIN_SESSION_COOKIE_SECURE"))
 
 	// ---- §3.13 Proxy: Core ----
@@ -700,23 +205,23 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// clamped to [1, 200]). FILE_UPLOAD_LIMIT_MB controls a separate higher
 	// limit for multipart upload routes /v1/files and /v1/images/* (default
 	// 100 MB, clamped to [1, 1000]).
-	bodyLimitMB := ClampInt(int(math.Trunc(parseNumber(get("REQUEST_BODY_LIMIT_MB"), float64(DefaultRequestBodyLimitMB)))), 1, 200)
+	bodyLimitMB := ClampInt(parseTruncatedInt(get("REQUEST_BODY_LIMIT_MB"), DefaultRequestBodyLimitMB), 1, 200)
 	cfg.RequestBodyLimit = bodyLimitMB * 1024 * 1024
-	fileUploadLimitMB := ClampInt(int(math.Trunc(parseNumber(get("FILE_UPLOAD_LIMIT_MB"), float64(DefaultFileUploadLimitMB)))), 1, 1000)
+	fileUploadLimitMB := ClampInt(parseTruncatedInt(get("FILE_UPLOAD_LIMIT_MB"), DefaultFileUploadLimitMB), 1, 1000)
 	cfg.FileUploadLimitBytes = fileUploadLimitMB * 1024 * 1024
 
 	// Per-IP rate limiting for /v1 proxy routes (default 60 RPM; 0 = disabled).
 	// Negative values are NOT clamped here so config.Validate can warn the
 	// operator — consumers (auth.ProxyRateLimit) already treat <=0 as disabled,
 	// so the only observable effect of a negative is the startup warning.
-	cfg.ProxyRateLimitRPM = int(math.Trunc(parseNumber(get("PROXY_RATE_LIMIT_RPM"), float64(DefaultProxyRateLimitRPM))))
+	cfg.ProxyRateLimitRPM = parseTruncatedInt(get("PROXY_RATE_LIMIT_RPM"), DefaultProxyRateLimitRPM)
 	// Legacy root key's initial managed RPM cap (default 0 = unlimited).
 	// Negative left intact for Validate to warn on; <=0 disables at the limiter.
-	cfg.ProxyGlobalTokenRPM = int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0)))
+	cfg.ProxyGlobalTokenRPM = parseTruncatedInt(get("PROXY_GLOBAL_TOKEN_RPM"), 0)
 
 	rt.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
 	// Seconds; internal first-byte observation uses ms = sec * 1000.
-	rt.ProxyFirstByteTimeoutSec = max(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))
+	rt.ProxyFirstByteTimeoutSec = max(0, parseTruncatedInt(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))
 
 	// ---- §3.14 Proxy: Token Router ----
 	tokenRouterParsed := parseNumber(get("TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC"), float64(TokenRouterFailureCooldownMaxSecCeiling))
@@ -725,11 +230,11 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	} else {
 		rt.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling
 	}
-	cfg.TokenRouterCacheTtlMs = max(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
+	cfg.TokenRouterCacheTtlMs = max(100, parseTruncatedInt(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))
 
 	// ---- §3.14b Pricing Catalog (models.dev official list prices) ----
 	cfg.PricingCatalogEnabled = parseBoolean(get("PRICING_CATALOG_ENABLED"), DefaultPricingCatalogEnabled)
-	cfg.PricingCatalogRefreshMin = max(0, int(math.Trunc(parseNumber(get("PRICING_CATALOG_REFRESH_MIN"), float64(DefaultPricingCatalogRefreshMin)))))
+	cfg.PricingCatalogRefreshMin = max(0, parseTruncatedInt(get("PRICING_CATALOG_REFRESH_MIN"), DefaultPricingCatalogRefreshMin))
 	cfg.PricingCatalogAllowPrivate = parseBoolean(get("PRICING_CATALOG_ALLOW_PRIVATE"), false)
 	cfg.PricingCatalogURL = strings.TrimSpace(get("PRICING_CATALOG_URL"))
 	if cfg.PricingCatalogURL == "" {
@@ -740,12 +245,12 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// Negative left intact so config.Validate can warn the operator; the
 	// consumer (GetProxyMaxChannelAttempts) already clamps <=0 to 1, so the
 	// only observable effect of a negative is the startup warning.
-	cfg.ProxyMaxChannelAttempts = int(math.Trunc(parseNumber(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts)))
-	cfg.ProxyStickySessionTtlMs = max(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
+	cfg.ProxyMaxChannelAttempts = parseTruncatedInt(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts)
+	cfg.ProxyStickySessionTtlMs = max(30000, parseTruncatedInt(get("PROXY_STICKY_SESSION_TTL_MS"), DefaultProxyStickySessionTtlMs))
 
 	// ---- §3.16 Proxy: Session ----
-	rt.ProxySessionChannelConcurrencyLimit = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
-	rt.ProxySessionChannelQueueWaitMs = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
+	rt.ProxySessionChannelConcurrencyLimit = max(0, parseTruncatedInt(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))
+	rt.ProxySessionChannelQueueWaitMs = max(0, parseTruncatedInt(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))
 
 	// ---- §3.17 Proxy: Misc ----
 	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
@@ -754,21 +259,13 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// PROXY_MAX_STREAM_RESPONSE_BYTES caps a single SSE stream (default 1 MB).
 	// 0/negative/invalid resolves to the default so the hot stream path never
 	// has to re-parse env or guard against a zero limit. Read once here.
-	streamBytesParsed := int(math.Trunc(parseNumber(get("PROXY_MAX_STREAM_RESPONSE_BYTES"), float64(DefaultProxyMaxStreamResponseBytes))))
-	if streamBytesParsed <= 0 {
-		streamBytesParsed = DefaultProxyMaxStreamResponseBytes
-	}
-	cfg.ProxyMaxStreamResponseBytes = streamBytesParsed
+	cfg.ProxyMaxStreamResponseBytes = parsePositiveInt(get("PROXY_MAX_STREAM_RESPONSE_BYTES"), DefaultProxyMaxStreamResponseBytes)
 	// PROXY_MAX_BUFFERED_RESPONSE_BYTES caps a single non-streaming upstream
 	// response (default 20 MB). 0/negative/invalid resolves to the default so
 	// the buffered-response hot path never has to re-parse env or guard against
 	// a zero limit. Read once here — upstream.go / upstream_stream.go /
 	// executor.go read the resolved value from the config singleton.
-	bufferedBytesParsed := int(math.Trunc(parseNumber(get("PROXY_MAX_BUFFERED_RESPONSE_BYTES"), float64(DefaultProxyMaxBufferedResponseBytes))))
-	if bufferedBytesParsed <= 0 {
-		bufferedBytesParsed = int(DefaultProxyMaxBufferedResponseBytes)
-	}
-	cfg.ProxyMaxBufferedResponseBytes = bufferedBytesParsed
+	cfg.ProxyMaxBufferedResponseBytes = parsePositiveInt(get("PROXY_MAX_BUFFERED_RESPONSE_BYTES"), int(DefaultProxyMaxBufferedResponseBytes))
 	rt.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
 	rt.GlobalBlockedBrands = []string{}
 	rt.GlobalAllowedModels = []string{}
@@ -785,10 +282,10 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.20 Model Probe ----
 	rt.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)
-	cfg.ModelAvailabilityProbeIntervalMs = max(60000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), float64(DefaultModelAvailabilityProbeIntervalMs)))))
-	cfg.ModelAvailabilityProbeTimeoutMs = max(3000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))))
+	cfg.ModelAvailabilityProbeIntervalMs = max(60000, parseTruncatedInt(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), DefaultModelAvailabilityProbeIntervalMs))
+	cfg.ModelAvailabilityProbeTimeoutMs = max(3000, parseTruncatedInt(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))
 	cfg.ModelAvailabilityProbeConcurrency = ClampInt(
-		int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_CONCURRENCY"), DefaultModelAvailabilityProbeConcurrency))),
+		parseTruncatedInt(get("MODEL_AVAILABILITY_PROBE_CONCURRENCY"), DefaultModelAvailabilityProbeConcurrency),
 		1, 16,
 	)
 
@@ -797,10 +294,10 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.RouteRebuildProbeFilterExcludeModels = parseCsvList(get("ROUTE_REBUILD_PROBE_FILTER_EXCLUDE_MODELS"))
 
 	// ---- §3.21 Retention ----
-	cfg.ProxyLogRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
-	cfg.ProxyLogRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyLogRetentionPruneIntervalMinutes)))))
-	cfg.ProxyVideoTaskRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
-	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
+	cfg.ProxyLogRetentionDays = max(0, parseTruncatedInt(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))
+	cfg.ProxyLogRetentionPruneIntervalMinutes = max(1, parseTruncatedInt(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), DefaultProxyLogRetentionPruneIntervalMinutes))
+	cfg.ProxyVideoTaskRetentionDays = max(0, parseTruncatedInt(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), DefaultProxyVideoTaskRetentionDays))
+	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = max(1, parseTruncatedInt(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), DefaultProxyVideoTaskRetentionPruneIntervalMinutes))
 
 	// ---- §3.21b Proxy Log Batch Writer ----
 	// Default async=true so production gets the latency win automatically; the
@@ -808,17 +305,17 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// of 1 keep the writer functional even under tiny operator-chosen values.
 	cfg.ProxyLogAsync = parseBoolean(get("PROXY_LOG_ASYNC"), DefaultProxyLogAsync)
 	cfg.ProxyLogBatchSize = ClampInt(
-		int(math.Trunc(parseNumber(get("PROXY_LOG_BATCH_SIZE"), float64(DefaultProxyLogBatchSize)))),
+		parseTruncatedInt(get("PROXY_LOG_BATCH_SIZE"), DefaultProxyLogBatchSize),
 		1, 1000,
 	)
 	cfg.ProxyLogFlushIntervalMs = ClampInt(
-		int(math.Trunc(parseNumber(get("PROXY_LOG_FLUSH_INTERVAL_MS"), float64(DefaultProxyLogFlushIntervalMs)))),
+		parseTruncatedInt(get("PROXY_LOG_FLUSH_INTERVAL_MS"), DefaultProxyLogFlushIntervalMs),
 		1, 60000,
 	)
 
 	// ---- §3.21c Usage Aggregation Projection ----
 	cfg.UsageProjectionIntervalMs = ClampInt(
-		int(math.Trunc(parseNumber(get("USAGE_PROJECTION_INTERVAL_MS"), float64(DefaultUsageProjectionIntervalMs)))),
+		parseTruncatedInt(get("USAGE_PROJECTION_INTERVAL_MS"), DefaultUsageProjectionIntervalMs),
 		1000, 3600000,
 	)
 
@@ -832,146 +329,8 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	}
 
 	// ---- §3.23 Payload Rules + Service Tier ----
-	rt.PayloadRules = parseJsonValue(resolvePayloadRules())
-	cfg.OpenAiServiceTierRules = parseJsonValue(resolveOpenAiServiceTierRules())
+	rt.PayloadRules = ParseJsonValue(firstNonEmpty(get("PAYLOAD_RULES_JSON"), get("PAYLOAD_RULES")))
+	cfg.OpenAiServiceTierRules = ParseJsonValue(firstNonEmpty(get("OPENAI_SERVICE_TIER_RULES_JSON"), get("OPENAI_SERVICE_TIER_RULES")))
 
 	return cfg, rt
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-// firstNonEmpty returns the first non-empty argument, or "" if all are empty.
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-// normalizeLogLevel canonicalizes a LOG_LEVEL env value to one of
-// debug|info|warn|error. Unknown/empty input falls back to DefaultLogLevel
-// ("info") so an invalid operator value can never silence Warn/Error output.
-func normalizeLogLevel(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "debug":
-		return "debug"
-	case "warn", "warning":
-		return "warn"
-	case "error":
-		return "error"
-	case "info", "":
-		return "info"
-	default:
-		return "info"
-	}
-}
-
-// SlogLevel maps a canonical log-level string to the matching slog.Level.
-// Callers (e.g. cmd/server/main.go) use this at startup to configure the
-// default slog handler threshold from config.LogLevel. Unknown values fall
-// back to LevelInfo, matching normalizeLogLevel's "info" default.
-func SlogLevel(logLevel string) slog.Level {
-	switch normalizeLogLevel(logLevel) {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
-
-// normalizeDbProfile maps env aliases to shared-tiny|normal|dedicated.
-func normalizeDbProfile(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "shared-tiny", "shared_tiny", "tiny", "lite", "small":
-		return "shared-tiny"
-	case "dedicated", "large", "big":
-		return "dedicated"
-	case "normal", "default", "medium", "":
-		return "normal"
-	default:
-		return "normal"
-	}
-}
-
-// dbPoolDefaultsForProfile returns (maxOpen, maxIdle) for a normalized profile.
-func dbPoolDefaultsForProfile(profile string) (int, int) {
-	switch normalizeDbProfile(profile) {
-	case "shared-tiny":
-		return DefaultDbMaxOpenConnsSharedTiny, DefaultDbMaxIdleConnsSharedTiny
-	case "dedicated":
-		return DefaultDbMaxOpenConnsDedicated, DefaultDbMaxIdleConnsDedicated
-	default:
-		return DefaultDbMaxOpenConnsNormal, DefaultDbMaxIdleConnsNormal
-	}
-}
-
-// ClampInt clamps v to [lo, hi].
-func ClampInt(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
-}
-
-// normalizeSessionCookieSecure maps ADMIN_SESSION_COOKIE_SECURE to one of
-// "auto", "true" or "false". Unset/unrecognized values fall back to the
-// zero-config safe default "auto" (Secure follows the request protocol).
-func normalizeSessionCookieSecure(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "true", "1", "yes":
-		return "true"
-	case "false", "0", "no":
-		return "false"
-	default:
-		return DefaultAdminSessionCookieSecure
-	}
-}
-
-// MaxInt returns the larger of a and b. Exported for use by other packages.
-func MaxInt(a, b int) int {
-	return max(a, b)
-}
-
-// MaxInt64 returns the larger of a and b. Exported for use by other packages.
-func MaxInt64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// ParseJsonValue parses a JSON string into an any value.
-// Returns nil on empty input or parse error.
-func ParseJsonValue(value string) any {
-	if value == "" {
-		return nil
-	}
-	var result any
-	if err := json.Unmarshal([]byte(value), &result); err != nil {
-		return nil
-	}
-	return result
-}
-
-// atoiOr parses s as int, returning fallback on failure.
-func atoiOr(s string, fallback int) int {
-	if s == "" {
-		return fallback
-	}
-	v, err := strconv.Atoi(s)
-	if err != nil {
-		return fallback
-	}
-	return v
 }

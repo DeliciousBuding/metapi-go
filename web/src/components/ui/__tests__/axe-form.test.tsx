@@ -66,6 +66,6 @@ describe('Form axe gate', () => {
     const label = container.querySelector('label')
     expect(input).not.toBeNull()
     expect(label).not.toBeNull()
-    expect(input!.getAttribute('id')).toBe(label!.getAttribute('for'))
+    expect(input?.getAttribute('id')).toBe(label?.getAttribute('for'))
   })
 })

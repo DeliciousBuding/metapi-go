@@ -300,15 +300,17 @@ if (selectedScenarios.length === 0) {
 }
 
 for (const scenario of selectedScenarios) {
-  const targets =
-    scenario.viewport === 'desktop'
-      ? [['desktop', { width: 1440, height: 900 }, false]]
-      : scenario.viewport === 'mobile'
-        ? [['mobile', { width: 375, height: 812 }, true]]
-        : [
-            ['desktop', { width: 1440, height: 900 }, false],
-            ['mobile', { width: 375, height: 812 }, true],
-          ]
+  let targets
+  if (scenario.viewport === 'desktop') {
+    targets = [['desktop', { width: 1440, height: 900 }, false]]
+  } else if (scenario.viewport === 'mobile') {
+    targets = [['mobile', { width: 375, height: 812 }, true]]
+  } else {
+    targets = [
+      ['desktop', { width: 1440, height: 900 }, false],
+      ['mobile', { width: 375, height: 812 }, true],
+    ]
+  }
   for (const [vpName, viewport, isMobile] of targets) {
     const dir = `${OUT_BASE}/${vpName}`
     mkdirSync(dir, { recursive: true })

@@ -10,7 +10,8 @@ function collectBrandCandidates(value: string): string[] {
 
   add(value)
   for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index]!
+    const candidate = candidates[index]
+    if (candidate === undefined) continue
     const stripped = stripCommonWrappers(candidate)
     add(stripped)
     for (const part of stripped.split(/[/:,\s]+/g)) add(part)

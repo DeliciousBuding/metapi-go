@@ -261,7 +261,7 @@ export function ChannelDetailSheet({
               </div>
             </section>
 
-            {open && channel.type !== 'oauth_unit' ? (
+            {open && (
               <>
                 <Separator />
                 <ChannelInlineProbe
@@ -269,7 +269,7 @@ export function ChannelDetailSheet({
                   defaultModel={channel.models}
                 />
               </>
-            ) : null}
+            )}
           </div>
         </ScrollArea>
 
