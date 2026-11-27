@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 // ToChatRequest maps native generation input to the shared Chat representation.
@@ -471,29 +473,15 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 
 func bridgeObject(body []byte) (map[string]any, error) {
 	var out map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.UseNumber()
-	if decoder.Decode(&out) != nil || out == nil || !json.Valid(body) {
+	if shared.DecodeJSON(bytes.NewReader(body), &out) != nil || out == nil {
 		return nil, fmt.Errorf("protocol body must be a JSON object")
 	}
 	return out, nil
 }
 
 func bridgeKeys(obj map[string]any, allowed ...string) error {
-	for key, value := range obj {
-		if value == nil {
-			continue
-		}
-		found := false
-		for _, a := range allowed {
-			if a == key {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("field %s requires a native protocol endpoint", key)
-		}
+	if key, ok := shared.UnsupportedField(obj, allowed...); ok {
+		return fmt.Errorf("field %s requires a native protocol endpoint", key)
 	}
 	return nil
 }

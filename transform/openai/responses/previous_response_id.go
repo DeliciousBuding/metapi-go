@@ -3,6 +3,8 @@ package responses
 import (
 	"fmt"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 // PreviousResponseIDField is the OpenAI Responses continuity field name.
@@ -186,7 +188,7 @@ func ResolvePreviousResponseIDPolicy(input ContinuityPolicyInput) ContinuityDeci
 // error only when Action == ContinuityReject and the field was present.
 func ApplyPreviousResponseIDPolicy(body map[string]any, input ContinuityPolicyInput) (map[string]any, ContinuityDecision, error) {
 	decision := ResolvePreviousResponseIDPolicy(input)
-	next := cloneBodyMap(body)
+	next := shared.CloneObject(body)
 	id := previousResponseIDValue(next)
 	// Absent or whitespace-only: never forward an empty continuity id.
 	if id == "" {
@@ -258,7 +260,7 @@ func applyResponsesInputSanitization(body map[string]any) (map[string]any, error
 	}
 	// Always write sanitized input via a shallow body copy. Do not compare
 	// sanitized == raw: []any is not comparable and panics.
-	next := cloneBodyMap(body)
+	next := shared.CloneObject(body)
 	next["input"] = sanitized
 	return next, nil
 }
@@ -300,7 +302,7 @@ func IsUnsupportedPreviousResponseIDError(rawErrText string) bool {
 
 // StripPreviousResponseID removes previous_response_id from a body copy.
 func StripPreviousResponseID(body map[string]any) map[string]any {
-	next := cloneBodyMap(body)
+	next := shared.CloneObject(body)
 	delete(next, PreviousResponseIDField)
 	return next
 }
@@ -335,15 +337,4 @@ func isCompactPath(path string) bool {
 		p = p[:i]
 	}
 	return strings.HasSuffix(p, "/responses/compact") || p == "/responses/compact"
-}
-
-func cloneBodyMap(body map[string]any) map[string]any {
-	next := map[string]any{}
-	if body == nil {
-		return next
-	}
-	for k, v := range body {
-		next[k] = v
-	}
-	return next
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 func terminalError() error {
@@ -39,7 +41,7 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 			return terminalError()
 		}
 		choice, err := readObject(choices[0])
-		if err != nil || !validReason(Chat, text(choice["finish_reason"])) {
+		if err != nil || !validReason(Chat, shared.RawString(choice["finish_reason"])) {
 			return terminalError()
 		}
 		if err := zeroIndex(choice); err != nil {
@@ -51,7 +53,7 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 		}
 		return validateToolCalls(msg["tool_calls"])
 	case Messages:
-		if text(obj["type"]) != "message" || !validReason(Messages, text(obj["stop_reason"])) {
+		if shared.RawString(obj["type"]) != "message" || !validReason(Messages, shared.RawString(obj["stop_reason"])) {
 			return terminalError()
 		}
 		parts, err := array(obj["content"])
@@ -63,8 +65,8 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 			if err != nil {
 				return err
 			}
-			if text(part["type"]) == "tool_use" {
-				if text(part["id"]) == "" || text(part["name"]) == "" {
+			if shared.RawString(part["type"]) == "tool_use" {
+				if shared.RawString(part["id"]) == "" || shared.RawString(part["name"]) == "" {
 					return terminalError()
 				}
 				if _, err := readObject(part["input"]); err != nil {
@@ -73,7 +75,7 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 			}
 		}
 	case Responses:
-		if text(obj["status"]) != "completed" {
+		if shared.RawString(obj["status"]) != "completed" {
 			return terminalError()
 		}
 		items, err := array(obj["output"])
@@ -85,11 +87,11 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 			if err != nil {
 				return err
 			}
-			if text(item["type"]) == "function_call" {
-				if text(item["call_id"]) == "" || text(item["name"]) == "" {
+			if shared.RawString(item["type"]) == "function_call" {
+				if shared.RawString(item["call_id"]) == "" || shared.RawString(item["name"]) == "" {
 					return terminalError()
 				}
-				if _, err := readObject([]byte(text(item["arguments"]))); err != nil {
+				if _, err := readObject([]byte(shared.RawString(item["arguments"]))); err != nil {
 					return err
 				}
 			}
@@ -100,7 +102,7 @@ func validateJSONTerminal(format Format, value map[string]any) error {
 			return terminalError()
 		}
 		candidate, err := readObject(candidates[0])
-		if err != nil || !validReason(Gemini, text(candidate["finishReason"])) {
+		if err != nil || !validReason(Gemini, shared.RawString(candidate["finishReason"])) {
 			return terminalError()
 		}
 		if err := validateGeminiCandidate(candidate); err != nil {
@@ -127,10 +129,10 @@ func validateToolCalls(raw json.RawMessage) error {
 		if err != nil {
 			return err
 		}
-		if text(call["id"]) == "" || text(fn["name"]) == "" || text(call["type"]) != "function" {
+		if shared.RawString(call["id"]) == "" || shared.RawString(fn["name"]) == "" || shared.RawString(call["type"]) != "function" {
 			return terminalError()
 		}
-		if _, err := readObject([]byte(text(fn["arguments"]))); err != nil {
+		if _, err := readObject([]byte(shared.RawString(fn["arguments"]))); err != nil {
 			return err
 		}
 	}
@@ -189,7 +191,7 @@ func validateGeminiCandidate(candidate object) error {
 			if err != nil {
 				return err
 			}
-			if text(fn["name"]) == "" {
+			if shared.RawString(fn["name"]) == "" {
 				return terminalError()
 			}
 			if _, err := readObject(fn["args"]); err != nil {
@@ -266,29 +268,29 @@ func (s *terminalState) observe(format Format, obj object) error {
 					state = &toolState{}
 					s.tools[idx] = state
 				}
-				if id := text(call["id"]); id != "" {
+				if id := shared.RawString(call["id"]); id != "" {
 					if state.id != "" && state.id != id {
 						return terminalError()
 					}
 					state.id = id
 				}
-				if typ := text(call["type"]); typ != "" && typ != "function" {
+				if typ := shared.RawString(call["type"]); typ != "" && typ != "function" {
 					return terminalError()
 				}
 				fn, err := readObject(call["function"])
 				if err != nil {
 					return err
 				}
-				if name := text(fn["name"]); name != "" {
+				if name := shared.RawString(fn["name"]); name != "" {
 					if state.name != "" && state.name != name {
 						return terminalError()
 					}
 					state.name = name
 				}
-				state.args = append(state.args, text(fn["arguments"])...)
+				state.args = append(state.args, shared.RawString(fn["arguments"])...)
 			}
 		}
-		if reason := text(choice["finish_reason"]); reason != "" {
+		if reason := shared.RawString(choice["finish_reason"]); reason != "" {
 			if !validReason(Chat, reason) {
 				return terminalError()
 			}
@@ -303,7 +305,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 			s.logicalEnd = true
 		}
 	case Messages:
-		typ := text(obj["type"])
+		typ := shared.RawString(obj["type"])
 		if typ == "ping" {
 			return nil
 		}
@@ -336,7 +338,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 			if err != nil {
 				return err
 			}
-			block := &toolState{tool: text(part["type"]) == "tool_use", id: text(part["id"]), name: text(part["name"]), initial: part["input"]}
+			block := &toolState{tool: shared.RawString(part["type"]) == "tool_use", id: shared.RawString(part["id"]), name: shared.RawString(part["name"]), initial: part["input"]}
 			if block.tool {
 				if _, err := readObject(block.initial); err != nil {
 					return err
@@ -356,7 +358,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 			if err != nil {
 				return err
 			}
-			if text(delta["type"]) == "input_json_delta" {
+			if shared.RawString(delta["type"]) == "input_json_delta" {
 				if !block.tool {
 					return terminalError()
 				}
@@ -364,7 +366,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 				if len(initial) > 0 {
 					return terminalError()
 				}
-				block.args = append(block.args, text(delta["partial_json"])...)
+				block.args = append(block.args, shared.RawString(delta["partial_json"])...)
 			}
 		case "content_block_stop":
 			idx, err := indexOf(obj, "index")
@@ -391,7 +393,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 			if err != nil {
 				return err
 			}
-			if reason := text(delta["stop_reason"]); reason != "" {
+			if reason := shared.RawString(delta["stop_reason"]); reason != "" {
 				if s.logicalEnd || len(s.blocks) > 0 || !validReason(Messages, reason) {
 					return terminalError()
 				}
@@ -406,13 +408,13 @@ func (s *terminalState) observe(format Format, obj object) error {
 			return terminalError()
 		}
 	case Responses:
-		switch text(obj["type"]) {
+		switch shared.RawString(obj["type"]) {
 		case "response.output_item.added", "response.output_item.done":
 			item, err := readObject(obj["item"])
 			if err != nil {
 				return err
 			}
-			if text(item["type"]) != "function_call" {
+			if shared.RawString(item["type"]) != "function_call" {
 				break
 			}
 			idx, err := indexOf(obj, "output_index")
@@ -424,14 +426,14 @@ func (s *terminalState) observe(format Format, obj object) error {
 			}
 			tool := s.responseTools[idx]
 			if tool == nil {
-				tool = &toolState{id: text(item["call_id"]), name: text(item["name"])}
+				tool = &toolState{id: shared.RawString(item["call_id"]), name: shared.RawString(item["name"])}
 				s.responseTools[idx] = tool
 			}
-			if tool.closed || tool.id == "" || tool.name == "" || tool.id != text(item["call_id"]) || tool.name != text(item["name"]) {
+			if tool.closed || tool.id == "" || tool.name == "" || tool.id != shared.RawString(item["call_id"]) || tool.name != shared.RawString(item["name"]) {
 				return terminalError()
 			}
-			args := []byte(text(item["arguments"]))
-			if text(obj["type"]) == "response.output_item.done" {
+			args := []byte(shared.RawString(item["arguments"]))
+			if shared.RawString(obj["type"]) == "response.output_item.done" {
 				if _, err := readObject(args); err != nil {
 					return err
 				}
@@ -450,10 +452,10 @@ func (s *terminalState) observe(format Format, obj object) error {
 			if tool == nil || tool.closed {
 				return terminalError()
 			}
-			if text(obj["type"]) == "response.function_call_arguments.delta" {
-				tool.args = append(tool.args, text(obj["delta"])...)
+			if shared.RawString(obj["type"]) == "response.function_call_arguments.delta" {
+				tool.args = append(tool.args, shared.RawString(obj["delta"])...)
 			} else {
-				args := []byte(text(obj["arguments"]))
+				args := []byte(shared.RawString(obj["arguments"]))
 				if _, err := readObject(args); err != nil {
 					return err
 				}
@@ -480,7 +482,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 		case "response.failed", "response.incomplete", "error":
 			return terminalError()
 		default:
-			if !strings.HasPrefix(text(obj["type"]), "response.") {
+			if !strings.HasPrefix(shared.RawString(obj["type"]), "response.") {
 				return terminalError()
 			}
 		}
@@ -505,7 +507,7 @@ func (s *terminalState) observe(format Format, obj object) error {
 		if err := validateGeminiCandidate(candidate); err != nil {
 			return err
 		}
-		if reason := text(candidate["finishReason"]); reason != "" {
+		if reason := shared.RawString(candidate["finishReason"]); reason != "" {
 			if !validReason(Gemini, reason) {
 				return terminalError()
 			}

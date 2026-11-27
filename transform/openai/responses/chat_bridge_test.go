@@ -7,6 +7,21 @@ import (
 	"testing"
 )
 
+func TestToChatRequestJSONErrors(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{`null {}`, "expected a JSON object"},
+		{`[]`, "expected a JSON object"},
+		{`{"model":`, "expected a JSON object"},
+		{`{} {}`, "trailing JSON data"},
+		{`{} #`, "trailing JSON data"},
+		{`{"":false}`, `unsupported field ""`},
+	} {
+		if _, err := ToChatRequest([]byte(tc.body)); err == nil || err.Error() != "Responses/Chat bridge: "+tc.want {
+			t.Errorf("body %q: got %v, want %q", tc.body, err, tc.want)
+		}
+	}
+}
+
 func bridgeTestObject(t *testing.T, raw []byte) bridgeObject {
 	t.Helper()
 	obj, err := bridgeDecode(raw)

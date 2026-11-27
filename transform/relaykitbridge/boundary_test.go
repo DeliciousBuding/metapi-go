@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/relaykit/types"
+
+	"github.com/deliciousbuding/metapi-go/transform/shared"
 )
 
 func TestFunctionHistoryIdentity(t *testing.T) {
@@ -241,7 +243,7 @@ func TestPromptCacheKeyConversation(t *testing.T) {
 			t.Fatal(err)
 		}
 		obj, err := readObject(out)
-		if err != nil || text(obj["prompt_cache_key"]) != key {
+		if err != nil || shared.RawString(obj["prompt_cache_key"]) != key {
 			t.Fatal("cache key lost")
 		}
 		body, err := s.Response(t.Context(), []byte(replies[p.to]))
