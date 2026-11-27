@@ -1,236 +1,38 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-/* eslint-disable no-nested-ternary -- empty-state text uses chained ternary */
-// metapi-go features/token-routes/components — the routes list page.
-// i18n: all user-visible strings migrated to t() calls.
-import type { ColumnFiltersState, Table, Row } from '@tanstack/react-table'
-import {
-  Activity,
-  Pencil,
-  Plus,
-  Power,
-  Route,
-  Settings2,
-  Zap,
-} from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import type { Row } from '@tanstack/react-table'
+import { Activity, Pencil, Plus, Route, Settings2, Zap } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PageHeader } from '@/components/common/page-header'
-import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
-import {
-  DataTableBulkActions,
-  DataTablePage,
-  type UrlTableState,
-  type UrlTableStateUpdate,
-  useDataTable,
-  useUrlTableState,
-} from '@/components/data-table'
+import { DataTablePage } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import {
-  useAccounts,
-  type Account,
-  type AccountsSnapshot,
-} from '@/features/accounts'
-import { useChannels } from '@/features/channels'
-import { useSites } from '@/features/sites'
-import { asStringParam } from '@/lib/helpers/searchParams'
-import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import {
-  routeQueryKeys,
-  type BatchRouteAction,
-  useBatchUpdateRoutes,
-  useClearRouteCooldown,
-  useModelTokenCandidates,
-  useRebuildRoutes,
-  useRefreshRouteDecisions,
-  useRoutes,
-  useUpdateRoute,
-  useZeroChannelRoutes,
-} from '../api'
-import { routesSearchSchema } from '../lib/routes-schema'
+import { useRebuildRoutes, useRefreshRouteDecisions, useRoutes } from '../api'
 import { useRouteRebuildTask } from '../lib/use-route-rebuild-task'
-import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
-import type { RouteRowActions, RouteSummaryRow } from '../types'
-import {
-  isExplicitGroupRoute,
-  isExactModelPattern,
-  resolveRouteTitle,
-} from '../utils'
+import type { RouteSummaryRow } from '../types'
+import { resolveRouteTitle } from '../utils'
 import { RouteChannelList } from './route-channel-list'
 import { RouteDetailSheet } from './route-detail-sheet'
-import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
+import { RouteFormDialog } from './route-form-dialog'
 import { RouteRebuildStatus } from './route-rebuild-status'
 import { RouteWorkspace, type RouteWorkspaceFilters } from './route-workspace'
-import { useRoutesColumns } from './routes-columns'
+import { RoutesBulkActions } from './routes-bulk-actions'
 import { RoutesHeaderActions } from './routes-header-actions'
 import { RoutesKeyNextStep } from './routes-key-next-step'
-
-const DEFAULT_PAGE_SIZE = 20
-const routeContentId = (id: number) => `route-channels-${id}`
-const routeRowId = (route: RouteSummaryRow) => String(route.id)
-
-/** Page-specific URL filters: the `enabled` column filter + chain context.
- * `routeId` is a one-shot drilldown param (proxy-log detail sheet) that the
- * page consumes into the detail sheet and then strips; it is deliberately
- * never serialized back into hrefs. */
-type TokenRoutesUrlFilters = {
-  enabled: string
-  accountId: string
-  tokenId: string
-  siteId: string
-  routeId: string
-  workspaceModel: string
-  workspaceEndpoint: string
-  workspaceKeyId: string
-  workspaceClientIp: string
-}
-
-/**
- * Parse the raw search string into URL table state, reusing the route's
- * `routesSearchSchema` so the derived state matches the loader's validated
- * search. The page uses a 1-based `page` param.
- */
-function readTokenRoutesSearch(
-  searchString: string
-): UrlTableState<TokenRoutesUrlFilters> {
-  const entries = Object.fromEntries(
-    new URLSearchParams(
-      searchString.startsWith('?') ? searchString.slice(1) : searchString
-    ).entries()
-  )
-  const parsed = routesSearchSchema.safeParse(entries)
-  const search = parsed.success ? parsed.data : null
-  return {
-    q: asStringParam(search?.q) ?? '',
-    pageIndex: (search?.page ?? 1) - 1,
-    pageSize: search?.pageSize ?? DEFAULT_PAGE_SIZE,
-    sorting: [],
-    filters: {
-      enabled: asStringParam(search?.enabled) ?? '',
-      accountId:
-        search?.accountId === undefined ? '' : String(search.accountId),
-      tokenId: search?.tokenId === undefined ? '' : String(search.tokenId),
-      siteId: search?.siteId === undefined ? '' : String(search.siteId),
-      routeId: search?.routeId === undefined ? '' : String(search.routeId),
-      workspaceModel: asStringParam(search?.workspaceModel) ?? '',
-      workspaceEndpoint: asStringParam(search?.workspaceEndpoint) ?? '',
-      workspaceKeyId:
-        search?.workspaceKeyId === undefined
-          ? ''
-          : String(search.workspaceKeyId),
-      workspaceClientIp: asStringParam(search?.workspaceClientIp) ?? '',
-    },
-  }
-}
-
-/** Serialize a partial state update back to the token-routes href, merging
- *  over the CURRENT url state (preserves chain context accountId/siteId). */
-function buildTokenRoutesHref(
-  next: UrlTableStateUpdate<TokenRoutesUrlFilters>
-): string {
-  const current = readTokenRoutesSearch(window.location.search)
-  const merged: UrlTableState<TokenRoutesUrlFilters> = {
-    ...current,
-    ...next,
-    filters: { ...current.filters, ...next.filters },
-  }
-  const params = new URLSearchParams()
-  if (merged.q) params.set('q', merged.q)
-  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex + 1))
-  if (merged.pageSize !== DEFAULT_PAGE_SIZE) {
-    params.set('pageSize', String(merged.pageSize))
-  }
-  if (merged.filters.enabled) params.set('enabled', merged.filters.enabled)
-  if (merged.filters.accountId) {
-    params.set('accountId', merged.filters.accountId)
-  }
-  if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
-  if (merged.filters.tokenId) params.set('tokenId', merged.filters.tokenId)
-  if (merged.filters.workspaceModel) {
-    params.set('workspaceModel', merged.filters.workspaceModel)
-  }
-  if (merged.filters.workspaceEndpoint) {
-    params.set('workspaceEndpoint', merged.filters.workspaceEndpoint)
-  }
-  if (Number(merged.filters.workspaceKeyId) > 0) {
-    params.set('workspaceKeyId', merged.filters.workspaceKeyId)
-  }
-  if (merged.filters.workspaceClientIp) {
-    params.set('workspaceClientIp', merged.filters.workspaceClientIp)
-  }
-  // Preserve the one-shot `edit` deep-link param across table-state
-  // navigations (page-clamp / sort / filter) until the page's consumption
-  // effect strips it — mirrors the sites page's buildHref guard for its
-  // guided `create`/`edit` params.
-  const guidedEdit = new URLSearchParams(window.location.search).get('edit')
-  if (guidedEdit) params.set('edit', guidedEdit)
-  const queryString = params.toString()
-  return queryString ? `/token-routes?${queryString}` : '/token-routes'
-}
-
-function useTokenRoutesUrlState() {
-  return useUrlTableState<TokenRoutesUrlFilters>({
-    basePath: '/token-routes',
-    read: readTokenRoutesSearch,
-    buildHref: buildTokenRoutesHref,
-    toColumnFilters: (filters) => {
-      const out: ColumnFiltersState = []
-      const enabledValues = filters.enabled.split(',').filter(Boolean)
-      if (enabledValues.length) {
-        out.push({ id: 'enabled', value: enabledValues })
-      }
-      return out
-    },
-    fromColumnFilters: (filters) => {
-      const enabledEntry = filters.find((filter) => filter.id === 'enabled')
-      return {
-        filters: {
-          enabled: Array.isArray(enabledEntry?.value)
-            ? enabledEntry.value.join(',')
-            : '',
-        },
-      }
-    },
-    resetPageIndexOnFilterChange: true,
-  })
-}
-
-// Module-level so the table's globalFilterFn keeps a stable identity across
-// renders (a fresh inline function would re-resolve the table every render).
-function routesGlobalFilterFn(
-  row: { original: unknown },
-  _columnId: string,
-  filterValue: string
-): boolean {
-  const route = row.original as RouteSummaryRow
-  const haystack = [
-    route.modelPattern,
-    route.displayName ?? '',
-    ...(route.siteNames ?? []),
-  ]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(String(filterValue).toLowerCase())
-}
+import { useRouteChainContext } from './use-route-chain-context'
+import { useRouteDialogs } from './use-route-dialogs'
+import { routeContentId, useRoutesTable } from './use-routes-table'
+import { useTokenRoutesUrlState } from './use-token-routes-url-state'
 
 export function RoutesPage() {
   const { t } = useTranslation()
-  const routerSearch = useSearch({ from: '/_authenticated/token-routes' })
   const navigate = useNavigate()
-  const {
-    globalFilter,
-    pagination,
-    columnFilters,
-    onGlobalFilterChange,
-    onPaginationChange,
-    onColumnFiltersChange,
-    filters,
-    updateUrlState,
-  } = useTokenRoutesUrlState()
+  const urlState = useTokenRoutesUrlState()
+  const { filters, updateUrlState } = urlState
 
   const {
     data: routesData,
@@ -239,237 +41,42 @@ export function RoutesPage() {
     error,
     refetch,
   } = useRoutes()
-  const candidatesQuery = useModelTokenCandidates()
-
-  const updateMutation = useUpdateRoute()
-  const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
   const rebuildTask = useRouteRebuildTask()
   const isRebuildPending = rebuildMutation.isPending || rebuildTask.isBusy
   const refreshDecisionsMutation = useRefreshRouteDecisions()
 
   const routes = useMemo(() => routesData ?? [], [routesData])
-  const candidates = candidatesQuery.data
 
-  // Route ids with at least one channel in an ACTIVE persisted cooldown:
-  // the channels list carries per-channel cooldownUntil, and the summary
-  // rows do not. The row menu's "清除冷却" item is hidden for routes with
-  // nothing to clear — same predicate as the route detail sheet gate
-  // (cooldownUntil > now), so the two surfaces can never disagree.
-  const { data: channelList } = useChannels()
-  const cooldownRouteIds = useMemo(
-    () =>
-      new Set(
-        (channelList ?? [])
-          .filter(
-            (c) =>
-              Boolean(c.cooldownUntil) &&
-              new Date(c.cooldownUntil as string) > new Date()
-          )
-          .map((c) => c.routeId)
-      ),
-    [channelList]
-  )
+  const { chainContext, chainAccountName, chainSiteName, accountOptions } =
+    useRouteChainContext(filters)
+  const { accountId, tokenId, siteId } = chainContext
+  const {
+    openCreate,
+    openEdit,
+    openDetail,
+    openWorkspaceRoute,
+    editDiagnosticRoute,
+    formProps,
+    detailProps,
+  } = useRouteDialogs(routes, isLoading, filters.routeId)
 
-  // Chain context (account/site deep-link) is read from the URL-owned filters;
-  // it is preserved across every navigation but never modified by this page.
-  const accountId = filters.accountId ? Number(filters.accountId) : undefined
-  const tokenId = filters.tokenId ? Number(filters.tokenId) : undefined
-  const siteId = filters.siteId ? Number(filters.siteId) : undefined
-
-  const { showZeroChannel, setShowZeroChannel } = useShowZeroChannelPreference()
-  const rows = useZeroChannelRoutes(routes, candidates, showZeroChannel)
-
-  const [formOpen, setFormOpen] = useState(false)
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
-  const [editRoute, setEditRoute] = useState<RouteSummaryRow | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [detailRoute, setDetailRoute] = useState<RouteSummaryRow | null>(null)
-  const [expandedRouteIds, setExpandedRouteIds] = useState<ReadonlySet<number>>(
-    () => new Set()
-  )
-  const toggleRouteExpansion = useCallback((id: number) => {
-    setExpandedRouteIds((previous) => {
-      const next = new Set(previous)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
 
-  // One-shot route drilldown (proxy-log detail -> `?routeId=N`): wait for
-  // the list, open the detail sheet for the referenced route, then strip
-  // the param so a refetch or remount never reopens the sheet. A stale or
-  // unknown id is stripped without opening anything.
-  const routeDrilldownConsumed = useRef(false)
-  useEffect(() => {
-    if (routeDrilldownConsumed.current || !filters.routeId) return
-    if (isLoading) return
-
-    const targetId = Number(filters.routeId)
-    const target = routes.find((route) => route.id === targetId)
-    routeDrilldownConsumed.current = true
-    if (target) {
-      setDetailRoute(target)
-      setDetailOpen(true)
-    }
-    navigate({
-      to: '/token-routes',
-      search: { ...routerSearch, routeId: undefined },
-      replace: true,
-    })
-  }, [filters.routeId, isLoading, routes, routerSearch, navigate])
-
-  const openCreate = () => {
-    setFormMode('create')
-    setEditRoute(null)
-    setFormOpen(true)
-  }
-
-  const openEdit = useCallback((route: RouteSummaryRow) => {
-    setFormMode('edit')
-    setEditRoute(route)
-    setFormOpen(true)
-  }, [])
-
-  // One-shot edit drilldown (channel detail sheet -> `?edit=N`): wait for
-  // the list, open the edit dialog for the referenced route (the same state
-  // the row edit action uses), then strip the param so a refetch or remount
-  // never reopens it. A stale or unknown id is stripped without opening
-  // anything — mirrors the sites page's `edit` consumption and this page's
-  // `routeId` drilldown, including the strict-mode re-entry guard.
-  const editDrilldownConsumed = useRef(false)
-  useEffect(() => {
-    if (editDrilldownConsumed.current || routerSearch.edit === undefined) {
-      return
-    }
-    if (isLoading) return
-
-    const target = routes.find((route) => route.id === routerSearch.edit)
-    editDrilldownConsumed.current = true
-    if (target) {
-      openEdit(target)
-    }
-    navigate({
-      to: '/token-routes',
-      search: { ...routerSearch, edit: undefined },
-      replace: true,
-    })
-  }, [routerSearch, isLoading, routes, navigate, openEdit])
-
-  // Native leaf routes retain undo; imported groups and other dependencies
-  // require a preview of the full deletion before confirmation.
-  const undoableDelete = useUndoableDelete()
   const {
-    requestDeletion,
-    dialog: deletionDialog,
-    isPending: isDeletePending,
-  } = useUpstreamDeletion()
-  const deleteRouteUndoable = useCallback(
-    (route: RouteSummaryRow) => {
-      void requestDeletion(
-        { kind: 'route', id: route.id, name: resolveRouteTitle(route) },
-        (_preview, commit) =>
-          undoableDelete<RouteSummaryRow[], RouteSummaryRow>({
-            item: route,
-            queryKey: routeQueryKeys.summary(),
-            removeFromCache: (data, item) =>
-              data.filter((entry) => entry.id !== item.id),
-            deleteFn: commit,
-            title: t('tokenRoutes.toast.deleted'),
-            undoLabel: t('common.undo'),
-            errorTitle: t('tokenRoutes.toast.deleteFailed'),
-          })
-      )
-    },
-    [requestDeletion, undoableDelete, t]
-  )
-
-  // Memoized so the column defs keep a stable identity across renders.
-  const rowActions = useMemo<RouteRowActions>(
-    () => ({
-      isDeletePending,
-      onEdit: openEdit,
-      onDelete: deleteRouteUndoable,
-      onToggleEnabled: (route) =>
-        updateMutation.mutate({
-          id: route.id,
-          payload: { enabled: !route.enabled },
-        }),
-      onViewDetail: (route) => {
-        setDetailRoute(route)
-        setDetailOpen(true)
-      },
-      onClearCooldown: (route) => {
-        clearCooldownMutation.mutate(route.id)
-      },
-      onRefreshDecision: () => {
-        refreshDecisionsMutation.mutate()
-      },
-    }),
-    [
-      isDeletePending,
-      openEdit,
-      deleteRouteUndoable,
-      updateMutation,
-      clearCooldownMutation,
-      refreshDecisionsMutation,
-    ]
-  )
-
-  const columns = useRoutesColumns(
-    rowActions,
-    updateMutation.isPending ? (updateMutation.variables?.id ?? null) : null,
-    clearCooldownMutation.isPending
-      ? (clearCooldownMutation.variables ?? null)
-      : null,
-    cooldownRouteIds,
-    {
-      expandedIds: expandedRouteIds,
-      toggle: toggleRouteExpansion,
-      getContentId: routeContentId,
-    }
-  )
-
-  const { table } = useDataTable({
-    data: rows,
-    columns,
-    getRowId: routeRowId,
-    enableRowSelection: true,
-    // The URL-synced callbacks already reset the page on every filter change
-    // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
-    // avoid a second redundant page update.
-    autoResetPageIndex: false,
-    globalFilter,
-    onGlobalFilterChange,
-    columnFilters,
-    onColumnFiltersChange,
-    pagination,
-    onPaginationChange,
-    globalFilterFn: routesGlobalFilterFn,
+    table,
+    expandedRouteIds,
+    toggleRouteExpansion,
+    showZeroChannel,
+    setShowZeroChannel,
+    deletionDialog,
+  } = useRoutesTable({
+    routes,
+    urlState,
+    openEdit,
+    openDetail,
+    refreshDecisions: refreshDecisionsMutation.mutate,
   })
-
-  const availableRoutes = useMemo(
-    () =>
-      routes.filter(
-        (route) =>
-          !isExplicitGroupRoute(route) &&
-          isExactModelPattern(route.modelPattern) &&
-          route.id !== editRoute?.id
-      ),
-    [routes, editRoute]
-  )
-
-  const openWorkspaceRoute = useCallback(
-    (routeId: number) => {
-      const target = routes.find((route) => route.id === routeId)
-      if (!target) return
-      setDetailRoute(target)
-      setDetailOpen(true)
-    },
-    [routes]
-  )
 
   const openWorkspaceKeyLogs = useCallback(
     (keyId: number) => {
@@ -479,16 +86,6 @@ export function RoutesPage() {
       })
     },
     [navigate]
-  )
-
-  const editDiagnosticRoute = useCallback(
-    (routeId: number) => {
-      const target = routes.find((route) => route.id === routeId)
-      if (!target || target.kind === 'zero_channel' || target.readOnly) return
-      setDetailOpen(false)
-      openEdit(target)
-    },
-    [routes, openEdit]
   )
 
   const openWorkspaceKeyEdit = useCallback(
@@ -502,36 +99,6 @@ export function RoutesPage() {
     },
     [navigate]
   )
-
-  const chainContext = useMemo(
-    () => ({
-      accountId,
-      tokenId,
-      siteId,
-    }),
-    [accountId, tokenId, siteId]
-  )
-
-  // The loader already prefetches both the accounts snapshot and the sites
-  // list into the query cache, so these are cache hits (no extra round-trip).
-  // Resolve chain-context IDs to human-readable names with `#ID` fallback.
-  const { data: accountsSnapshot } = useAccounts()
-  const { data: sitesList } = useSites()
-  const accountOptions = useMemo(
-    () =>
-      buildAccountOptions(accountsSnapshot, tokenId ? accountId : undefined),
-    [accountsSnapshot, accountId, tokenId]
-  )
-  const chainAccountName = useMemo(() => {
-    if (!accountId) return undefined
-    const match = accountsSnapshot?.accounts.find((a) => a.id === accountId)
-    return match?.username ?? `#${accountId}`
-  }, [accountId, accountsSnapshot])
-  const chainSiteName = useMemo(() => {
-    if (!siteId) return undefined
-    const match = sitesList?.find((s) => s.id === siteId)
-    return match?.name ?? `#${siteId}`
-  }, [siteId, sitesList])
 
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
@@ -643,7 +210,7 @@ export function RoutesPage() {
                     size='icon-xs'
                     aria-label={t('tokenRoutes.detail.openDiagnostics')}
                     title={t('tokenRoutes.detail.openDiagnostics')}
-                    onClick={() => rowActions.onViewDetail(row.original)}
+                    onClick={() => openDetail(row.original)}
                   >
                     <Activity />
                   </Button>
@@ -723,25 +290,12 @@ export function RoutesPage() {
       />
 
       <RouteFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        mode={formMode}
-        route={editRoute}
-        availableRoutes={availableRoutes}
+        {...formProps}
         accountOptions={accountOptions}
         chainContext={chainContext}
       />
 
-      <RouteDetailSheet
-        route={detailRoute}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        onEditRoute={editDiagnosticRoute}
-        onEdit={(route) => {
-          setDetailOpen(false)
-          openEdit(route)
-        }}
-      />
+      <RouteDetailSheet {...detailProps} />
 
       {deletionDialog}
 
@@ -762,111 +316,4 @@ export function RoutesPage() {
       />
     </div>
   )
-}
-
-function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
-  const { t } = useTranslation()
-  const batchMutation = useBatchUpdateRoutes()
-  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false)
-
-  // Derived per render — `table` identity is stable across selection changes
-  // then a `useMemo([table])` would freeze the ids at their mount-time value
-  // and every batch action would silently no-op.
-  const selectedIds = table
-    .getFilteredSelectedRowModel()
-    .rows.map((row) => (row.original as RouteSummaryRow).id)
-    .filter((id) => id > 0)
-
-  const runBatch = async (action: BatchRouteAction) => {
-    if (selectedIds.length === 0) return
-    try {
-      await batchMutation.mutateAsync({ ids: selectedIds, action })
-      table.resetRowSelection()
-    } catch {
-      // http-client toasted
-    }
-  }
-
-  return (
-    <>
-      <DataTableBulkActions
-        table={table}
-        entityName={t('tokenRoutes.page.bulkEntityName')}
-      >
-        <Button
-          size='sm'
-          variant='outline'
-          onClick={() => runBatch('enable')}
-          disabled={batchMutation.isPending}
-        >
-          <Power />
-          {t('tokenRoutes.page.bulkEnable')}
-        </Button>
-        <Button
-          size='sm'
-          variant='outline'
-          onClick={() => setConfirmDisableOpen(true)}
-          disabled={batchMutation.isPending}
-        >
-          {t('tokenRoutes.page.bulkDisable')}
-        </Button>
-      </DataTableBulkActions>
-
-      <ConfirmDialog
-        open={confirmDisableOpen}
-        title={t('tokenRoutes.page.bulkDisableConfirmTitle')}
-        description={t('tokenRoutes.page.bulkDisableConfirmDescription', {
-          count: selectedIds.length,
-        })}
-        confirmLabel={t('tokenRoutes.page.bulkDisable')}
-        cancelLabel={t('common.cancel')}
-        destructive
-        onConfirm={() => {
-          setConfirmDisableOpen(false)
-          void runBatch('disable')
-        }}
-        onCancel={() => setConfirmDisableOpen(false)}
-      />
-    </>
-  )
-}
-
-// The account snapshot, not model discovery, owns manual account bindings.
-// OAuth metadata is also present on the public account snapshot; inspect only
-// masked credential presence, matching account-scoped relay credential choice.
-type ManualRouteAccount = Account & { oauthProvider?: string | null }
-
-function buildAccountOptions(
-  snapshot: AccountsSnapshot | undefined,
-  keyAccountId?: number
-): RouteAccountOption[] {
-  const siteMap = new Map(
-    (snapshot?.sites ?? []).map((site) => [site.id, site])
-  )
-  const accounts: ManualRouteAccount[] = snapshot?.accounts ?? []
-  return accounts
-    .flatMap<RouteAccountOption>((account) => {
-      const site = siteMap.get(account.siteId) ?? account.site
-      if (account.status !== 'active' || site?.status === 'disabled') {
-        return []
-      }
-      const relayCredential = account.oauthProvider
-        ? account.accessTokenMasked
-        : account.apiTokenMasked
-      // An explicit existing key does not need the account's default relay
-      // credential. The write boundary checks that the key belongs to it.
-      if (!relayCredential?.trim() && account.id !== keyAccountId) return []
-
-      const username = account.username?.trim() || `account-${account.id}`
-      const siteName = site?.name?.trim() || ''
-      return [
-        {
-          id: account.id,
-          label: siteName ? `${username} @ ${siteName}` : username,
-        },
-      ]
-    })
-    .sort((left, right) =>
-      left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
-    )
 }
