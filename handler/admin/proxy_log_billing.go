@@ -3,13 +3,15 @@ package admin
 import (
 	"encoding/json"
 	"math"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // Keep nullable observations and dialect-independent JSON types aligned for
 // both the list and detail APIs. SQLite BOOLEAN scans are integer 0/1.
 func normalizeProxyLogRow(row map[string]any) {
 	if row["isStream"] != nil {
-		row["isStream"] = coerceBool(row["isStream"])
+		row["isStream"] = store.RowBool(row["isStream"])
 	}
 	billing := decodeProxyLogBilling(row["billingDetails"])
 	projectProxyLogCacheUsage(row, billing)

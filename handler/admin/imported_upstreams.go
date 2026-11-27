@@ -70,7 +70,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		row["rateLimit"] = limits
 		row["baseUrl"] = importedDisplayURL(fmt.Sprint(row["baseUrl"]))
-		row["enabled"] = coerceBool(row["enabled"])
+		row["enabled"] = store.RowBool(row["enabled"])
 	}
 	for _, row := range members {
 		var conditions store.DirectAssociationConditions
@@ -91,7 +91,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		row["protocolOrder"] = order
 		effective := true
 		for _, key := range []string{"channelEnabled", "modelEnabled", "credentialEnabled", "grantEnabled", "groupEnabled", "routeEnabled"} {
-			row[key] = coerceBool(row[key])
+			row[key] = store.RowBool(row[key])
 			effective = effective && row[key].(bool)
 		}
 		selected := fmt.Sprint(row["mode"]) != "manual" || fmt.Sprint(row["activeItemId"]) == fmt.Sprint(row["id"])

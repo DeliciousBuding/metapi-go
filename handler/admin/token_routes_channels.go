@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -21,8 +22,8 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 
 	channelRows, err := queryRowsErr(h.db,
 		`SELECT rc.*, a.username, `+
-			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
-			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
+			store.CredentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
+			store.CredentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
 		        a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status,
 		        t.name as token_name, t.enabled as token_enabled, t.is_default as token_is_default

@@ -311,8 +311,8 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 	// plaintext access_token/api_token — the full secret never crosses the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak it. The masked
 	// form is rebuilt in Go by routeChannelAccountPublic().
-	accessTokenFrags := credentialFragmentsSelect(h.db, "a.access_token", "access_token")
-	apiTokenFrags := credentialFragmentsSelect(h.db, "a.api_token", "api_token")
+	accessTokenFrags := store.CredentialFragmentsSelect(h.db, "a.access_token", "access_token")
+	apiTokenFrags := store.CredentialFragmentsSelect(h.db, "a.api_token", "api_token")
 	channelQuery := `SELECT rc.*, a.username, ` + accessTokenFrags + `, ` + apiTokenFrags + `,
 		       a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status
@@ -938,7 +938,7 @@ func execInsertID(db *sqlx.DB, query string, args ...any) (int64, error) {
 
 // routeChannelAccountPublic returns account fields for admin route channel lists
 // without plaintext credentials. The masked form is rebuilt from the
-// prefix/suffix/length fragments selected by credentialFragmentsSelect() —
+// prefix/suffix/length fragments selected by store.CredentialFragmentsSelect() —
 // the plaintext access_token/api_token are never pulled from the DB.
 func routeChannelAccountPublic(ch map[string]any) map[string]any {
 	out := map[string]any{
@@ -969,7 +969,7 @@ func routeChannelTokenPublic(ch map[string]any) map[string]any {
 		"id":        tokenID,
 		"name":      ch["tokenName"],
 		"accountId": ch["accountId"],
-		"enabled":   coerceBool(ch["tokenEnabled"]),
-		"isDefault": coerceBool(ch["tokenIsDefault"]),
+		"enabled":   store.RowBool(ch["tokenEnabled"]),
+		"isDefault": store.RowBool(ch["tokenIsDefault"]),
 	}
 }

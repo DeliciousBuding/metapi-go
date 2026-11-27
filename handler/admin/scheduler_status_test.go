@@ -21,7 +21,7 @@ func setupSchedulerStatusTest(t *testing.T) (*store.DB, chi.Router) {
 		t.Fatalf("migrate sqlite: %v", err)
 	}
 	r := chi.NewRouter()
-	RegisterSchedulerStatusRoutes(r, db.DB)
+	RegisterSchedulerStatusRoutes(r, db)
 	return db, r
 }
 

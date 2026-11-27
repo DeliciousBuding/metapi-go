@@ -11,32 +11,40 @@ import (
 
 // ---- I1: accounts/sites tag system ----
 
-func setupTagsTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
+func setupTagsTest(t *testing.T, db *store.DB) (chi.Router, int64, int64) {
 	t.Helper()
-	db, _ := setupStatsSQLiteTest(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+	siteID, err := execInsertID(db.DB, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, ?)`, "TagSite", "https://tags.example.test", "openai", now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	siteID, _ := res.LastInsertId()
 
-	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
+	accountID, err := execInsertID(db.DB, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "tag-user", "sess", "sk-tag", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
-	accountID, _ := res.LastInsertId()
 
 	r := chi.NewRouter()
-	RegisterTagsRoutes(r, db.DB)
-	return db, r, siteID, accountID
+	RegisterTagsRoutes(r, db)
+	return r, siteID, accountID
 }
 
 func TestTags_UpdateAndAggregate(t *testing.T) {
-	db, r, siteID, accountID := setupTagsTest(t)
+	db, _ := setupStatsSQLiteTest(t)
+	testTagUsage(t, db)
+}
+
+func TestTagUsagePostgres(t *testing.T) {
+	db, _ := setupSitesPostgresTest(t)
+	testTagUsage(t, db)
+}
+
+func testTagUsage(t *testing.T, db *store.DB) {
+	t.Helper()
+	r, siteID, accountID := setupTagsTest(t, db)
 
 	// Empty tag list is accepted and stores empty.
 	resp := doPutJSON(t, r, "/api/accounts/"+itoa(accountID)+"/tags", map[string]any{"tags": []string{}})
@@ -118,7 +126,8 @@ func TestTags_UpdateAndAggregate(t *testing.T) {
 }
 
 func TestTags_Validation(t *testing.T) {
-	_, r, siteID, accountID := setupTagsTest(t)
+	db, _ := setupStatsSQLiteTest(t)
+	r, siteID, accountID := setupTagsTest(t, db)
 
 	// Missing body / wrong shape.
 	resp := doPutJSON(t, r, "/api/accounts/"+itoa(accountID)+"/tags", map[string]any{"nope": 1})

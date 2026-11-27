@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-
-	"github.com/deliciousbuding/metapi-go/routing"
 )
 
 // ---- Model Rate Overview ----
@@ -159,7 +159,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 			"username":     coerceString(row["username"]),
 			"modelName":    coerceString(row["modelName"]),
 			"weight":       coerceFloat(row["weight"]),
-			"enabled":      coerceBool(row["enabled"]),
+			"enabled":      store.RowBool(row["enabled"]),
 		})
 	}
 

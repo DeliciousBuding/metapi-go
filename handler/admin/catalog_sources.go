@@ -10,7 +10,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // ---- Model Catalog Data Sources ----
@@ -22,8 +21,8 @@ import (
 // live under /api/models/catalog-sync; CRUD under /api/models/catalog-sources.
 
 // RegisterCatalogSourceRoutes mounts the catalog registry + sync endpoints.
-func RegisterCatalogSourceRoutes(r chi.Router, db *sqlx.DB) {
-	h := &catalogSourceHandler{db: db}
+func RegisterCatalogSourceRoutes(r chi.Router, sources *catalogsync.Store) {
+	h := &catalogSourceHandler{sources: sources}
 	r.Get("/api/models/catalog-sources", h.list)
 	r.Post("/api/models/catalog-sources", h.create)
 	r.Put("/api/models/catalog-sources/{id}", h.update)
@@ -34,21 +33,12 @@ func RegisterCatalogSourceRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type catalogSourceHandler struct {
-	db *sqlx.DB
-}
-
-// Data-source CRUD uses the store even when the runtime catalog is off.
-func (h *catalogSourceHandler) manager() *catalogsync.Manager {
-	return app.CatalogManager()
-}
-
-func (h *catalogSourceHandler) store() *catalogsync.Store {
-	return catalogsync.NewStore(h.db)
+	sources *catalogsync.Store
 }
 
 // GET /api/models/catalog-sources
 func (h *catalogSourceHandler) list(w http.ResponseWriter, r *http.Request) {
-	sources, err := h.store().ListSources(r.Context())
+	sources, err := h.sources.ListSources(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list catalog sources")
 		return
@@ -63,12 +53,12 @@ func (h *catalogSourceHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
-	source, err := h.store().CreateSource(r.Context(), body)
+	source, err := h.sources.CreateSource(r.Context(), body)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return
 	}
-	if manager := h.manager(); manager != nil {
+	if manager := app.CatalogManager(); manager != nil {
 		if err := manager.ReloadSources(r.Context()); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to reload catalog sources")
 			return
@@ -89,7 +79,7 @@ func (h *catalogSourceHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
-	source, err := h.store().UpdateSource(r.Context(), id, body)
+	source, err := h.sources.UpdateSource(r.Context(), id, body)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"message": "source not found"})
@@ -98,7 +88,7 @@ func (h *catalogSourceHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return
 	}
-	if manager := h.manager(); manager != nil {
+	if manager := app.CatalogManager(); manager != nil {
 		if err := manager.ReloadSources(r.Context()); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to reload catalog sources")
 			return
@@ -114,7 +104,7 @@ func (h *catalogSourceHandler) remove(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid source id"})
 		return
 	}
-	if err := h.store().DeleteSource(r.Context(), id); err != nil {
+	if err := h.sources.DeleteSource(r.Context(), id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"message": "source not found"})
 			return
@@ -122,7 +112,7 @@ func (h *catalogSourceHandler) remove(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete catalog source")
 		return
 	}
-	if manager := h.manager(); manager != nil {
+	if manager := app.CatalogManager(); manager != nil {
 		if err := manager.ReloadSources(r.Context()); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to reload catalog sources")
 			return
@@ -133,7 +123,7 @@ func (h *catalogSourceHandler) remove(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/models/catalog-sync — body {sourceId?: number} (omitted = all)
 func (h *catalogSourceHandler) sync(w http.ResponseWriter, r *http.Request) {
-	manager := h.manager()
+	manager := app.CatalogManager()
 	if manager == nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"message": "pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)"})
 		return
@@ -169,14 +159,14 @@ func (h *catalogSourceHandler) sync(w http.ResponseWriter, r *http.Request) {
 // GET /api/models/catalog-sync — status (auto-sync toggle, snapshot meta,
 // per-source last sync time / count / error).
 func (h *catalogSourceHandler) status(w http.ResponseWriter, r *http.Request) {
-	manager := h.manager()
+	manager := app.CatalogManager()
 	if manager == nil {
 		cfg := config.GetSafe()
 		if cfg == nil || cfg.PricingCatalogEnabled {
 			writeError(w, http.StatusServiceUnavailable, "pricing catalog runtime is unavailable")
 			return
 		}
-		sources, err := h.store().ListSources(r.Context())
+		sources, err := h.sources.ListSources(r.Context())
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to read catalog sources")
 			return
@@ -194,7 +184,7 @@ func (h *catalogSourceHandler) status(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/models/catalog-sync/config — body {autoSync: bool}
 func (h *catalogSourceHandler) updateConfig(w http.ResponseWriter, r *http.Request) {
-	manager := h.manager()
+	manager := app.CatalogManager()
 	if manager == nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"message": "pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)"})
 		return

@@ -16,6 +16,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/proxy"
 	userhandler "github.com/deliciousbuding/metapi-go/handler/user"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -163,23 +164,23 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterNotifyRoutes(r)
 			admin.RegisterMaintenanceRoutes(r, db.DB)
 			admin.RegisterDownstreamKeysRoutes(r, db.DB)
-			admin.RegisterEventsRoutes(r, db.DB)
+			admin.RegisterEventsRoutes(r, db)
 			admin.RegisterSearchRoutes(r, db.DB)
 			admin.RegisterTasksRoutes(r, db.DB)
 			// I1: accounts/sites global tag system.
-			admin.RegisterTagsRoutes(r, db.DB)
+			admin.RegisterTagsRoutes(r, db)
 			// H1: product risk banners.
-			admin.RegisterAnnouncementsRoutes(r, db.DB)
+			admin.RegisterAnnouncementsRoutes(r, db)
 			// K1a: model name redirects.
 			admin.RegisterModelRedirectRoutes(r, db.DB)
 			// Read-only multiplier/rate overview.
 			admin.RegisterModelRatesRoutes(r, db.DB)
 			// Model-catalog data source registry + manual/auto sync control.
-			admin.RegisterCatalogSourceRoutes(r, db.DB)
+			admin.RegisterCatalogSourceRoutes(r, catalogsync.NewStore(db.DB))
 			// B1: admin write-operation audit log.
 			admin.RegisterAuditLogsRoutes(r, db.DB)
 			// C1: unified recurring-scheduler run history.
-			admin.RegisterSchedulerStatusRoutes(r, db.DB)
+			admin.RegisterSchedulerStatusRoutes(r, db)
 			admin.RegisterTestRoutes(r, db.DB, cfg)
 			admin.RegisterSiteAnnouncementsRoutes(r, db.DB)
 			admin.RegisterAuthSettingsRoutes(r, db.DB, sessions)
@@ -191,7 +192,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterOauthRoutes(r, db.DB)
 			// Resin (#678): observability status endpoint for the
 			// sticky-proxy-pool integration. Read-only surface.
-			admin.RegisterResinRoutes(r, db.DB, cfg)
+			admin.RegisterResinRoutes(r, db, cfg)
 		} else {
 			slog.Warn("router: database not initialized, P3 routes skipped")
 		}

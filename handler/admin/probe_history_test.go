@@ -9,7 +9,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // setupProbeHistoryHarness wires the two probe-history endpoints onto a fresh
@@ -243,7 +242,7 @@ func TestProbeHistory_LimitClamping(t *testing.T) {
 	}
 }
 
-// Compile-time guard: queryProbeHistory must reject unknown entity columns
+// RecentProbeHistory must reject unknown entity columns
 // instead of interpolating them into SQL.
 func TestProbeHistory_RejectsUnknownEntityColumn(t *testing.T) {
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
@@ -252,8 +251,7 @@ func TestProbeHistory_RejectsUnknownEntityColumn(t *testing.T) {
 	}
 	defer db.Close()
 
-	var sqlxDB *sqlx.DB = db.DB
-	if _, err := queryProbeHistory(sqlxDB, "account_id; DROP TABLE accounts", 5); err == nil {
+	if _, err := store.RecentProbeHistory(db.DB, "account_id; DROP TABLE accounts", 5); err == nil {
 		t.Fatal("expected error for unsupported entity column")
 	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +47,7 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 	items := normalizeSlice(rows)
 	for _, item := range items {
 		if item["isStream"] != nil {
-			item["isStream"] = coerceBool(item["isStream"])
+			item["isStream"] = store.RowBool(item["isStream"])
 		}
 		item["createdAt"] = coerceString(item["createdAt"])
 	}
