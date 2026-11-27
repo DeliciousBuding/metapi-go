@@ -6,435 +6,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
-	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
-
-// AccountCredentialMode is the credential mode for an account.
-type AccountCredentialMode string
-
-const (
-	CredentialModeAuto    AccountCredentialMode = "auto"
-	CredentialModeSession AccountCredentialMode = "session"
-	CredentialModeAPIKey  AccountCredentialMode = "apikey"
-)
-
-// AccountCapabilities describes what an account can do.
-type AccountCapabilities struct {
-	CanCheckin        bool `json:"canCheckin"`
-	CanRefreshBalance bool `json:"canRefreshBalance"`
-	ProxyOnly         bool `json:"proxyOnly"`
-}
-
-// ---- Credential mode resolution ----
-
-// GetCredentialModeFromExtraConfig reads credentialMode from extraConfig JSON.
-func GetCredentialModeFromExtraConfig(extraConfig *string) AccountCredentialMode {
-	config := ParseExtraConfig(extraConfig)
-	if config == nil {
-		return ""
-	}
-	if mode, ok := config["credentialMode"].(string); ok {
-		normalized := NormalizeCredentialMode(mode)
-		if normalized != "" {
-			return normalized
-		}
-	}
-	return ""
-}
-
-// NormalizeCredentialMode normalizes a credential mode string.
-func NormalizeCredentialMode(input string) AccountCredentialMode {
-	normalized := AccountCredentialMode(strings.TrimSpace(strings.ToLower(input)))
-	switch normalized {
-	case CredentialModeAuto, CredentialModeSession, CredentialModeAPIKey:
-		return normalized
-	}
-	return ""
-}
-
-// ResolveStoredCredentialMode resolves the effective credential mode from storage.
-// 1. Read extraConfig.credentialMode; if explicit and != "auto", return it
-// 2. Treat legacy mirrored accessToken/apiToken rows as "apikey"
-// 3. If accessToken is non-empty, return "session"
-// 4. Otherwise return "apikey"
-func ResolveStoredCredentialMode(account *store.Account) AccountCredentialMode {
-	fromConfig := GetCredentialModeFromExtraConfig(account.ExtraConfig)
-	if fromConfig != "" && fromConfig != CredentialModeAuto {
-		return fromConfig
-	}
-	if hasMirroredAPIKeyToken(account) {
-		return CredentialModeAPIKey
-	}
-	if strings.TrimSpace(account.AccessToken) != "" {
-		return CredentialModeSession
-	}
-	return CredentialModeAPIKey
-}
-
-// ResolveRequestedCredentialMode resolves the requested credential mode from input.
-func ResolveRequestedCredentialMode(input *string) AccountCredentialMode {
-	if input == nil {
-		return CredentialModeAuto
-	}
-	mode := NormalizeCredentialMode(*input)
-	if mode == "" {
-		return CredentialModeAuto
-	}
-	return mode
-}
-
-// HasSessionToken checks whether the account has a valid session token value.
-func HasSessionToken(accessToken string) bool {
-	return strings.TrimSpace(accessToken) != ""
-}
-
-// IsAPIKeyConnection checks if an account is an API key connection.
-func IsAPIKeyConnection(account *store.Account) bool {
-	explicit := GetCredentialModeFromExtraConfig(account.ExtraConfig)
-	if explicit != "" && explicit != CredentialModeAuto {
-		return explicit == CredentialModeAPIKey
-	}
-	return hasMirroredAPIKeyToken(account) || strings.TrimSpace(account.AccessToken) == ""
-}
-
-func hasMirroredAPIKeyToken(account *store.Account) bool {
-	if account == nil || account.APIToken == nil {
-		return false
-	}
-	accessToken := strings.TrimSpace(account.AccessToken)
-	apiToken := strings.TrimSpace(*account.APIToken)
-	return accessToken != "" && apiToken != "" && accessToken == apiToken
-}
-
-// BuildCapabilitiesForAccount returns the capabilities for an account.
-func BuildCapabilitiesForAccount(account *store.Account) AccountCapabilities {
-	mode := ResolveStoredCredentialMode(account)
-	hasToken := HasSessionToken(account.AccessToken)
-	return BuildCapabilitiesFromCredentialMode(mode, hasToken)
-}
-
-// BuildCapabilitiesFromCredentialMode returns capabilities from credential mode.
-func BuildCapabilitiesFromCredentialMode(mode AccountCredentialMode, hasSessionToken bool) AccountCapabilities {
-	sessionCapable := false
-	switch mode {
-	case CredentialModeSession:
-		sessionCapable = hasSessionToken
-	case CredentialModeAPIKey:
-		sessionCapable = false
-	default: // auto
-		sessionCapable = hasSessionToken
-	}
-	return AccountCapabilities{
-		CanCheckin:        sessionCapable,
-		CanRefreshBalance: sessionCapable,
-		ProxyOnly:         !sessionCapable,
-	}
-}
-
-// ---- AES Password Encryption (delegates to account_credential.go) ----
-
-// EncryptPassword encrypts a password for storage in extraConfig.autoRelogin.passwordCipher.
-func EncryptPassword(cfg *config.Config, password string) (string, error) {
-	return EncryptAccountPassword(cfg, password)
-}
-
-// DecryptPassword decrypts a password from extraConfig.
-func DecryptPassword(cfg *config.Config, cipherText string) string {
-	return DecryptAccountPassword(cfg, cipherText)
-}
-
-// ---- ExtraConfig helpers ----
-
-// MergeExtraConfig merges a patch into an existing extraConfig JSON string.
-// A nil patch value (untyped nil) deletes the key; callers must not pass a
-// typed nil pointer, which would marshal to JSON null instead of deleting.
-func MergeExtraConfig(existing *string, patch map[string]any) *string {
-	base := ParseExtraConfig(existing)
-	if base == nil {
-		base = make(map[string]any)
-	}
-	for k, v := range patch {
-		if v == nil {
-			delete(base, k)
-		} else {
-			base[k] = v
-		}
-	}
-	return MarshalExtraConfig(base)
-}
-
-// GetProxyURLFromExtraConfig reads proxyUrl from extraConfig.
-func GetProxyURLFromExtraConfig(extraConfig *string) string {
-	config := ParseExtraConfig(extraConfig)
-	if config == nil {
-		return ""
-	}
-	if url, ok := config["proxyUrl"].(string); ok {
-		return url
-	}
-	return ""
-}
-
-// GetUseSystemProxyFromExtraConfig reads useSystemProxy from extraConfig.
-func GetUseSystemProxyFromExtraConfig(extraConfig *string) bool {
-	config := ParseExtraConfig(extraConfig)
-	if config == nil {
-		return false
-	}
-	if enabled, ok := config["useSystemProxy"].(bool); ok {
-		return enabled
-	}
-	return false
-}
-
-// UTLSEnabled resolves whether uTLS TLS fingerprint masking is active for a
-// site. Per-site UseUTLS overrides the global UTLS_ENABLED flag:
-//   - site.UseUTLS != nil → explicit per-site decision (true/false)
-//   - site.UseUTLS == nil → fall back to cfg.UTLSEnabled (global default)
-//
-// Mirrors the ResinEnabled resolution pattern so operators can globally opt in
-// via UTLS_ENABLED=true and selectively disable specific sites with use_utls=false.
-func UTLSEnabled(cfg *config.Config, site *store.Site) bool {
-	if site != nil && site.UseUTLS != nil {
-		return *site.UseUTLS
-	}
-	return cfg != nil && cfg.UTLSEnabled
-}
-
-// BuildPlatformProxyConfig resolves account and site proxy settings for platform calls.
-//
-// Precedence (highest to lowest):
-//  1. key proxy (applied separately via proxy.ApplyKeyProxyOverride)
-//  2. account extraConfig.proxyUrl (explicit per-account proxy)
-//  3. site.ProxyURL (explicit per-site proxy)
-//  4. Resin sticky forward proxy (when RESIN_ENABLED and identity available)
-//  5. system proxy (account extraConfig.useSystemProxy or site.UseSystemProxy)
-//  6. direct (no proxy)
-//
-// The Resin tier sits between explicit proxy URLs and the generic system-proxy
-// opt-in so an operator who sets a per-account/per-site proxy still wins, but
-// Resin takes priority over the shared SYSTEM_PROXY_URL. Resin requires a
-// business identity: acc-{account.ID} when the account row exists. For
-// pre-account flows (verify/login/create) with no account row yet, use
-// BuildPlatformProxyConfigForToken which derives a deterministic temp identity.
-func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *store.Site) *platform.ProxyConfig {
-	if account == nil && site == nil {
-		return nil
-	}
-
-	proxyCfg := &platform.ProxyConfig{}
-	if site != nil {
-		// wire site opt-in so ApplyCustomHeaders can force site-wins.
-		proxyCfg.CustomHeadersOverrideRequest = site.CustomHeadersOverrideRequestHeaders
-		if site.CustomHeaders != nil && strings.TrimSpace(*site.CustomHeaders) != "" {
-			var headers map[string]string
-			if err := json.Unmarshal([]byte(*site.CustomHeaders), &headers); err == nil && len(headers) > 0 {
-				proxyCfg.CustomHeaders = filterPlatformCustomHeaders(headers)
-			}
-		}
-		if site.CfClearance != nil {
-			proxyCfg.ClearanceCookie = strings.TrimSpace(*site.CfClearance)
-		}
-		if site.BrowserUA != nil {
-			proxyCfg.BrowserUA = strings.TrimSpace(*site.BrowserUA)
-		}
-	}
-
-	// Resolve uTLS from site-level override or global UTLS_ENABLED flag. This
-	// is independent of the proxy-precedence chain below — uTLS masking applies
-	// regardless of whether a proxy URL is configured.
-	proxyCfg.UseUTLS = UTLSEnabled(cfg, site)
-
-	// 2. account explicit proxyUrl
-	if account != nil {
-		if accountProxyURL := strings.TrimSpace(GetProxyURLFromExtraConfig(account.ExtraConfig)); accountProxyURL != "" {
-			proxyCfg.ProxyURL = accountProxyURL
-			return normalizePlatformProxyConfig(proxyCfg)
-		}
-	}
-
-	// 3. site explicit ProxyURL
-	if site != nil {
-		if site.ProxyURL != nil && strings.TrimSpace(*site.ProxyURL) != "" {
-			proxyCfg.ProxyURL = strings.TrimSpace(*site.ProxyURL)
-			return normalizePlatformProxyConfig(proxyCfg)
-		}
-	}
-
-	// 4. Resin sticky forward proxy (only when no higher-precedence proxy set).
-	//    Requires a business identity: acc-{account.ID} when account exists.
-	if ResinEnabled(cfg, site) {
-		platformName := ResolveResinPlatform(cfg, site)
-		accountIdentity := AccountFor(account, site)
-		if platformName != "" && accountIdentity != "" {
-			if resinURL, ok := ForwardProxyURL(cfg, platformName, accountIdentity); ok {
-				proxyCfg.ProxyURL = resinURL
-				proxyCfg.ResinAccount = accountIdentity
-				TouchResinLease(accountIdentity)
-				return normalizePlatformProxyConfig(proxyCfg)
-			}
-		}
-	}
-
-	// 5. system proxy fallback (account opt-in, then site opt-in). The
-	// runtime snapshot is read once so one request can never observe two
-	// different system-proxy values mid-decision.
-	systemProxy := ""
-	if rt := config.RuntimeSafe(); rt != nil {
-		systemProxy = strings.TrimSpace(rt.SystemProxyUrl)
-	}
-	if account != nil {
-		if GetUseSystemProxyFromExtraConfig(account.ExtraConfig) && systemProxy != "" {
-			proxyCfg.ProxyURL = systemProxy
-			proxyCfg.UseSystemProxy = true
-			return normalizePlatformProxyConfig(proxyCfg)
-		}
-	}
-
-	if site != nil {
-		if site.UseSystemProxy && systemProxy != "" {
-			proxyCfg.ProxyURL = systemProxy
-			proxyCfg.UseSystemProxy = true
-			return normalizePlatformProxyConfig(proxyCfg)
-		}
-	}
-
-	return normalizePlatformProxyConfig(proxyCfg)
-}
-
-// BuildPlatformProxyConfigForToken is the pre-account variant of
-// BuildPlatformProxyConfig for verify-token / login / create flows where no
-// Account row exists yet. It derives a deterministic temp Resin identity from
-// (siteID, rawToken) so all pre-account requests for the same token share an
-// egress IP. Nothing carries that assignment over to the stable acc-{id}
-// identity used once the Account row exists: the forward-proxy cache and the
-// lease tracker are both keyed by identity, and the tracker is
-// observability-only — resin.go is explicit that there is no TCP lease to
-// release, so there is nothing to hand over.
-//
-// Precedence matches BuildPlatformProxyConfig with the temp identity filling
-// the resin slot: site.ProxyURL > resin(temp) > system > direct.
-func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawToken string) *platform.ProxyConfig {
-	// When the site has an explicit ProxyURL, that beats resin — delegate
-	// entirely so headers/cookies/UA are assembled by the shared path.
-	if site != nil && site.ProxyURL != nil && strings.TrimSpace(*site.ProxyURL) != "" {
-		return BuildPlatformProxyConfig(cfg, nil, site)
-	}
-
-	// No explicit site.ProxyURL: assemble the base config (headers, cookies,
-	// UA, and possibly the system proxy via site.UseSystemProxy).
-	proxyCfg := BuildPlatformProxyConfig(cfg, nil, site)
-	if proxyCfg == nil {
-		proxyCfg = &platform.ProxyConfig{}
-	}
-
-	if !ResinEnabled(cfg, site) || site == nil {
-		return normalizePlatformProxyConfig(proxyCfg)
-	}
-
-	platformName := ResolveResinPlatform(cfg, site)
-	tempIdentity := TempAccountFor(site.ID, rawToken)
-	if platformName == "" || tempIdentity == "" {
-		return normalizePlatformProxyConfig(proxyCfg)
-	}
-	resinURL, ok := ForwardProxyURL(cfg, platformName, tempIdentity)
-	if !ok {
-		return normalizePlatformProxyConfig(proxyCfg)
-	}
-	// Resin wins over the system proxy per precedence, so override whatever
-	// ProxyURL the inner call set (or fill the empty direct case).
-	proxyCfg.ProxyURL = resinURL
-	proxyCfg.UseSystemProxy = false
-	proxyCfg.ResinAccount = tempIdentity
-	TouchResinLease(tempIdentity)
-	return normalizePlatformProxyConfig(proxyCfg)
-}
-
-// BuildPlatformProxyConfigForTokenWithProxyURL is the pre-account proxy
-// builder for unsaved account-form values. A non-empty request override must
-// win over the saved site proxy, Resin, and system proxy for the verification
-// or create request; empty input keeps the normal site-level precedence.
-func BuildPlatformProxyConfigForTokenWithProxyURL(cfg *config.Config, site *store.Site, rawToken, proxyURL string) *platform.ProxyConfig {
-	proxyURL = strings.TrimSpace(proxyURL)
-	if proxyURL == "" {
-		return BuildPlatformProxyConfigForToken(cfg, site, rawToken)
-	}
-
-	// Build the site-derived headers/UA/cookie/uTLS settings without resolving
-	// Resin or the saved site proxy, then apply the explicit unsaved override.
-	proxyCfg := BuildPlatformProxyConfig(cfg, nil, site)
-	if proxyCfg == nil {
-		proxyCfg = &platform.ProxyConfig{}
-	}
-	proxyCfg.ProxyURL = proxyURL
-	proxyCfg.UseSystemProxy = false
-	proxyCfg.ResinAccount = ""
-	return normalizePlatformProxyConfig(proxyCfg)
-}
-
-func normalizePlatformProxyConfig(proxyCfg *platform.ProxyConfig) *platform.ProxyConfig {
-	if proxyCfg == nil {
-		return nil
-	}
-	if proxyCfg.ProxyURL == "" && !proxyCfg.UseSystemProxy && len(proxyCfg.CustomHeaders) == 0 && !proxyCfg.InsecureSkipTLS &&
-		proxyCfg.ClearanceCookie == "" && proxyCfg.BrowserUA == "" && !proxyCfg.UseUTLS {
-		return nil
-	}
-	return proxyCfg
-}
-
-func filterPlatformCustomHeaders(headers map[string]string) map[string]string {
-	if len(headers) == 0 {
-		return nil
-	}
-	filtered := make(map[string]string, len(headers))
-	for k, v := range headers {
-		if isReservedPlatformCustomHeader(k) {
-			continue
-		}
-		filtered[k] = v
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	return filtered
-}
-
-// isReservedPlatformCustomHeader is the assembly-side filter for site
-// custom_headers: what a site may not inject into the platform proxy config.
-// It is deliberately narrower than platform.IsDeniedCustomHeader (it also
-// reserves content-type and new-api-user, which the data plane owns) but the
-// security-critical set must stay in step with it — see
-// TestReservedPlatformCustomHeadersStayInStepWithPlatformDenyList.
-func isReservedPlatformCustomHeader(name string) bool {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	// accept-encoding decides whether the response body stays readable for
-	// usage accounting, content-failure judgement and health checks, so it is
-	// not site-configurable (same rule as platform.IsDeniedCustomHeader).
-	case "authorization", "cookie", "new-api-user", "content-type", "content-length", "host", "accept-encoding":
-		return true
-	default:
-		return false
-	}
-}
-
-// ResolvePlatformUserID resolves the platform user ID from extraConfig or username.
-func ResolvePlatformUserID(extraConfig *string, username *string) int64 {
-	config := ParseExtraConfig(extraConfig)
-	if config != nil {
-		if id, ok := config["platformUserId"].(float64); ok {
-			return int64(id)
-		}
-	}
-	return 0
-}
-
-// ---- Account CRUD helpers ----
 
 // GetAccountByID fetches an account by its ID.
 func GetAccountByID(db *sqlx.DB, id int64) (*store.Account, error) {
@@ -446,13 +21,12 @@ func GetAccountByID(db *sqlx.DB, id int64) (*store.Account, error) {
 	return &account, nil
 }
 
-// GetAccountWithSite joins account with site.
+// AccountWithSite holds the account and site columns selected by the join.
 type AccountWithSite struct {
 	Account store.Account `db:"accounts"`
 	Site    store.Site    `db:"sites"`
 }
 
-// GetAccountWithSiteByID fetches an account with its site.
 // accountQueryExecer is the minimal executor surface shared by *sqlx.DB and
 // *sqlx.Tx, sufficient for the account read/write helpers below.
 type accountQueryExecer interface {
@@ -503,72 +77,11 @@ func getAccountWithSiteBy(q accountQueryExecer, id int64, forUpdate bool) (*Acco
 		query += " FOR UPDATE OF a"
 	}
 
-	var row struct {
-		Accounts struct {
-			ID                 int64    `db:"id"`
-			SiteID             int64    `db:"site_id"`
-			Username           *string  `db:"username"`
-			AccessToken        string   `db:"access_token"`
-			APIToken           *string  `db:"api_token"`
-			Balance            *float64 `db:"balance"`
-			BalanceUsed        *float64 `db:"balance_used"`
-			Quota              *float64 `db:"quota"`
-			UnitCost           *float64 `db:"unit_cost"`
-			ValueScore         *float64 `db:"value_score"`
-			Status             string   `db:"status"`
-			IsPinned           bool     `db:"is_pinned"`
-			SortOrder          int64    `db:"sort_order"`
-			CheckinEnabled     bool     `db:"checkin_enabled"`
-			LastCheckinAt      *string  `db:"last_checkin_at"`
-			LastBalanceRefresh *string  `db:"last_balance_refresh"`
-			OAuthProvider      *string  `db:"oauth_provider"`
-			OAuthAccountKey    *string  `db:"oauth_account_key"`
-			OAuthProjectID     *string  `db:"oauth_project_id"`
-			ExtraConfig        *string  `db:"extra_config"`
-			CreatedAt          string   `db:"created_at"`
-			UpdatedAt          string   `db:"updated_at"`
-			Remark             *string  `db:"remark"`
-		} `db:"accounts"`
-		Sites struct {
-			ID                                  int64   `db:"id"`
-			Name                                string  `db:"name"`
-			URL                                 string  `db:"url"`
-			Platform                            string  `db:"platform"`
-			ProxyURL                            *string `db:"proxy_url"`
-			UseSystemProxy                      bool    `db:"use_system_proxy"`
-			CustomHeaders                       *string `db:"custom_headers"`
-			CustomHeadersOverrideRequestHeaders bool    `db:"custom_headers_override_request_headers"`
-			Status                              string  `db:"status"`
-		} `db:"sites"`
-	}
-
+	var row AccountWithSite
 	if err := q.Get(&row, q.Rebind(query), id); err != nil {
 		return nil, err
 	}
-	return &AccountWithSite{
-		Account: store.Account{
-			ID: row.Accounts.ID, SiteID: row.Accounts.SiteID,
-			Username: row.Accounts.Username, AccessToken: row.Accounts.AccessToken,
-			APIToken: row.Accounts.APIToken, Balance: row.Accounts.Balance,
-			BalanceUsed: row.Accounts.BalanceUsed, Quota: row.Accounts.Quota,
-			UnitCost: row.Accounts.UnitCost, ValueScore: row.Accounts.ValueScore,
-			Status: row.Accounts.Status, IsPinned: row.Accounts.IsPinned,
-			SortOrder: row.Accounts.SortOrder, CheckinEnabled: row.Accounts.CheckinEnabled,
-			LastCheckinAt: row.Accounts.LastCheckinAt, LastBalanceRefresh: row.Accounts.LastBalanceRefresh,
-			OAuthProvider: row.Accounts.OAuthProvider, OAuthAccountKey: row.Accounts.OAuthAccountKey,
-			OAuthProjectID: row.Accounts.OAuthProjectID, ExtraConfig: row.Accounts.ExtraConfig,
-			CreatedAt: row.Accounts.CreatedAt, UpdatedAt: row.Accounts.UpdatedAt,
-			Remark: row.Accounts.Remark,
-		},
-		Site: store.Site{
-			ID: row.Sites.ID, Name: row.Sites.Name,
-			URL: row.Sites.URL, Platform: row.Sites.Platform,
-			ProxyURL: row.Sites.ProxyURL, UseSystemProxy: row.Sites.UseSystemProxy,
-			CustomHeaders:                       row.Sites.CustomHeaders,
-			CustomHeadersOverrideRequestHeaders: row.Sites.CustomHeadersOverrideRequestHeaders,
-			Status:                              row.Sites.Status,
-		},
-	}, nil
+	return &row, nil
 }
 
 // DeleteAccount deletes an account by ID.
@@ -624,7 +137,6 @@ func InsertAccount(db *sqlx.DB, account map[string]any) (int64, error) {
 	return id, nil
 }
 
-// UpdateAccountFields updates specific fields on an account.
 // UpdateAccountFields writes a set of account columns in one UPDATE.
 func UpdateAccountFields(db *sqlx.DB, accountID int64, updates map[string]any) error {
 	return updateAccountFieldsOn(db, accountID, updates)
@@ -700,21 +212,7 @@ func ListAccountsWithSites(db *sqlx.DB) ([]map[string]any, error) {
 	}
 	defer rows.Close()
 
-	var result []map[string]any
-	var scanErr error
-	for rows.Next() {
-		row := make(map[string]any)
-		if err := rows.MapScan(row); err != nil {
-			if scanErr == nil {
-				scanErr = err
-			}
-			continue
-		}
-		normalizeMapScanValues(row)
-		account := mapKeysToCamel(row)
-		result = append(result, enrichAccountOverviewRow(account))
-	}
-	return result, scanErr
+	return scanAccountOverviewRows(rows)
 }
 
 // AccountListFilter narrows the paginated accounts list server-side so the
@@ -754,6 +252,17 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int, filter Accou
 	}
 	defer rows.Close()
 
+	result, scanErr := scanAccountOverviewRows(rows)
+
+	var total int64
+	if err := db.Get(&total, db.Rebind(
+		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`+where), args...); err != nil {
+		return result, 0, err
+	}
+	return result, total, scanErr
+}
+
+func scanAccountOverviewRows(rows *sqlx.Rows) ([]map[string]any, error) {
 	var result []map[string]any
 	var scanErr error
 	for rows.Next() {
@@ -768,13 +277,7 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int, filter Accou
 		account := mapKeysToCamel(row)
 		result = append(result, enrichAccountOverviewRow(account))
 	}
-
-	var total int64
-	if err := db.Get(&total, db.Rebind(
-		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`+where), args...); err != nil {
-		return result, 0, err
-	}
-	return result, total, scanErr
+	return result, scanErr
 }
 
 // buildAccountListFilter assembles the WHERE clause + args for the account
@@ -842,7 +345,7 @@ func enrichAccountOverviewRow(account map[string]any) map[string]any {
 		OAuthProvider: oauthProvider,
 	}
 	credentialMode := ResolveStoredCredentialMode(acct)
-	capabilities := BuildCapabilitiesForAccount(acct)
+	capabilities := BuildCapabilitiesFromCredentialMode(credentialMode, HasSessionToken(accessToken))
 	sessionCapable := capabilities.CanRefreshBalance
 
 	account["credentialMode"] = string(credentialMode)
@@ -871,215 +374,6 @@ func enrichAccountOverviewRow(account map[string]any) map[string]any {
 	// plaintext secrets never leave the process on a read or a write response.
 	RedactAccountSecrets(account)
 	return account
-}
-
-// RedactAccountSecrets removes plaintext credentials from an admin account
-// response map, setting accessTokenMasked / apiTokenMasked when a value was
-// present, and stripping every credential-shaped field from nested config.
-//
-// This is the single credential-policy SSOT for account surfaces. Both the
-// list/overview rows (buildAccountMap), search rows, and the write responses
-// (PUT /api/accounts/{id}, POST /api/accounts/{id}/rebind-session) answer
-// through it, so a no-op write can never harvest what the list surface
-// deliberately withholds. Revealing a secret stays an explicit, separately
-// routed act (GET /api/account-tokens/{id}/value, downstream-key export), and
-// the credential-provisioning responses that hand back a secret the caller did
-// not supply (password login, verify-token discovery) build their own maps.
-//
-// extraConfig carries credentials in several shapes: oauth.refreshToken /
-// idToken / sessionToken / accessToken, sub2apiAuth.refreshToken, and
-// autoRelogin.passwordCipher. Instead of enumerating today's field names, the
-// nested walker drops every key whose normalized name contains token, secret,
-// cipher, password, or apikey. Display metadata (oauth provider/email/plan,
-// tokenExpiresAt, account names, proxyUrl, ...) survives because numeric and
-// boolean values are kept. Masked projections are kept by their suffix.
-//
-// Values arrive either scanned from the DB (string / []byte / nil) or built by
-// a handler from a typed struct row (*string), so secretValue() normalizes both
-// instead of letting fmt.Sprint render a pointer address as the "secret".
-func RedactAccountSecrets(account map[string]any) {
-	if account == nil {
-		return
-	}
-	if v := secretValue(account["accessToken"]); v != "" {
-		account["accessTokenMasked"] = maskSecretTail(v)
-	}
-	delete(account, "accessToken")
-	if v := secretValue(account["apiToken"]); v != "" {
-		account["apiTokenMasked"] = maskSecretTail(v)
-	}
-	delete(account, "apiToken")
-	// DB scans may hand extraConfig back as []byte; normalize it so the
-	// nested walker can parse and redact the JSON object.
-	if raw, ok := account["extraConfig"].([]byte); ok {
-		account["extraConfig"] = string(raw)
-	}
-	redactNestedCredentials(account)
-}
-
-// redactNestedCredentials recursively strips credential-shaped fields from a
-// decoded response object. It reports whether anything was removed so a JSON
-// config string is only re-encoded when redaction actually changed it
-// (preserving the stored formatting otherwise).
-func redactNestedCredentials(m map[string]any) bool {
-	changed := false
-	for key, value := range m {
-		if isCredentialFieldName(key) && !isMetadataScalar(value) {
-			delete(m, key)
-			changed = true
-			continue
-		}
-		// extraConfig is persisted as a JSON string but typed rows answer with
-		// *string and DB scans may hand back []byte. Normalize all three and
-		// redact the nested credential keys in place, re-encoding only when
-		// something was removed (preserving the stored formatting otherwise).
-		if isExtraConfigFieldName(key) {
-			switch typed := value.(type) {
-			case string:
-				if redacted, ok := redactCredentialJSONString(typed); ok {
-					m[key] = redacted
-					changed = true
-				}
-				continue
-			case *string:
-				if typed != nil {
-					if redacted, ok := redactCredentialJSONString(*typed); ok {
-						m[key] = redacted
-						changed = true
-					}
-				}
-				continue
-			case []byte:
-				if redacted, ok := redactCredentialJSONString(string(typed)); ok {
-					m[key] = redacted
-					changed = true
-				}
-				continue
-			}
-		}
-		switch typed := value.(type) {
-		case map[string]any:
-			if redactNestedCredentials(typed) {
-				changed = true
-			}
-		case []any:
-			if redactNestedCredentialSlice(typed) {
-				changed = true
-			}
-		}
-	}
-	return changed
-}
-
-func redactNestedCredentialSlice(values []any) bool {
-	changed := false
-	for _, value := range values {
-		switch typed := value.(type) {
-		case map[string]any:
-			if redactNestedCredentials(typed) {
-				changed = true
-			}
-		case []any:
-			if redactNestedCredentialSlice(typed) {
-				changed = true
-			}
-		}
-	}
-	return changed
-}
-
-// redactCredentialJSONString redacts a JSON object/array string and returns the
-// re-encoded value plus true when at least one credential key was removed.
-func redactCredentialJSONString(raw string) (string, bool) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" || (trimmed[0] != '{' && trimmed[0] != '[') {
-		return raw, false
-	}
-	var decoded any
-	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
-		return raw, false
-	}
-	var changed bool
-	switch typed := decoded.(type) {
-	case map[string]any:
-		changed = redactNestedCredentials(typed)
-	case []any:
-		changed = redactNestedCredentialSlice(typed)
-	}
-	if !changed {
-		return raw, false
-	}
-	encoded, err := json.Marshal(decoded)
-	if err != nil {
-		return raw, false
-	}
-	return string(encoded), true
-}
-
-// isCredentialFieldName matches the status quo credential vocabulary across
-// snake_case and camelCase. Masked projections (accessTokenMasked) are not
-// credentials and must remain visible.
-func isCredentialFieldName(key string) bool {
-	normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(key))
-	if normalized == "" || strings.HasSuffix(normalized, "masked") {
-		return false
-	}
-	for _, fragment := range []string{"token", "secret", "cipher", "password", "apikey"} {
-		if strings.Contains(normalized, fragment) {
-			return true
-		}
-	}
-	return false
-}
-
-// isMetadataScalar keeps non-string scalars (tokenExpiresAt, tokenCount,
-// hasApiKey, ...) so stripping credentials does not erase display metadata.
-func isMetadataScalar(value any) bool {
-	switch value.(type) {
-	case bool, float64, float32,
-		int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		json.Number:
-		return true
-	}
-	return false
-}
-
-func isExtraConfigFieldName(key string) bool {
-	normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "", " ", "").Replace(key))
-	return normalized == "extraconfig"
-}
-
-// secretValue reads a credential-bearing response value that may be a string,
-// a []byte from a DB scan, a *string from a typed struct row, or nil. Empty
-// (including a nil pointer) normalizes to "" so callers mask nothing.
-func secretValue(v any) string {
-	switch typed := v.(type) {
-	case nil:
-		return ""
-	case string:
-		return strings.TrimSpace(typed)
-	case *string:
-		if typed == nil {
-			return ""
-		}
-		return strings.TrimSpace(*typed)
-	case []byte:
-		return strings.TrimSpace(string(typed))
-	default:
-		return strings.TrimSpace(asString(v))
-	}
-}
-
-func maskSecretTail(secret string) string {
-	s := strings.TrimSpace(secret)
-	if s == "" {
-		return ""
-	}
-	if len(s) <= 8 {
-		return "****"
-	}
-	return s[:4] + "****" + s[len(s)-4:]
 }
 
 func normalizeMapScanValues(m map[string]any) {
@@ -1118,8 +412,6 @@ func asStringPtr(v any) *string {
 	return &s
 }
 
-// ---- Event helpers ----
-
 // snakeToCamel converts snake_case to camelCase.
 func snakeToCamel(s string) string {
 	parts := strings.Split(s, "_")
@@ -1138,36 +430,4 @@ func mapKeysToCamel(m map[string]any) map[string]any {
 		result[snakeToCamel(k)] = v
 	}
 	return result
-}
-
-// MaxEventMessageBytes bounds events.message. A proxy request can carry an
-// arbitrarily long model name, and the all-failed path writes it into an
-// event; without a cap one request can inflate the database (and break
-// backups) by megabytes.
-const MaxEventMessageBytes = 4096
-
-// CreateEvent creates an event entry.
-func CreateEvent(db *sqlx.DB, eventType string, title string, message string, level string, relatedID int64, relatedType string) error {
-	message = truncateEventMessage(message)
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := db.Exec(
-		db.Rebind(`INSERT INTO events (type, title, message, level, read, related_id, related_type, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-		eventType, title, message, level, false, relatedID, relatedType, now,
-	)
-	return err
-}
-
-// truncateEventMessage cuts message to MaxEventMessageBytes without splitting
-// a UTF-8 rune and marks the truncation.
-func truncateEventMessage(message string) string {
-	if len(message) <= MaxEventMessageBytes {
-		return message
-	}
-	const marker = "…[truncated]"
-	keep := MaxEventMessageBytes - len(marker)
-	for keep > 0 && !utf8.RuneStart(message[keep]) {
-		keep--
-	}
-	return message[:keep] + marker
 }
