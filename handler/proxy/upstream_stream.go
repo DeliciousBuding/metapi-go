@@ -1,6 +1,7 @@
 package proxyhandler
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"io"
@@ -241,18 +242,28 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	outcome := streamEndedNormally
 	buf := make([]byte, 4096)
 
+	readChunk := func() ([]byte, error) {
+		n, err := resp.Body.Read(buf)
+		return buf[:n], err
+	}
+	var responsesFrames *responsesFrameReader
+	if endpoint, _ := proxy.EndpointFromPath(r.URL.Path); relayStream != nil && endpoint == proxy.EndpointResponses && messageBridge != nil && !codexImage && !imageTaskStream {
+		// Apply the output budget after conversion and public model mapping.
+		// Reserve complete frames so truncation cannot splice an error into JSON.
+		responsesFrames = &responsesFrameReader{reader: bufio.NewReader(resp.Body), remaining: maxStreamBytes}
+		readChunk = responsesFrames.readFrame
+	}
+
 	// emitStreamError attempts the single terminal error event that abnormal
 	// endings share. A client that stopped reading is bounded by one write
 	// window here too; a failure is logged and never retried.
 	emitStreamError := func(message string) {
-		if messageBridge != nil {
-			if src, ok := any(messageBridge).(interface{ ResponsesFailureEvents(string) []byte }); ok {
-				if terminal := src.ResponsesFailureEvents(message); len(terminal) != 0 {
-					if err := writeDownstreamChunk(w, terminal, writeBudget); err != nil {
-						slog.Debug("SSE terminal error event not delivered", "err", err, "latency_ms", latencyMs, "streamed_bytes", streamedBytes)
-					}
-					return
+		if responsesFrames != nil {
+			if terminal := messageBridge.ResponsesFailureEvents(message, responsesFrames.delivered); len(terminal) != 0 {
+				if err := writeDownstreamChunk(w, terminal, writeBudget); err != nil {
+					slog.Debug("SSE terminal error event not delivered", "err", err, "latency_ms", latencyMs, "streamed_bytes", streamedBytes)
 				}
+				return
 			}
 		}
 		var sequence int64
@@ -343,9 +354,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		default:
 		}
 
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			chunk := buf[:n]
+		chunk, err := readChunk()
+		if len(chunk) > 0 {
 			remaining := maxStreamBytes - streamedBytes
 			if remaining <= 0 {
 				emitStreamError("stream response exceeded configured byte limit")
@@ -429,6 +439,9 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 						"streamed_bytes", streamedBytes,
 					)
 					outcome = streamEndedClientDisconnect
+				case errors.Is(err, errResponsesOutputLimit):
+					emitStreamError(errResponsesOutputLimit.Error())
+					outcome = streamEndedTruncated
 				case errors.Is(err, errMessagesChatStreamLimit) || errors.Is(err, ollama.ErrStreamLimit):
 					emitStreamError("upstream stream exceeded configured byte limit")
 					outcome = streamEndedTruncated
@@ -447,6 +460,38 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	}
 
 	return endStream(outcome, sawStreamBytes)
+}
+
+var errResponsesOutputLimit = errors.New("stream response exceeded configured byte limit")
+
+// RelayKit emits LF-delimited SSE events. Inspect bounded line fragments so
+// even a single oversized JSON payload is charged before it is buffered.
+type responsesFrameReader struct {
+	reader    *bufio.Reader
+	remaining int64
+	delivered int
+}
+
+func (r *responsesFrameReader) readFrame() ([]byte, error) {
+	var frame []byte
+	for {
+		fragment, err := r.reader.ReadSlice('\n')
+		r.remaining -= int64(len(fragment))
+		if r.remaining < 0 {
+			return nil, errResponsesOutputLimit
+		}
+		frame = append(frame, fragment...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if len(frame) >= 2 && frame[len(frame)-2] == '\n' {
+			r.delivered++
+			return frame, nil
+		}
+	}
 }
 
 // judgeStreamContent feeds the streaming path parsed facts into the same pure

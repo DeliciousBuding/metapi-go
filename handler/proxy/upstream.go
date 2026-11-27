@@ -1899,7 +1899,7 @@ func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
-	billing := EstimateBillingCostFromUsage(billingCostName, selectedBillingPlatform(selected), usage)
+	billing := EstimateBillingCostFromUsageWithCatalog(billingCostName, selectedBillingPlatform(selected), usage, currentBillingCatalog(), selectedBillingClass(ctx, selected))
 	if usage.videoAccounting != nil {
 		billing.EstimatedCost = 0
 	}

@@ -136,8 +136,9 @@ func (s *Stream) TransformEvent(frame []byte) ([]byte, error) {
 
 // ResponsesFailureEvents emits a bounded terminal pair once. RelayKit may also
 // return partial tools/text in done events and response.output, so project only
-// error fields and response identity. Withheld events consume no wire sequence.
-func (s *Stream) ResponsesFailureEvents(message string) []byte {
+// error fields and response identity. The transport can supply its delivered
+// frame count when a wire budget discards already converted events.
+func (s *Stream) ResponsesFailureEvents(message string, delivered ...int) []byte {
 	if s == nil || s.session == nil || s.session.from != Responses || s.session.to == Responses || s.failedEvents {
 		return nil
 	}
@@ -164,6 +165,9 @@ func (s *Stream) ResponsesFailureEvents(message string) []byte {
 		}
 	}
 	sequence := s.nextSequence
+	if len(delivered) > 0 {
+		sequence = delivered[0]
+	}
 	next := sequence + 1
 	failure := map[string]string{"code": code, "message": message}
 	response := &dto.OpenAIResponsesResponse{ID: s.responseID, Object: "response", Status: json.RawMessage(`"failed"`), Error: failure, Output: []dto.ResponsesOutput{}}
