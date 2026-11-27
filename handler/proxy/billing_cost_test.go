@@ -299,3 +299,38 @@ func TestBillingZeroBreakdownOverridesFallback(t *testing.T) {
 		t.Fatalf("zero-cost detailed bill=%+v", got)
 	}
 }
+
+func TestBillingCatalogToolSurchargeAndTieredWrites(t *testing.T) {
+	catalog, err := pricingcatalog.ParseCatalog([]byte(`{"vendor":{"models":{"m":{"id":"m","cost":{"input":5,"output":12,"cache_write":8}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	usage := ParseUsageFromBody([]byte(`{"usage":{"input_tokens":100,"output_tokens":10,"cache_creation_input_tokens":50,"cache_creation":{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":20},"server_tool_use":{"web_search_requests":2}}}`))
+	// models.dev reports token rates. Supply a synthetic tool rate through the
+	// same pricing model the estimator uses, leaving missing rates unpriced.
+	for _, priced := range []bool{false, true} {
+		var got BillingCostResult
+		wantTool := 0.0
+		if priced {
+			pm := routing.PricingModel{ModelName: "m", ModelRatio: 1, CompletionRatio: 1, ToolUnitPrices: map[string]float64{"web_search.calls": 0.01}}
+			got = estimateBillingCostWithPricingModel(pm, "anthropic", usage, catalog, pricingcatalog.SiteClassOfficial)
+			wantTool = 0.02
+		} else {
+			got = EstimateBillingCostFromUsageWithCatalog("m", "anthropic", usage, catalog, pricingcatalog.SiteClassOfficial)
+		}
+		b := got.BillingDetails["breakdown"].(map[string]any)
+		lines := b["toolSurcharges"].([]routing.ProxyToolSurcharge)
+		if got.BillingDetails["pricing"].(map[string]any)["source"] != "catalog" || len(lines) != 1 || lines[0].Quantity != 2 || lines[0].Cost != wantTool || (lines[0].UnitPrice != nil) != priced {
+			t.Fatalf("priced=%t details=%+v", priced, got)
+		}
+		// 20 ordinary + 10 five-minute + 20 one-hour writes at 1.6x.
+		for k, want := range map[string]float64{"input_cost": .0005, "output_cost": .00012, "cacheCreation5mCost": .00008, "cacheCreation1hCost": .000256, "cache_creation_cost": .000496, "total_cost": .001116 + wantTool} {
+			if math.Abs(asFloat(t, b[k])-want) > 1e-12 {
+				t.Errorf("priced=%t %s=%v want %v", priced, k, b[k], want)
+			}
+		}
+		if got.EstimatedCost != b["total_cost"] {
+			t.Fatalf("estimate and breakdown disagree: %+v", got)
+		}
+	}
+}

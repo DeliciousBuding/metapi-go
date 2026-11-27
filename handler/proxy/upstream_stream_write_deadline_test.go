@@ -250,18 +250,20 @@ func TestStreamChunkGapsBeyondWriteBudgetStayHealthy(t *testing.T) {
 			setStreamWriteBudgetForTest(t, 1, 10)
 
 			pr, pw := io.Pipe()
-			go func() {
-				defer pw.Close()
-				time.Sleep(firstChunkDelay)
-				if _, err := io.WriteString(pw, chunk1); err != nil {
-					return
-				}
-				time.Sleep(gapBetweenChunks)
-				_, _ = io.WriteString(pw, chunk2+done)
-			}()
-
 			results := make(chan streamRelayResult, 1)
-			srv := tc.start(t, runStreamRelayHandler(results, pr), 200*time.Millisecond)
+			relay := runStreamRelayHandler(results, pr)
+			srv := tc.start(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				go func() {
+					defer pw.Close()
+					time.Sleep(firstChunkDelay)
+					if _, err := io.WriteString(pw, chunk1); err != nil {
+						return
+					}
+					time.Sleep(gapBetweenChunks)
+					_, _ = io.WriteString(pw, chunk2+done)
+				}()
+				relay.ServeHTTP(w, r)
+			}), 200*time.Millisecond)
 
 			started := time.Now()
 			resp, err := srv.Client().Get(srv.URL + "/v1/chat/completions")
@@ -279,9 +281,7 @@ func TestStreamChunkGapsBeyondWriteBudgetStayHealthy(t *testing.T) {
 			if string(relayed) != chunk1+chunk2+done {
 				t.Fatalf("relayed body = %q, want the complete stream", relayed)
 			}
-			// The producer starts just before the request, so allow a small
-			// skew against the two deliberate sleeps.
-			if elapsed := time.Since(started); elapsed < firstChunkDelay+gapBetweenChunks-100*time.Millisecond {
+			if elapsed := time.Since(started); elapsed < firstChunkDelay+gapBetweenChunks {
 				t.Fatalf("stream finished after %v, before both deliberate gaps", elapsed)
 			}
 

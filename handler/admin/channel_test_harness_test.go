@@ -509,3 +509,67 @@ func TestChannelProbeObservations(t *testing.T) {
 		}
 	})
 }
+
+func TestChannelProbeOAuthUnit(t *testing.T) {
+	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
+		site, account, _, channel := insertHarnessFixtures(t, db)
+		insert := func(query string, args ...any) int64 {
+			t.Helper()
+			id, err := execInsertID(db.DB, query, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return id
+		}
+		exec := func(query string, args ...any) {
+			t.Helper()
+			if _, err := db.Exec(query, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		const access = "opaque-member-fixture"
+		second := insert(`INSERT INTO accounts (site_id,access_token,oauth_provider,status,created_at,updated_at) VALUES (?,?,'codex','active','','')`, site, access)
+		unit := insert(`INSERT INTO oauth_route_units (site_id,provider,name) VALUES (?,'codex','pool')`, site)
+		token := insert(`INSERT INTO account_tokens (account_id,name,token,enabled) VALUES (?,'fixture','explicit-fixture',TRUE)`, account)
+		calls := 0
+		var wantToken string
+		h := &channelTestHandler{db: db.DB, cfg: &config.Config{}, transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			calls++
+			if wantToken == "" || req.Header.Get("Authorization") != "Bearer "+wantToken {
+				t.Error("probe dispatched with unexpected credentials")
+			}
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"model":"` + access + `"}`))}, nil
+		})}
+		r.Post("/api/admin/test-channel", h.testChannel)
+		probe := func(wantAccount int64, credential string, pool bool) {
+			t.Helper()
+			wantToken = credential
+			before := calls
+			out := catalogCall(t, r, "POST", "/api/admin/test-channel", map[string]any{"channelId": channel}, 200)
+			if pool && out["oauthRouteUnitId"] != float64(unit) || !pool && out["oauthRouteUnitId"] != nil {
+				t.Fatalf("pool identity: %v", out)
+			}
+			if credential == "" {
+				if calls != before || out["success"] != false || out["statusCode"] != float64(0) || !strings.Contains(out["error"].(string), "no eligible member") {
+					t.Fatalf("unavailable pool: %v", out)
+				}
+				return
+			}
+			if calls != before+1 || out["success"] != true || out["accountId"] != float64(wantAccount) || out["siteId"] != float64(site) || out["siteName"] != "HarnessSite" {
+				t.Fatalf("probe attribution: %v", out)
+			}
+			if pool && (out["upstreamReportedModel"] != "[redacted]" || strings.Contains(out["truncatedBody"].(string), access)) {
+				t.Fatal("opaque OAuth token appeared in probe metadata")
+			}
+		}
+		probe(account, "sk-harness-api-token-xyz", false)
+		exec(`UPDATE route_channels SET token_id=? WHERE id=?`, token, channel)
+		probe(account, "explicit-fixture", false)
+		exec(`UPDATE route_channels SET oauth_route_unit_id=?,token_id=NULL WHERE id=?`, unit, channel)
+		probe(0, "", true)
+		exec(`INSERT INTO oauth_route_unit_members (unit_id,account_id,sort_order,cooldown_until,created_at,updated_at) VALUES (?,?,0,'2999-01-01T00:00:00Z','',''),(?,?,1,NULL,'','')`, unit, account, unit, second)
+		probe(second, access, true)
+		exec(`UPDATE oauth_route_unit_members SET cooldown_until='2999-01-01T00:00:00Z' WHERE account_id=?`, second)
+		probe(0, "", true)
+	})
+}
