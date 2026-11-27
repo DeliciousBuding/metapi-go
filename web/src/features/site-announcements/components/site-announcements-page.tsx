@@ -7,147 +7,36 @@
 //
 // Titles and previews are plain text; expanded bodies use the shared Markdown renderer.
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import {
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  RefreshCw,
-} from 'lucide-react'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import {
-  RowDisclosureTrigger,
-  RowDisclosureContent,
-  rowDisclosureClick,
-} from '@/components/common/row-disclosure'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { useSites, type Site } from '@/features/sites'
-import { toBcp47 } from '@/i18n/languages'
-import { api } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
-import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { useSites } from '@/features/sites'
 
-import { resolveAnnouncementSourceURL } from '../announcement-source-url'
-import { useSiteAnnouncements, useSiteAnnouncementSyncTask } from '../api'
+import { useSiteAnnouncements } from '../api'
 import {
   buildSiteAnnouncementsParams,
   SITE_ANNOUNCEMENTS_PAGE_SIZE,
-  siteAnnouncementsKeys,
-  TERMINAL_SYNC_TASK_STATUSES,
-  type SiteAnnouncement,
   type SiteAnnouncementFilters,
-  type SiteAnnouncementSyncTask,
 } from '../types'
 import {
   buildSiteAnnouncementsHref,
   parseSiteAnnouncementsSearch,
 } from '../url-state'
-import { AnnouncementDetails } from './announcement-details'
-
-type BadgeVariant =
-  | 'default'
-  | 'secondary'
-  | 'destructive'
-  | 'warning'
-  | 'success'
-  | 'info'
-  | 'outline'
-
-/** Static level → badge variant map (unknown levels render as outline). */
-const LEVEL_BADGE_VARIANT: Record<string, BadgeVariant> = {
-  info: 'secondary',
-  warning: 'warning',
-  error: 'destructive',
-  critical: 'destructive',
-  success: 'success',
-}
-
-/** Static level → i18n label key map; avoids dynamic t() interpolation. */
-const LEVEL_LABEL_KEY: Record<string, string> = {
-  info: 'siteAnnouncements.level.info',
-  warning: 'siteAnnouncements.level.warning',
-  error: 'siteAnnouncements.level.error',
-  critical: 'siteAnnouncements.level.critical',
-  success: 'siteAnnouncements.level.success',
-}
-
-function LevelBadge({ level }: { level: string | null | undefined }) {
-  const { t } = useTranslation()
-  const normalized = (level ?? '').trim().toLowerCase()
-  const labelKey = LEVEL_LABEL_KEY[normalized]
-  return (
-    <Badge variant={LEVEL_BADGE_VARIANT[normalized] ?? 'outline'}>
-      {labelKey ? t(labelKey) : level || '—'}
-    </Badge>
-  )
-}
-
-/** Row lifecycle hint: dismissed and expired rows get a quiet extra badge. */
-function rowLifecycle(item: SiteAnnouncement): 'dismissed' | 'expired' | null {
-  if (item.dismissedAt) return 'dismissed'
-  if (item.endsAt) {
-    const end = Date.parse(item.endsAt)
-    if (Number.isFinite(end) && end < Date.now()) return 'expired'
-  }
-  return null
-}
-
-function SeenRange({
-  item,
-  locale,
-}: {
-  item: SiteAnnouncement
-  locale: string
-}) {
-  const first = formatDateTime(item.firstSeenAt, locale)
-  const last = formatDateTime(item.lastSeenAt, locale)
-  if (!last || last === first) return <span>{first}</span>
-  return (
-    <span className='flex flex-col'>
-      <span>{first}</span>
-      <span>→ {last}</span>
-    </span>
-  )
-}
-
-/** i18n key for the inline sync progress chip fallback label. */
-function syncStatusKey(syncTask: SiteAnnouncementSyncTask | undefined): string {
-  if (syncTask && syncTask.status === 'running') {
-    return 'siteAnnouncements.sync.running'
-  }
-  return 'siteAnnouncements.sync.pending'
-}
+import { AnnouncementFilters } from './announcement-filters'
+import { SyncButton, useAnnouncementSync } from './announcement-sync'
+import { AnnouncementTable } from './announcement-table'
+import { useAnnouncementActions } from './use-announcement-actions'
 
 export function SiteAnnouncementsPage() {
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set())
-  const { t, i18n } = useTranslation()
-  const locale = toBcp47(i18n.language || 'en')
-  const queryClient = useQueryClient()
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const search = useSearch({ from: '/_authenticated/site-announcements' })
@@ -168,22 +57,6 @@ export function SiteAnnouncementsPage() {
   const hasMore = rows.length > SITE_ANNOUNCEMENTS_PAGE_SIZE
   const items = hasMore ? rows.slice(0, SITE_ANNOUNCEMENTS_PAGE_SIZE) : rows
 
-  const siteById = useMemo(() => {
-    const map = new Map<number, Site>()
-    for (const site of sitesQuery.data ?? []) {
-      map.set(site.id, site)
-    }
-    return map
-  }, [sitesQuery.data])
-
-  const platformOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const site of sitesQuery.data ?? []) {
-      if (site.platform) set.add(site.platform)
-    }
-    return [...set].sort((left, right) => left.localeCompare(right))
-  }, [sitesQuery.data])
-
   const isFiltered =
     filters.siteId !== null ||
     filters.platform !== '' ||
@@ -198,99 +71,9 @@ export function SiteAnnouncementsPage() {
     void navigate({ href: buildSiteAnnouncementsHref(next, 0), replace: true })
   }
 
-  // --- Background sync (POST /sync → poll api.getTask) ---------------------
-
-  const [syncTaskId, setSyncTaskId] = useState<string | null>(null)
-  const syncTaskQuery = useSiteAnnouncementSyncTask(syncTaskId)
-  const syncTask = syncTaskQuery.data
-  // Active from the moment the task id is known until the polled task reaches
-  // a terminal status — covers the window between the POST response and the
-  // first poll result where `syncTask` is still undefined.
-  const syncIsActive =
-    syncTaskId !== null &&
-    !syncTaskQuery.isError &&
-    (syncTask === undefined ||
-      !TERMINAL_SYNC_TASK_STATUSES.has(syncTask.status))
-
-  const handledTerminalRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!syncTask || !TERMINAL_SYNC_TASK_STATUSES.has(syncTask.status)) return
-    const terminalKey = `${syncTask.id}:${syncTask.status}`
-    if (handledTerminalRef.current === terminalKey) return
-    handledTerminalRef.current = terminalKey
-    void queryClient.invalidateQueries({ queryKey: siteAnnouncementsKeys.all })
-    if (syncTask.status === 'succeeded') {
-      const result = syncTask.result
-      if (result && result.failed > 0) {
-        toast.warning(
-          t('siteAnnouncements.sync.successWithFailures', {
-            inserted: result.inserted,
-            updated: result.updated,
-            failed: result.failed,
-          })
-        )
-      } else {
-        toast.success(
-          t('siteAnnouncements.sync.success', {
-            inserted: result?.inserted ?? 0,
-            updated: result?.updated ?? 0,
-          })
-        )
-      }
-    } else {
-      toast.error(syncTask.error || t('siteAnnouncements.sync.failed'))
-    }
-  }, [syncTask, queryClient, t])
-
-  const syncMutation = useMutation({
-    mutationFn: async () =>
-      api.syncSiteAnnouncements(
-        filters.siteId !== null ? { siteId: filters.siteId } : undefined
-      ),
-    onSuccess: (response) => {
-      handledTerminalRef.current = null
-      setSyncTaskId(response.taskId)
-    },
-    onError: () => toast.error(t('siteAnnouncements.sync.startFailed')),
-  })
-
-  // --- Write mutations -------------------------------------------------------
-
-  const markReadMutation = useMutation({
-    mutationFn: async (id: number) => api.markSiteAnnouncementRead(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: siteAnnouncementsKeys.all,
-      })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
-    },
-    onError: () => toast.error(t('siteAnnouncements.toast.markReadFailed')),
-  })
-
-  const markAllMutation = useMutation({
-    mutationFn: async () => api.markAllSiteAnnouncementsRead(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: siteAnnouncementsKeys.all,
-      })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
-      toast.success(t('siteAnnouncements.toast.allMarkedRead'))
-    },
-    onError: () => toast.error(t('siteAnnouncements.toast.markAllFailed')),
-  })
-
-  const clearMutation = useMutation({
-    mutationFn: async () => api.clearSiteAnnouncements(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: siteAnnouncementsKeys.all,
-      })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
-      toast.success(t('siteAnnouncements.toast.cleared'))
-    },
-    onError: () => toast.error(t('siteAnnouncements.toast.clearFailed')),
-  })
-
+  const sync = useAnnouncementSync(filters.siteId)
+  const { markReadMutation, markAllMutation, clearMutation } =
+    useAnnouncementActions()
   const unreadCount = items.filter((item) => !item.readAt).length
 
   // --- Render ------------------------------------------------------------------
@@ -302,29 +85,16 @@ export function SiteAnnouncementsPage() {
         description={t('siteAnnouncements.page.description')}
         actions={
           <>
-            {syncIsActive ? (
+            {sync.status !== null ? (
               <span
                 className='text-muted-foreground inline-flex items-center gap-2 text-xs'
                 role='status'
               >
                 <Spinner />
-                {syncTask?.message || t(syncStatusKey(syncTask))}
+                {sync.status}
               </span>
             ) : null}
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              disabled={syncMutation.isPending || syncIsActive}
-              onClick={() => syncMutation.mutate()}
-            >
-              {syncMutation.isPending || syncIsActive ? (
-                <Spinner />
-              ) : (
-                <RefreshCw className='size-3.5' />
-              )}
-              {t('siteAnnouncements.actions.sync')}
-            </Button>
+            <SyncButton sync={sync} />
             <Button
               type='button'
               variant='outline'
@@ -347,161 +117,11 @@ export function SiteAnnouncementsPage() {
         }
       />
 
-      <div className='flex flex-wrap items-center gap-3'>
-        <Select
-          value={filters.siteId === null ? 'all' : String(filters.siteId)}
-          onValueChange={(value) =>
-            updateFilters({
-              siteId: !value || value === 'all' ? null : Number(value),
-            })
-          }
-        >
-          <SelectTrigger
-            aria-label={t('siteAnnouncements.filters.site')}
-            className='w-44'
-          >
-            {/* base-ui only resolves the item label while the popup is
-                mounted; map the value explicitly so the closed trigger
-                never falls back to the raw "all" sentinel. */}
-            <SelectValue>
-              {(value: string) =>
-                value === 'all'
-                  ? t('siteAnnouncements.filters.allSites')
-                  : ((sitesQuery.data ?? []).find(
-                      (site) => String(site.id) === value
-                    )?.name ?? value)
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>
-              {t('siteAnnouncements.filters.allSites')}
-            </SelectItem>
-            {(sitesQuery.data ?? []).map((site) => (
-              <SelectItem key={site.id} value={String(site.id)}>
-                {site.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.platform || 'all'}
-          onValueChange={(value) =>
-            updateFilters({ platform: !value || value === 'all' ? '' : value })
-          }
-        >
-          <SelectTrigger
-            aria-label={t('siteAnnouncements.filters.platform')}
-            className='w-40'
-          >
-            <SelectValue>
-              {(value: string) =>
-                value === 'all'
-                  ? t('siteAnnouncements.filters.allPlatforms')
-                  : value
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>
-              {t('siteAnnouncements.filters.allPlatforms')}
-            </SelectItem>
-            {platformOptions.map((platform) => (
-              <SelectItem key={platform} value={platform}>
-                {platform}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.read}
-          onValueChange={(value) =>
-            updateFilters({
-              read: (value === 'true' || value === 'false'
-                ? value
-                : 'all') as SiteAnnouncementFilters['read'],
-            })
-          }
-        >
-          <SelectTrigger
-            aria-label={t('siteAnnouncements.filters.read')}
-            className='w-36'
-          >
-            <SelectValue>
-              {(value: string) => {
-                if (value === 'true') {
-                  return t('siteAnnouncements.filters.readTrue')
-                }
-                if (value === 'false') {
-                  return t('siteAnnouncements.filters.readFalse')
-                }
-                return t('siteAnnouncements.filters.readAll')
-              }}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>
-              {t('siteAnnouncements.filters.readAll')}
-            </SelectItem>
-            <SelectItem value='false'>
-              {t('siteAnnouncements.filters.readFalse')}
-            </SelectItem>
-            <SelectItem value='true'>
-              {t('siteAnnouncements.filters.readTrue')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.status}
-          onValueChange={(value) =>
-            updateFilters({
-              status: (value === 'active' ||
-              value === 'expired' ||
-              value === 'dismissed'
-                ? value
-                : 'all') as SiteAnnouncementFilters['status'],
-            })
-          }
-        >
-          <SelectTrigger
-            aria-label={t('siteAnnouncements.filters.status')}
-            className='w-36'
-          >
-            <SelectValue>
-              {(value: string) => {
-                if (value === 'active') {
-                  return t('siteAnnouncements.filters.statusActive')
-                }
-                if (value === 'expired') {
-                  return t('siteAnnouncements.filters.statusExpired')
-                }
-                if (value === 'dismissed') {
-                  return t('siteAnnouncements.filters.statusDismissed')
-                }
-                return t('siteAnnouncements.filters.statusAll')
-              }}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>
-              {t('siteAnnouncements.filters.statusAll')}
-            </SelectItem>
-            <SelectItem value='active'>
-              {t('siteAnnouncements.filters.statusActive')}
-            </SelectItem>
-            <SelectItem value='expired'>
-              {t('siteAnnouncements.filters.statusExpired')}
-            </SelectItem>
-            <SelectItem value='dismissed'>
-              {t('siteAnnouncements.filters.statusDismissed')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
+      <AnnouncementFilters
+        filters={filters}
+        sites={sitesQuery.data}
+        updateFilters={updateFilters}
+      />
       <QueryErrorBanner
         error={listQuery.error}
         messageKey='siteAnnouncements.error.load'
@@ -529,202 +149,16 @@ export function SiteAnnouncementsPage() {
               ? t('siteAnnouncements.empty.filteredDescription')
               : t('siteAnnouncements.empty.description')}
           </p>
-          {!isFiltered ? (
-            <Button
-              variant='outline'
-              size='sm'
-              className='mt-2'
-              disabled={syncMutation.isPending || syncIsActive}
-              onClick={() => syncMutation.mutate()}
-            >
-              {syncMutation.isPending || syncIsActive ? (
-                <Spinner />
-              ) : (
-                <RefreshCw className='size-3.5' />
-              )}
-              {t('siteAnnouncements.actions.sync')}
-            </Button>
-          ) : null}
+          {!isFiltered ? <SyncButton sync={sync} className='mt-2' /> : null}
         </div>
       ) : null}
 
-      {!listQuery.isLoading && items.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                {t('siteAnnouncements.columns.announcement')}
-              </TableHead>
-              <TableHead className='hidden md:table-cell'>
-                {t('siteAnnouncements.columns.site')}
-              </TableHead>
-              <TableHead className='hidden md:table-cell'>
-                {t('siteAnnouncements.columns.level')}
-              </TableHead>
-              <TableHead className='hidden md:table-cell'>
-                {t('siteAnnouncements.columns.seen')}
-              </TableHead>
-              <TableHead className='w-20 text-right md:w-auto'>
-                {t('siteAnnouncements.columns.actions')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => {
-              const unread = !item.readAt
-              const expanded = expandedIds.has(item.id)
-              const contentId = `announcement-details-${item.id}`
-              const title =
-                item.title === 'Site notice'
-                  ? t('siteAnnouncements.timeline.siteNotice')
-                  : item.title
-              const toggle = () => {
-                setExpandedIds((previous) => {
-                  const next = new Set(previous)
-                  if (next.has(item.id)) next.delete(item.id)
-                  else next.add(item.id)
-                  return next
-                })
-                // Keep an unread-filtered row visible while its body is open.
-                if (expanded && unread) markReadMutation.mutate(item.id)
-              }
-              const lifecycle = rowLifecycle(item)
-              const sourceURL = resolveAnnouncementSourceURL(
-                item,
-                siteById.get(item.siteId)
-              )
-              return (
-                <Fragment key={item.id}>
-                  <TableRow
-                    data-unread={unread || undefined}
-                    className='cursor-pointer'
-                    onClick={(event) => rowDisclosureClick(event, toggle)}
-                  >
-                    <TableCell className='max-w-105 whitespace-normal'>
-                      <div className='flex flex-col gap-0.5'>
-                        <span
-                          className={cn(
-                            'flex items-center gap-2 text-sm',
-                            unread ? 'font-medium' : 'text-muted-foreground'
-                          )}
-                        >
-                          {unread ? (
-                            <span
-                              aria-label={t('siteAnnouncements.row.unread')}
-                              className='bg-primary size-1.5 shrink-0 rounded-full'
-                            />
-                          ) : null}
-                          <RowDisclosureTrigger
-                            expanded={expanded}
-                            controls={contentId}
-                            className='h-auto min-w-0 justify-start p-0 text-left text-sm font-medium break-words whitespace-normal'
-                            onClick={toggle}
-                          >
-                            {title}
-                          </RowDisclosureTrigger>
-                          {lifecycle ? (
-                            <Badge variant='outline'>
-                              {t(
-                                lifecycle === 'dismissed'
-                                  ? 'siteAnnouncements.row.dismissed'
-                                  : 'siteAnnouncements.row.expired'
-                              )}
-                            </Badge>
-                          ) : null}
-                        </span>
-                        {item.content && !expanded ? (
-                          <span
-                            className='text-muted-foreground line-clamp-2 text-xs'
-                            title={item.content}
-                          >
-                            {item.content}
-                          </span>
-                        ) : null}
-                        <span className='text-muted-foreground mt-1 text-xs md:hidden'>
-                          {siteById.get(item.siteId)?.name ?? item.platform} ·{' '}
-                          {formatDateTime(item.firstSeenAt, locale)}
-                        </span>
-                        {(item.revisionCount ?? 0) > 0 ? (
-                          <span className='text-muted-foreground mt-1 text-xs'>
-                            {t('siteAnnouncements.timeline.updates', {
-                              count: item.revisionCount,
-                            })}
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className='hidden md:table-cell'>
-                      <div className='flex flex-col text-sm'>
-                        <span>
-                          {siteById.get(item.siteId)?.name ??
-                            t('siteAnnouncements.row.siteUnknown', {
-                              id: item.siteId,
-                            })}
-                        </span>
-                        <span className='text-muted-foreground text-xs'>
-                          {item.platform}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className='hidden md:table-cell'>
-                      <LevelBadge level={item.level} />
-                    </TableCell>
-                    <TableCell className='text-muted-foreground hidden text-xs whitespace-nowrap md:table-cell'>
-                      <SeenRange item={item} locale={locale} />
-                    </TableCell>
-                    <TableCell className='w-20 text-right md:w-auto'>
-                      <div className='flex flex-col items-end justify-end gap-1 md:flex-row md:items-center'>
-                        {sourceURL ? (
-                          <a
-                            href={sourceURL}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            aria-label={t('siteAnnouncements.row.openUpstream')}
-                            title={t('siteAnnouncements.row.openUpstream')}
-                            className={buttonVariants({
-                              variant: 'ghost',
-                              size: 'icon-sm',
-                            })}
-                            onClick={() => {
-                              if (unread) markReadMutation.mutate(item.id)
-                            }}
-                          >
-                            <ExternalLink aria-hidden='true' />
-                          </a>
-                        ) : null}
-                        {unread ? (
-                          <Button
-                            type='button'
-                            variant='ghost'
-                            size='sm'
-                            disabled={markReadMutation.isPending}
-                            onClick={() => markReadMutation.mutate(item.id)}
-                          >
-                            {t('siteAnnouncements.row.markRead')}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  {expanded ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className='max-w-0 py-4 whitespace-normal'
-                      >
-                        <RowDisclosureContent id={contentId} label={title}>
-                          <AnnouncementDetails item={item} />
-                        </RowDisclosureContent>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
-              )
-            })}
-          </TableBody>
-        </Table>
-      ) : null}
-
+      <AnnouncementTable
+        items={listQuery.isLoading ? [] : items}
+        sites={sitesQuery.data}
+        markRead={markReadMutation.mutate}
+        markingRead={markReadMutation.isPending}
+      />
       {!listQuery.isLoading && (items.length > 0 || page > 0) ? (
         <div className='flex items-center justify-between'>
           <span className='text-muted-foreground text-xs'>
