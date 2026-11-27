@@ -382,13 +382,13 @@ func (reply endpointReply) relay(
 	selected *routing.SelectedChannel, upstreamModel, upstreamPath string,
 	retry, maxRetries int, isLastEndpoint, disableCrossProtocolFallback bool, requestID string,
 ) (finished bool, nextPending *pendingUpstreamFailure, cont bool) {
-	resp, startedAt, latencyMs := reply.response, reply.startedAt, reply.latencyMs
+	resp, startedAt := reply.response, reply.startedAt
 	firstByteLatencyMs, aggregatedUsage := reply.firstByteLatencyMs, reply.aggregatedUsage
 	if reply.effectiveStream {
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			respBody, readErr := proxy.ReadBufferedResponseBody(resp.Body)
 			resp.Body.Close()
-			latencyMs = time.Since(startedAt).Milliseconds()
+			latencyMs := time.Since(startedAt).Milliseconds()
 			if readErr != nil {
 				slog.Warn("failed to read upstream stream error response",
 					"err", readErr, "latency_ms", latencyMs, "status", resp.StatusCode,
@@ -439,7 +439,7 @@ func (reply endpointReply) relay(
 
 	respBody, readErr := proxy.ReadBufferedResponseBody(resp.Body)
 	resp.Body.Close()
-	latencyMs = time.Since(startedAt).Milliseconds()
+	latencyMs := time.Since(startedAt).Milliseconds()
 	if readErr != nil {
 		if r.Context().Err() != nil {
 			writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, "Client canceled request")
