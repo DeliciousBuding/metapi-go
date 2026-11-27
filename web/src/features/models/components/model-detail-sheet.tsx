@@ -4,11 +4,15 @@
 // identity; descriptions, capabilities, pricing and account data follow below.
 
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight as ArrowRightIcon, Copy as CopyIcon } from 'lucide-react'
+import {
+  ArrowRight as ArrowRightIcon,
+  Copy as CopyIcon,
+  Route as RouteIcon,
+} from 'lucide-react'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BrandIcon } from '@/assets/brand-icons/BrandIcon'
+import { BrandIcon, getBrand } from '@/assets/brand-icons/BrandIcon'
 import { DetailField } from '@/components/common/detail-field'
 import { ExpandableText } from '@/components/common/expandable-text'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +45,11 @@ type ModelDetailSheetProps = {
   onOpenChange: (open: boolean) => void
 }
 
+function formatPricingUnit(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—'
+  return `${formatPrice(value)}/M`
+}
+
 function GroupPricingRow({
   groupKey,
   pricing,
@@ -49,19 +58,66 @@ function GroupPricingRow({
   pricing: ModelGroupPricing
 }) {
   const { t } = useTranslation()
+  const hasCacheRead =
+    typeof pricing.cacheReadPerMillion === 'number' &&
+    Number.isFinite(pricing.cacheReadPerMillion)
+  const hasCacheWrite =
+    typeof pricing.cacheWritePerMillion === 'number' &&
+    Number.isFinite(pricing.cacheWritePerMillion)
+
   return (
-    <li className='flex flex-wrap items-center gap-2 text-xs'>
-      <Badge variant='outline'>{groupKey}</Badge>
-      <span className='text-muted-foreground'>
-        {t('models.detail.inputPrice', {
-          price: formatPrice(pricing.inputPerMillion),
-        })}
-      </span>
-      <span className='text-muted-foreground'>
-        {t('models.detail.outputPrice', {
-          price: formatPrice(pricing.outputPerMillion),
-        })}
-      </span>
+    <li className='bg-muted/30 flex flex-col gap-2 rounded-lg border px-2.5 py-2 text-xs'>
+      <div className='flex items-center justify-between gap-2'>
+        <Badge variant='outline' className='font-medium'>
+          {groupKey}
+        </Badge>
+      </div>
+      <dl className='grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4'>
+        <div>
+          <dt className='text-muted-foreground text-2xs'>
+            {t('priceCompare.current.input')}
+          </dt>
+          <dd className='text-foreground mt-0.5 font-medium tabular-nums'>
+            {formatPricingUnit(pricing.inputPerMillion)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-muted-foreground text-2xs'>
+            {t('priceCompare.current.output')}
+          </dt>
+          <dd className='text-foreground mt-0.5 font-medium tabular-nums'>
+            {formatPricingUnit(pricing.outputPerMillion)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-muted-foreground text-2xs'>
+            {t('priceCompare.current.cacheRead')}
+          </dt>
+          <dd
+            className={
+              hasCacheRead
+                ? 'text-info-soft-fg mt-0.5 font-medium tabular-nums'
+                : 'text-muted-foreground mt-0.5 tabular-nums'
+            }
+          >
+            {formatPricingUnit(pricing.cacheReadPerMillion)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-muted-foreground text-2xs'>
+            {t('priceCompare.current.cacheWrite')}
+          </dt>
+          <dd
+            className={
+              hasCacheWrite
+                ? 'text-warning-soft-fg mt-0.5 font-medium tabular-nums'
+                : 'text-muted-foreground mt-0.5 tabular-nums'
+            }
+          >
+            {formatPricingUnit(pricing.cacheWritePerMillion)}
+          </dd>
+        </div>
+      </dl>
     </li>
   )
 }
@@ -88,6 +144,7 @@ export function ModelDetailSheet({
   const pricingSources = model.pricingSources ?? []
   const accounts = model.accounts ?? []
   const modelName = model.name
+  const brand = getBrand(modelName)
 
   async function copyModelName() {
     if (await copyText(modelName)) {
@@ -103,6 +160,12 @@ export function ModelDetailSheet({
     navigate({ href: `/model-tester?${params.toString()}`, replace: true })
   }
 
+  function goToRouteDiagnosis() {
+    onOpenChange(false)
+    const params = new URLSearchParams({ workspaceModel: modelName })
+    navigate({ href: `/token-routes?${params.toString()}` })
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -113,10 +176,22 @@ export function ModelDetailSheet({
         <SheetHeader>
           <div className='flex items-start gap-3'>
             <BrandIcon model={model.name} size={40} />
-            <div className='min-w-0 flex-1'>
+            <div className='min-w-0 flex-1 space-y-1'>
               <SheetTitle ref={titleRef} tabIndex={-1} className='outline-none'>
                 {model.name}
               </SheetTitle>
+              <div className='flex flex-wrap items-center gap-1.5'>
+                {brand && (
+                  <Badge variant='secondary' className='text-2xs'>
+                    {brand.name}
+                  </Badge>
+                )}
+                {model.deprecated && (
+                  <Badge variant='warning' className='text-2xs'>
+                    {t('models.columns.deprecated')}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className='flex flex-wrap gap-2 pt-2'>
@@ -128,6 +203,15 @@ export function ModelDetailSheet({
             >
               <CopyIcon className='size-4' />
               {t('models.detail.copyName')}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              data-touch-target
+              onClick={goToRouteDiagnosis}
+            >
+              <RouteIcon className='size-4' />
+              {t('tokenRoutes.workspace.title')}
             </Button>
             <Button size='sm' data-touch-target onClick={goToTester}>
               {t('models.detail.openTester')}
@@ -215,7 +299,7 @@ export function ModelDetailSheet({
                             ) : null}
                           </div>
                           {groupKeys.length > 0 && (
-                            <ul className='ml-2 flex flex-col gap-1 border-l pl-3'>
+                            <ul className='flex flex-col gap-1.5'>
                               {groupKeys.map((groupKey) => (
                                 <GroupPricingRow
                                   key={groupKey}

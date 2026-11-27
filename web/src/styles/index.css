@@ -250,11 +250,11 @@
   }
 }
 
-/* Micro-interactions — Vercel-style subtle hover/active feedback */
+/* Micro-interactions — restrained hairline + elevation feedback (no lift) */
 @media (prefers-reduced-motion: no-preference) {
   [data-slot='card']:not([data-card-hover='false']) {
     transition:
-      transform 150ms ease,
+      border-color 150ms ease,
       box-shadow 150ms ease;
   }
 
@@ -308,8 +308,14 @@
 
 /* Tabular numbers for data-heavy contexts */
 [data-slot='table'] td,
+[data-slot='table'] th,
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Crisp hairline divider for nested wells and inline disclosure regions. */
+[data-slot='row-disclosure-well'] {
+  border-color: var(--border-subtle);
 }
 
 /* Shared overlay primitives own their motion-reduce behavior. Stop only the

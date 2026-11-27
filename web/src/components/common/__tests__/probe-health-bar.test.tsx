@@ -58,7 +58,7 @@ describe('ProbeHealthBar states', () => {
     expect(container.textContent).toBe(i18n.t('probeHealth.empty'))
   })
 
-  it('renders one bar per probe, chronological left-to-right with status colors', () => {
+  it('renders one bar per real probe without fake placeholder slots, chronological left-to-right with status colors and height cues', () => {
     // API order is newest-first: success (newest), failure, inconclusive,
     // skipped (oldest). Display order must be oldest → newest.
     const results = [
@@ -68,12 +68,28 @@ describe('ProbeHealthBar states', () => {
       probe('skipped'),
     ]
     const { container } = render(<ProbeHealthBar results={results} />)
-    const classes = bars(container).map((bar) => bar.className)
+    const renderedBars = bars(container)
+    const classes = renderedBars.map((bar) => bar.className)
     expect(classes).toHaveLength(4)
     expect(classes[0]).toContain('bg-muted-foreground') // skipped (oldest)
+    expect(classes[0]).toContain('h-1/2')
+    expect(renderedBars[0]).toHaveAttribute('data-probe-status', 'skipped')
     expect(classes[1]).toContain('bg-warning') // inconclusive
+    expect(classes[1]).toContain('h-3/4')
+    expect(renderedBars[1]).toHaveAttribute('data-probe-status', 'inconclusive')
     expect(classes[2]).toContain('bg-destructive') // failure
+    expect(classes[2]).toContain('h-full')
+    expect(renderedBars[2]).toHaveAttribute('data-probe-status', 'failure')
     expect(classes[3]).toContain('bg-success') // success (newest)
+    expect(classes[3]).toContain('h-full')
+    expect(renderedBars[3]).toHaveAttribute('data-probe-status', 'success')
+  })
+
+  it('never renders fake gray placeholder bars when results are empty', () => {
+    const { container } = render(<ProbeHealthBar results={[]} />)
+    expect(container.querySelector('[data-probe-status]')).toBeNull()
+    expect(container.querySelector('[data-probe-count]')).toBeNull()
+    expect(container.textContent).toBe(i18n.t('probeHealth.empty'))
   })
 
   it('exposes a screen-reader summary with success and total counts', () => {
@@ -152,17 +168,26 @@ describe('summarizeProbeResults', () => {
     expect(summary).toEqual({
       total: 0,
       success: 0,
+      failure: 0,
+      inconclusive: 0,
+      skipped: 0,
       successRatePct: 0,
       avgLatencyMs: null,
+      latestCreatedAt: null,
+      latestLatencyMs: null,
+      latestStatus: null,
     })
   })
 
-  it('counts 100% success when every probe succeeded', () => {
+  it('counts 100% success and records latest sample metadata when every probe succeeded', () => {
     const summary = summarizeProbeResults([
       probe('success', 50),
       probe('success', 70),
     ])
     expect(summary.successRatePct).toBe(100)
     expect(summary.avgLatencyMs).toBe(60)
+    expect(summary.latestLatencyMs).toBe(50)
+    expect(summary.latestStatus).toBe('success')
+    expect(summary.latestCreatedAt).toBe('2026-08-28T02:00:00Z')
   })
 })

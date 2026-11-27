@@ -79,6 +79,7 @@ import {
 } from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
+import { AccountInlineDetails } from './account-inline-details'
 import { useAccountsColumns } from './accounts-columns'
 
 const DEFAULT_PAGE_SIZE = 20
@@ -308,6 +309,21 @@ export function AccountsPage() {
   const [editAccount, setEditAccount] = useState<Account | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailAccount, setDetailAccount] = useState<Account | null>(null)
+  const [expandedAccountIds, setExpandedAccountIds] = useState<
+    ReadonlySet<number>
+  >(() => new Set())
+  const toggleAccountExpansion = useCallback((id: number) => {
+    setExpandedAccountIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+  const accountDisclosureContentId = useCallback(
+    (id: number) => `account-details-${id}`,
+    []
+  )
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null)
   const [importOpen, setImportOpen] = useState(false)
@@ -542,6 +558,15 @@ export function AccountsPage() {
     ? (pinMutation.variables?.id ?? null)
     : null
 
+  const disclosureOptions = useMemo(
+    () => ({
+      expandedIds: expandedAccountIds,
+      toggle: toggleAccountExpansion,
+      getContentId: accountDisclosureContentId,
+    }),
+    [expandedAccountIds, toggleAccountExpansion, accountDisclosureContentId]
+  )
+
   const columns = useAccountsColumns(
     rowActions,
     pendingStatusId,
@@ -550,7 +575,8 @@ export function AccountsPage() {
     pendingManualCheckinId,
     // Row-level probe history: ONE batch fetch per page render, rendered as
     // health bars; a failed fetch only hides the bars, never the table.
-    probeHistoryQuery.data
+    probeHistoryQuery.data,
+    disclosureOptions
   )
 
   const { table } = useDataTable({
@@ -627,6 +653,55 @@ export function AccountsPage() {
         }
       />
 
+      <div
+        role='group'
+        aria-label={t('accounts.page.filterStatusTitle')}
+        className='flex flex-wrap gap-2'
+      >
+        {(
+          [
+            { value: 'all', labelKey: 'userAdmin.allStatuses' },
+            { value: 'active', labelKey: 'accounts.page.filterStatusActive' },
+            {
+              value: 'disabled',
+              labelKey: 'accounts.page.filterStatusDisabled',
+            },
+            {
+              value: 'expired',
+              labelKey: 'accounts.page.filterStatusExpired',
+            },
+          ] as const
+        ).map((option) => {
+          const currentStatus = urlState.filters.status
+            .split(',')
+            .filter(Boolean)[0]
+          const pressed =
+            option.value === 'all'
+              ? !currentStatus
+              : currentStatus === option.value
+          return (
+            <Button
+              key={option.value}
+              size='sm'
+              variant={pressed ? 'default' : 'outline'}
+              className='rounded-full'
+              aria-pressed={pressed}
+              disabled={isLoading || !!error}
+              onClick={() =>
+                urlState.updateUrlState({
+                  pageIndex: 0,
+                  filters: {
+                    status: option.value === 'all' ? '' : option.value,
+                  },
+                })
+              }
+            >
+              {t(option.labelKey)}
+            </Button>
+          )
+        })}
+      </div>
+
       <DataTablePage
         table={table}
         isLoading={isLoading}
@@ -635,6 +710,24 @@ export function AccountsPage() {
         errorMessageKey='accounts.page.loadError'
         onErrorRetry={() => refetch()}
         isErrorRetrying={isFetching}
+        rowDisclosure={{
+          isExpanded: (row) => expandedAccountIds.has(row.original.id),
+          onToggle: (row) => toggleAccountExpansion(row.original.id),
+          getContentId: (row) => accountDisclosureContentId(row.original.id),
+          getLabel: (row) =>
+            resolveAccountDisplayName(
+              row.original,
+              t('accounts.columns.fallbackApiKey'),
+              t('accounts.columns.fallbackUnnamed')
+            ),
+          renderContent: (row) => (
+            <AccountInlineDetails
+              account={row.original}
+              onViewDetail={rowActions.onViewDetail}
+              onRefresh={rowActions.onRefresh}
+            />
+          ),
+        }}
         emptyIcon={<Users className='size-6' />}
         emptyTitle={t('accounts.page.emptyTitle')}
         emptyDescription={t('accounts.page.emptyDescription')}

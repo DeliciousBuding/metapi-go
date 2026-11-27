@@ -374,6 +374,35 @@ describe('search palette actions layer', () => {
     expect(onOpenChangeMock).toHaveBeenCalledWith(false)
     expect(screen.queryByText('Rebuild routes?')).not.toBeInTheDocument()
   })
+
+  it('surfaces operational diagnostic shortcuts and smart HTTP/requestId log jumps', async () => {
+    renderModal()
+
+    expect(screen.getByText('Route workspace')).toBeInTheDocument()
+    expect(screen.getByText('Proxy logs · Failed')).toBeInTheDocument()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: '429' } })
+    const statusJump = await screen.findByText('HTTP status: 429')
+    fireEvent.click(statusJump)
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/proxy-logs',
+      search: { view: 'attempts', q: '429', status: 'failed' },
+    })
+
+    navigateMock.mockClear()
+    fireEvent.change(input, { target: { value: 'req_trace99' } })
+    const reqJump = await screen.findByText(
+      'Request ID (shared by retry attempts): req_trace99'
+    )
+    fireEvent.click(reqJump)
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/proxy-logs',
+      search: { view: 'requests', requestId: 'req_trace99' },
+    })
+  })
 })
 
 describe('search palette entity deep links', () => {

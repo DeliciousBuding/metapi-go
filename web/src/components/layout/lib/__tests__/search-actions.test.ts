@@ -8,7 +8,9 @@ import en from '../../../../i18n/locales/en.json'
 import zhCN from '../../../../i18n/locales/zh-CN.json'
 import {
   matchActionEntries,
+  resolveSmartLogQuery,
   SEARCH_ACTION_ENTRIES,
+  SEARCH_SHORTCUT_ENTRIES,
   type SearchActionEntry,
 } from '../search-actions'
 
@@ -123,5 +125,60 @@ describe('matchActionEntries', () => {
     expect(
       matchActionEntries(SEARCH_ACTION_ENTRIES, 'zzz', resolveLabel)
     ).toEqual([])
+  })
+})
+
+describe('SEARCH_SHORTCUT_ENTRIES & resolveSmartLogQuery', () => {
+  it('exposes the four operational shortcuts with valid bilingual i18n keys', () => {
+    expect(SEARCH_SHORTCUT_ENTRIES.map((entry) => entry.id)).toEqual([
+      'route-workspace',
+      'failed-proxy-logs',
+      'model-tester',
+      'price-compare',
+    ])
+    for (const entry of SEARCH_SHORTCUT_ENTRIES) {
+      const enLabel = resolveKey(en.translation, entry.titleKey)
+      const zhLabel = resolveKey(zhCN.translation, entry.titleKey)
+      expect(typeof enLabel === 'string' && enLabel.length > 0).toBe(true)
+      expect(typeof zhLabel === 'string' && zhLabel.length > 0).toBe(true)
+    }
+  })
+
+  it('parses 4xx/5xx HTTP status codes into failed proxy-log deep links', () => {
+    expect(resolveSmartLogQuery('429')).toEqual({
+      kind: 'http-status',
+      value: '429',
+      to: '/proxy-logs',
+      search: { view: 'attempts', q: '429', status: 'failed' },
+    })
+    expect(resolveSmartLogQuery('503')).toEqual({
+      kind: 'http-status',
+      value: '503',
+      to: '/proxy-logs',
+      search: { view: 'attempts', q: '503', status: 'failed' },
+    })
+    expect(resolveSmartLogQuery('200')).toEqual({
+      kind: 'http-status',
+      value: '200',
+      to: '/proxy-logs',
+      search: { view: 'attempts', q: '200' },
+    })
+  })
+
+  it('parses req_ prefixed request IDs into direct request-view deep links', () => {
+    expect(resolveSmartLogQuery('req_abc12345')).toEqual({
+      kind: 'request-id',
+      value: 'req_abc12345',
+      to: '/proxy-logs',
+      search: { view: 'requests', requestId: 'req_abc12345' },
+    })
+  })
+
+  it('ignores non-diagnostic free text queries', () => {
+    expect(resolveSmartLogQuery('')).toBeNull()
+    expect(resolveSmartLogQuery('99')).toBeNull()
+    expect(resolveSmartLogQuery('999')).toBeNull()
+    expect(resolveSmartLogQuery('req_')).toBeNull()
+    expect(resolveSmartLogQuery('gpt-5')).toBeNull()
   })
 })

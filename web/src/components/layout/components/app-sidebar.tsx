@@ -84,10 +84,10 @@ export function AppSidebar() {
       {isMobile && <SidebarMobileHeader />}
       {view && <SidebarViewHeader view={view} />}
 
-      <SidebarContent className='py-2'>
+      <SidebarContent className='py-2.5'>
         {/* `key` remounts the subtree on a view switch so the CSS enter
          * animation re-runs. */}
-        <div key={key} className='sidebar-view-enter flex flex-col'>
+        <div key={key} className='sidebar-view-enter flex flex-col gap-1'>
           {navGroups.map((props) => (
             <NavGroup key={props.id || props.title} {...props} />
           ))}

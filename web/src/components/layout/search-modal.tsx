@@ -66,7 +66,9 @@ import { toast } from '@/lib/toast'
 
 import {
   matchActionEntries,
+  resolveSmartLogQuery,
   SEARCH_ACTION_ENTRIES,
+  SEARCH_SHORTCUT_ENTRIES,
   type SearchActionId,
 } from './lib/search-actions'
 import {
@@ -330,26 +332,77 @@ export function SearchModal(props: SearchModalProps) {
     [closeAndNavigate, props, refreshRouteDecisions, runCheckinAll]
   )
 
+  const smartLogGroup = React.useMemo((): SearchGroup[] => {
+    const target = resolveSmartLogQuery(trimmedQuery)
+    if (!target) return []
+    const label =
+      target.kind === 'request-id'
+        ? `${t('proxyLogs.detail.requestId')}: ${target.value}`
+        : `${t('proxyLogs.detail.httpStatus')}: ${target.value}`
+    const description = t('search.groups.proxyLogs')
+    return [
+      {
+        key: 'smart-log',
+        heading: t('search.groups.proxyLogs'),
+        icon: ScrollText,
+        items: [
+          {
+            key: `smart-log-${target.kind}-${target.value}`,
+            label,
+            description,
+            icon: ScrollText,
+            onSelect: () =>
+              closeAndNavigate({ to: target.to, search: target.search }),
+          },
+        ],
+      },
+    ]
+  }, [trimmedQuery, t, closeAndNavigate])
+
   const actionGroups = React.useMemo((): SearchGroup[] => {
-    const matched = hasQuery
+    const matchedActions = hasQuery
       ? matchActionEntries(SEARCH_ACTION_ENTRIES, trimmedQuery, (key) => t(key))
       : [...SEARCH_ACTION_ENTRIES]
-    if (matched.length === 0) return []
+    const matchedShortcuts = hasQuery
+      ? matchActionEntries(SEARCH_SHORTCUT_ENTRIES, trimmedQuery, (key) =>
+          t(key)
+        )
+      : [...SEARCH_SHORTCUT_ENTRIES]
+
+    const items: SearchItem[] = [
+      ...matchedActions.map((entry) => ({
+        key: `action-${entry.id}`,
+        label: t(entry.titleKey),
+        description: null,
+        icon: entry.icon,
+        onSelect: () => executeAction(entry.id),
+      })),
+      ...matchedShortcuts.map((entry) => ({
+        key: `shortcut-${entry.id}`,
+        label:
+          entry.id === 'failed-proxy-logs'
+            ? `${t('search.groups.proxyLogs')} · ${t(entry.titleKey)}`
+            : t(entry.titleKey),
+        description: null,
+        icon: entry.icon,
+        onSelect: () =>
+          closeAndNavigate({
+            to: entry.to,
+            ...(entry.search ? { search: entry.search } : {}),
+          }),
+      })),
+    ]
+
+    if (items.length === 0) return []
     return [
       {
         key: 'actions',
         heading: t('search.groups.actions'),
         icon: Zap,
-        items: matched.map((entry) => ({
-          key: `action-${entry.id}`,
-          label: t(entry.titleKey),
-          description: null,
-          icon: entry.icon,
-          onSelect: () => executeAction(entry.id),
-        })),
+        items,
       },
     ]
-  }, [hasQuery, trimmedQuery, t, executeAction])
+  }, [hasQuery, trimmedQuery, t, executeAction, closeAndNavigate])
 
   // ---- Local navigation layer --------------------------------------------
 
@@ -572,7 +625,12 @@ export function SearchModal(props: SearchModalProps) {
     navigateToQueryPage,
   ])
 
-  const groups = [...navigationGroups, ...actionGroups, ...entityGroups]
+  const groups = [
+    ...smartLogGroup,
+    ...navigationGroups,
+    ...actionGroups,
+    ...entityGroups,
+  ]
   const showEmpty = hasQuery && !isSearching && groups.length === 0
 
   return (
