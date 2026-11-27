@@ -11,6 +11,10 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { useReauth } from '@/components/common/reauth-provider'
+import {
+  SoftToneBadge,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -454,6 +458,18 @@ export function BudgetEditor({
     budget.used,
     budget.reserved
   )
+  let quotaHealthTone: SoftTone = 'success'
+  let quotaHealthLabelKey = 'userAdmin.readiness.state.passed'
+  if (budget.frozen) {
+    quotaHealthTone = 'destructive'
+    quotaHealthLabelKey = 'userAdmin.readiness.state.action'
+  } else if (
+    !previewUnlimited &&
+    (remaining === null || Number(remaining) <= 0)
+  ) {
+    quotaHealthTone = 'warning'
+    quotaHealthLabelKey = 'userAdmin.readiness.state.action'
+  }
   useEffect(() => {
     onStateChange?.({ dirty, pending: mutation.isPending })
   }, [dirty, mutation.isPending, onStateChange])
@@ -466,14 +482,22 @@ export function BudgetEditor({
         })}
         className='space-y-4'
       >
-        <dl className='bg-muted grid grid-cols-2 gap-4 rounded-lg p-3 text-sm'>
-          <div>
-            <dt className='text-muted-foreground'>{t('userAdmin.used')}</dt>
-            <dd className='tabular-nums'>{budget.used}</dd>
+        <dl className='bg-muted/50 grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm'>
+          <div className='min-w-0'>
+            <dt className='text-muted-foreground text-xs'>
+              {t('userAdmin.used')}
+            </dt>
+            <dd className='mt-0.5 font-medium wrap-anywhere tabular-nums'>
+              {budget.used}
+            </dd>
           </div>
-          <div>
-            <dt className='text-muted-foreground'>{t('userAdmin.reserved')}</dt>
-            <dd className='tabular-nums'>{budget.reserved}</dd>
+          <div className='min-w-0'>
+            <dt className='text-muted-foreground text-xs'>
+              {t('userAdmin.reserved')}
+            </dt>
+            <dd className='mt-0.5 font-medium wrap-anywhere tabular-nums'>
+              {budget.reserved}
+            </dd>
           </div>
         </dl>
         <p className='text-muted-foreground text-xs'>
@@ -499,11 +523,18 @@ export function BudgetEditor({
           {t('userAdmin.zeroHint')}
         </p>
         <section
-          className='bg-muted space-y-2 rounded-lg p-3'
+          className='bg-muted/50 space-y-2 rounded-lg border p-3'
           aria-live='polite'
         >
-          <h3 className='font-medium'>{t('userAdmin.budgetPreview.title')}</h3>
-          <p>
+          <div className='flex flex-wrap items-center justify-between gap-2'>
+            <h3 className='text-sm font-medium'>
+              {t('userAdmin.budgetPreview.title')}
+            </h3>
+            <SoftToneBadge tone={quotaHealthTone}>
+              {t(quotaHealthLabelKey)}
+            </SoftToneBadge>
+          </div>
+          <p className='text-sm font-medium wrap-anywhere tabular-nums'>
             {t(
               previewUnlimited
                 ? 'userAdmin.budgetPreview.unlimited'
@@ -512,7 +543,7 @@ export function BudgetEditor({
             )}
           </p>
           {!previewUnlimited && remaining !== null && (
-            <p className='text-muted-foreground text-xs'>
+            <p className='text-muted-foreground text-xs wrap-anywhere tabular-nums'>
               {t('userAdmin.budgetPreview.formula', {
                 limit: previewLimit,
                 used: budget.used,
@@ -524,7 +555,11 @@ export function BudgetEditor({
           <p className='text-muted-foreground text-xs'>
             {t('userAdmin.budgetPreview.boundary')}
           </p>
-          {budget.frozen && <p>{t('userAdmin.budgetPreview.frozen')}</p>}
+          {budget.frozen && (
+            <p className='text-destructive-soft-fg text-xs'>
+              {t('userAdmin.budgetPreview.frozen')}
+            </p>
+          )}
         </section>
         <WriteError error={mutation.error} />
         <div className='flex items-center justify-end gap-3'>
@@ -599,13 +634,13 @@ export function PricingEditor({
           {t('userAdmin.pricingHint')}
         </p>
         <section
-          className='bg-muted space-y-2 rounded-lg p-3'
+          className='bg-muted/50 space-y-2 rounded-lg border p-3'
           aria-live='polite'
         >
-          <h3 className='font-medium'>
+          <h3 className='text-sm font-medium'>
             {t('userAdmin.budgetPreview.multiplierTitle')}
           </h3>
-          <p>
+          <p className='text-sm wrap-anywhere tabular-nums'>
             {example
               ? t('userAdmin.budgetPreview.multiplierExample', {
                   multiplier: previewMultiplier,
@@ -704,9 +739,9 @@ export function ActivationDialog({
         if (!open && !pending) dismiss()
       }}
     >
-      <DialogContent className='sm:max-w-lg'>
+      <DialogContent className='max-h-[90svh] overflow-y-auto sm:max-w-lg'>
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className='wrap-anywhere'>
             {t('userAdmin.activationTitle', {
               user: user.displayName || user.username,
             })}
@@ -721,7 +756,7 @@ export function ActivationDialog({
               readOnly
               className='font-mono'
             />
-            <p className='text-muted-foreground text-xs'>
+            <p className='text-muted-foreground text-xs tabular-nums'>
               {t('userAdmin.expires', {
                 time: new Date(secret.expiresAt).toLocaleString(
                   toBcp47(i18n.language)

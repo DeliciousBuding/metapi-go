@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -16,6 +18,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Notice } from '@/components/ui/notice'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import { gatewayUsersApi } from '@/lib/api/gateway-users'
 
 import { useAdminWrite, userAdminKeys } from './api'
@@ -63,11 +66,12 @@ export function BudgetHolds({
     }
   )
   const dirty = form.formState.isDirty
+  const showRefreshSpin = useDelayedSpin(query.isFetching)
   useEffect(() => {
     onStateChange?.({ dirty, pending: mutation.isPending })
   }, [dirty, mutation.isPending, onStateChange])
   return (
-    <section className='space-y-3 border-t pt-4'>
+    <section className='min-w-0 space-y-3 border-t pt-4'>
       <h2 className='text-base font-semibold'>{t('userAdmin.holdsTitle')}</h2>
       <p className='text-muted-foreground text-xs'>
         {t('userAdmin.holdsHint')}
@@ -87,17 +91,23 @@ export function BudgetHolds({
               </p>
             ) : (
               query.data.items.map((item) => (
-                <div key={item.requestId} className='space-y-2 p-3'>
-                  <p className='font-mono text-xs wrap-anywhere'>
-                    {item.requestId}
-                  </p>
-                  <p className='text-muted-foreground text-xs'>
-                    {t(
-                      item.state === 'pending'
-                        ? 'userAdmin.holdPending'
-                        : 'userAdmin.holdUnknown'
-                    )}{' '}
-                    · {t('userAdmin.reserved')}: {item.reserved} · ×
+                <div key={item.requestId} className='min-w-0 space-y-2 p-3'>
+                  <div className='flex flex-wrap items-center justify-between gap-2'>
+                    <p className='min-w-0 font-mono text-xs wrap-anywhere'>
+                      {item.requestId}
+                    </p>
+                    <SoftToneBadge
+                      tone={item.state === 'pending' ? 'info' : 'warning'}
+                    >
+                      {t(
+                        item.state === 'pending'
+                          ? 'userAdmin.holdPending'
+                          : 'userAdmin.holdUnknown'
+                      )}
+                    </SoftToneBadge>
+                  </div>
+                  <p className='text-muted-foreground text-xs tabular-nums'>
+                    {t('userAdmin.reserved')}: {item.reserved} · ×
                     {item.multiplier}
                   </p>
                   <Button
@@ -115,7 +125,7 @@ export function BudgetHolds({
               ))
             )}
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
             <Button
               size='sm'
               variant='ghost'
@@ -148,6 +158,10 @@ export function BudgetHolds({
               disabled={query.isFetching}
               onClick={() => void query.refetch()}
             >
+              <RefreshCw
+                aria-hidden='true'
+                className={showRefreshSpin ? 'animate-spin' : undefined}
+              />
               {t('userAdmin.refresh')}
             </Button>
           </div>

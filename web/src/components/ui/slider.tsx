@@ -13,11 +13,12 @@ function Slider({
   'aria-labelledby': ariaLabelledBy,
   ...props
 }: SliderPrimitive.Root.Props) {
-  const _values = Array.isArray(value)
-    ? value
-    : Array.isArray(defaultValue)
-      ? defaultValue
-      : [min, max]
+  let _values: readonly number[] = [min, max]
+  if (Array.isArray(value)) {
+    _values = value
+  } else if (Array.isArray(defaultValue)) {
+    _values = defaultValue
+  }
 
   return (
     <SliderPrimitive.Root

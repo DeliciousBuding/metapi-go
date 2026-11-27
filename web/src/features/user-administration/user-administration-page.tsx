@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '@/components/common/page-header'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Notice } from '@/components/ui/notice'
@@ -16,6 +18,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import {
   gatewayUsersApi,
   type GatewayUser,
@@ -108,24 +111,39 @@ export function UserAdministrationPage() {
       replace,
     })
   }
+  const isRefreshing = users.isFetching || groups.isFetching
+  const showRefreshSpin = useDelayedSpin(isRefreshing)
+  const updatedAt = Math.max(
+    users.dataUpdatedAt ?? 0,
+    groups.dataUpdatedAt ?? 0
+  )
+  const hasRefreshError = Boolean(users.isError || groups.isError)
 
   return (
-    <div className='page-padding flex h-full flex-col gap-4 overflow-y-auto'>
+    <div className='page-padding flex h-full min-w-0 flex-col gap-3 overflow-y-auto'>
       <PageHeader
         title={t('userAdmin.title')}
         description={t('userAdmin.description')}
         actions={
           <>
+            <QuietRefreshStatus
+              updatedAt={updatedAt}
+              hasError={hasRefreshError}
+              className='hidden sm:inline'
+            />
             <Button
               size='sm'
               variant='outline'
-              disabled={users.isFetching || groups.isFetching}
+              disabled={isRefreshing}
               onClick={() => {
                 void users.refetch()
                 void groups.refetch()
               }}
             >
-              <RefreshCw aria-hidden='true' />
+              <RefreshCw
+                aria-hidden='true'
+                className={showRefreshSpin ? 'animate-spin' : undefined}
+              />
               {t('userAdmin.refresh')}
             </Button>
             <Button
@@ -220,7 +238,7 @@ export function UserAdministrationPage() {
       <WriteError error={toggle.error} />
       {query.isSuccess && !query.isError && (
         <>
-          <p className='text-muted-foreground text-xs'>
+          <p className='text-muted-foreground text-xs tabular-nums'>
             {t('userAdmin.directoryCount', { count, limit: query.data.limit })}
           </p>
           {query.data.items.length >= query.data.limit && (
@@ -241,103 +259,121 @@ export function UserAdministrationPage() {
               </Button>
             </div>
           ) : (
-            <div className='bg-card divide-y rounded-xl border'>
+            <div className='bg-card min-w-0 divide-y rounded-xl border'>
               {view === 'users'
-                ? filteredUsers.map((user) => (
-                    <article
-                      key={user.id}
-                      className='flex flex-wrap items-center justify-between gap-3 p-4'
-                    >
-                      <div className='min-w-0 flex-1 basis-56'>
-                        <div className='flex flex-wrap items-center gap-2'>
-                          <h2 className='text-sm font-semibold wrap-anywhere'>
-                            {user.displayName || user.username}
-                          </h2>
-                          <span className='bg-muted rounded px-2 py-0.5 text-xs'>
+                ? filteredUsers.map((user) => {
+                    const userGroup = groups.data?.items.find(
+                      (group) => group.id === user.groupId
+                    )
+                    return (
+                      <article
+                        key={user.id}
+                        className='flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3'
+                      >
+                        <div className='min-w-0 flex-1 basis-52'>
+                          <div className='flex flex-wrap items-center gap-2'>
+                            <h2 className='text-sm font-semibold wrap-anywhere'>
+                              {user.displayName || user.username}
+                            </h2>
+                            <SoftToneBadge
+                              tone={user.enabled ? 'success' : 'neutral'}
+                            >
+                              {t(
+                                user.enabled
+                                  ? 'userAdmin.enabled'
+                                  : 'userAdmin.disabled'
+                              )}
+                            </SoftToneBadge>
+                            {userGroup && (
+                              <SoftToneBadge
+                                tone={userGroup.enabled ? 'info' : 'warning'}
+                                showDot={false}
+                              >
+                                <span className='max-w-40 truncate'>
+                                  {userGroup.name}
+                                </span>
+                              </SoftToneBadge>
+                            )}
+                          </div>
+                          <p className='text-muted-foreground mt-1 text-xs wrap-anywhere tabular-nums'>
+                            {user.username} · #{user.id} ·{' '}
+                            {t('userAdmin.group')}:{' '}
+                            {userGroup?.name ?? `#${user.groupId}`}
+                          </p>
+                        </div>
+                        <div className='flex min-w-0 flex-wrap gap-1.5'>
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setReadinessUserId(user.id)}
+                          >
+                            {t('userAdmin.readiness.open')}
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            disabled={!groups.isSuccess || groups.isError}
+                            onClick={() => setEditor({ kind: 'user', user })}
+                          >
+                            {t('userAdmin.editUser')}
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setBudgetUser(user)}
+                          >
+                            {t('userAdmin.budget')}
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setActivationUser(user)}
+                          >
+                            {t('userAdmin.activation')}
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            disabled={toggle.isPending || users.isFetching}
+                            onClick={() =>
+                              toggle.submit({ kind: 'user', item: user })
+                            }
+                          >
                             {t(
                               user.enabled
-                                ? 'userAdmin.enabled'
-                                : 'userAdmin.disabled'
+                                ? 'userAdmin.disable'
+                                : 'userAdmin.enable'
                             )}
-                          </span>
+                          </Button>
                         </div>
-                        <p className='text-muted-foreground mt-1 text-xs wrap-anywhere'>
-                          {user.username} · #{user.id} · {t('userAdmin.group')}:{' '}
-                          {groups.data?.items.find(
-                            (group) => group.id === user.groupId
-                          )?.name ?? `#${user.groupId}`}
-                        </p>
-                      </div>
-                      <div className='flex flex-wrap gap-2'>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          onClick={() => setReadinessUserId(user.id)}
-                        >
-                          {t('userAdmin.readiness.open')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          disabled={!groups.isSuccess || groups.isError}
-                          onClick={() => setEditor({ kind: 'user', user })}
-                        >
-                          {t('userAdmin.editUser')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          onClick={() => setBudgetUser(user)}
-                        >
-                          {t('userAdmin.budget')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          onClick={() => setActivationUser(user)}
-                        >
-                          {t('userAdmin.activation')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='ghost'
-                          disabled={toggle.isPending || users.isFetching}
-                          onClick={() =>
-                            toggle.submit({ kind: 'user', item: user })
-                          }
-                        >
-                          {t(
-                            user.enabled
-                              ? 'userAdmin.disable'
-                              : 'userAdmin.enable'
-                          )}
-                        </Button>
-                      </div>
-                    </article>
-                  ))
+                      </article>
+                    )
+                  })
                 : filteredGroups.map((group) => (
                     <article
                       key={group.id}
-                      className='flex flex-wrap items-center justify-between gap-3 p-4'
+                      className='flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3'
                     >
-                      <div className='min-w-0 flex-1 basis-56'>
+                      <div className='min-w-0 flex-1 basis-52'>
                         <div className='flex flex-wrap items-center gap-2'>
                           <h2 className='text-sm font-semibold wrap-anywhere'>
                             {group.name}
                           </h2>
-                          <span className='bg-muted rounded px-2 py-0.5 text-xs'>
+                          <SoftToneBadge
+                            tone={group.enabled ? 'success' : 'neutral'}
+                          >
                             {t(
                               group.enabled
                                 ? 'userAdmin.enabled'
                                 : 'userAdmin.disabled'
                             )}
-                          </span>
+                          </SoftToneBadge>
                         </div>
-                        <p className='text-muted-foreground mt-1 text-xs wrap-anywhere'>
+                        <p className='text-muted-foreground mt-1 text-xs wrap-anywhere tabular-nums'>
                           {group.slug} · #{group.id}
                         </p>
                       </div>
-                      <div className='flex flex-wrap gap-2'>
+                      <div className='flex min-w-0 flex-wrap gap-1.5'>
                         <Button
                           size='sm'
                           variant='outline'

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -119,7 +120,7 @@ export function GroupAccessDialog({
           <section className='space-y-3 border-t pt-4'>
             <h2 className='text-base font-semibold'>{t('userAdmin.routes')}</h2>
             {grants.isSuccess && !grants.isError && (
-              <p className='text-muted-foreground text-xs'>
+              <p className='text-muted-foreground text-xs tabular-nums'>
                 {t('userAdmin.grantsCount', {
                   count: grants.data?.items.length ?? 0,
                 })}
@@ -159,7 +160,7 @@ export function GroupAccessDialog({
                     </Label>
                   </div>
                 </div>
-                <p className='text-muted-foreground text-xs'>
+                <p className='text-muted-foreground text-xs tabular-nums'>
                   {t('userAdmin.routeMatches', {
                     count: filteredRoutes.length,
                     total: routes.data.length,
@@ -180,19 +181,25 @@ export function GroupAccessDialog({
                       return (
                         <div
                           key={route.id}
-                          className='flex flex-wrap items-center justify-between gap-3 p-3'
+                          className='flex min-w-0 flex-wrap items-center justify-between gap-3 p-3'
                         >
-                          <div className='min-w-0 flex-1'>
-                            <p className='font-medium wrap-anywhere'>
-                              {route.displayName || route.modelPattern}
-                            </p>
-                            <p className='text-muted-foreground text-xs wrap-anywhere'>
-                              #{route.id} · {route.modelPattern} ·{' '}
-                              {t(
-                                route.enabled
-                                  ? 'userAdmin.enabled'
-                                  : 'userAdmin.disabled'
-                              )}
+                          <div className='min-w-0 flex-1 basis-44'>
+                            <div className='flex flex-wrap items-center gap-2'>
+                              <p className='text-sm font-medium wrap-anywhere'>
+                                {route.displayName || route.modelPattern}
+                              </p>
+                              <SoftToneBadge
+                                tone={route.enabled ? 'success' : 'neutral'}
+                              >
+                                {t(
+                                  route.enabled
+                                    ? 'userAdmin.enabled'
+                                    : 'userAdmin.disabled'
+                                )}
+                              </SoftToneBadge>
+                            </div>
+                            <p className='text-muted-foreground mt-0.5 text-xs wrap-anywhere tabular-nums'>
+                              #{route.id} · {route.modelPattern}
                             </p>
                           </div>
                           <Button
@@ -225,9 +232,9 @@ export function GroupAccessDialog({
                 {unknownIds.map((grant) => (
                   <div
                     key={grant.routeId}
-                    className='flex items-center justify-between gap-3'
+                    className='flex flex-wrap items-center justify-between gap-3'
                   >
-                    <span>
+                    <span className='min-w-0 text-sm wrap-anywhere tabular-nums'>
                       {t('userAdmin.unavailableRoute', { id: grant.routeId })}
                     </span>
                     <Button

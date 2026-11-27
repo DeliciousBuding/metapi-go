@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
+import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
+import {
+  SoftToneBadge,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Notice } from '@/components/ui/notice'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 import {
   gatewayUsersApi,
   type GatewayUser,
@@ -21,6 +28,19 @@ import { LoadError } from './feedback'
 import { availableQuotaPreview } from './quota-preview'
 
 type CheckState = 'passed' | 'action' | 'unknown' | 'checking'
+
+function checkStateTone(state: CheckState): SoftTone {
+  switch (state) {
+    case 'passed':
+      return 'success'
+    case 'action':
+      return 'warning'
+    case 'checking':
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
 
 export function ReadinessDialog({
   userId,
@@ -74,6 +94,11 @@ export function ReadinessDialog({
   })
   const queries = [users, groups, grants, routes, budget]
   const refreshing = queries.some((query) => query.isFetching)
+  const showRefreshSpin = useDelayedSpin(refreshing)
+  const updatedAt = Math.max(
+    ...queries.map((query) => query.dataUpdatedAt ?? 0)
+  )
+  const hasRefreshError = queries.some((query) => query.isError)
   const refresh = () => {
     for (const query of queries) {
       if (query === grants && !group) continue
@@ -146,9 +171,9 @@ export function ReadinessDialog({
         if (!open) close()
       }}
     >
-      <DialogContent className='sm:max-w-2xl'>
+      <DialogContent className='max-h-[90svh] overflow-y-auto sm:max-w-2xl'>
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className='wrap-anywhere'>
             {t('userAdmin.readiness.title', {
               user: user?.displayName || user?.username || `#${userId}`,
             })}
@@ -170,16 +195,16 @@ export function ReadinessDialog({
         ))}
         <div className='divide-y rounded-lg border'>
           {checks.map((check) => (
-            <section key={check.key} className='space-y-2 p-3'>
+            <section key={check.key} className='min-w-0 space-y-2 p-3'>
               <div className='flex flex-wrap items-center justify-between gap-2'>
-                <h2 className='font-medium'>
+                <h2 className='text-sm font-medium'>
                   {t(`userAdmin.readiness.${check.key}`)}
                 </h2>
-                <span className='bg-muted rounded px-2 py-1 text-xs'>
+                <SoftToneBadge tone={checkStateTone(check.state)}>
                   {t(`userAdmin.readiness.state.${check.state}`)}
-                </span>
+                </SoftToneBadge>
               </div>
-              <p className='text-muted-foreground text-sm'>
+              <p className='text-muted-foreground text-sm wrap-anywhere tabular-nums'>
                 {t(
                   `userAdmin.readiness.${check.state === 'unknown' || check.state === 'checking' ? 'unknownHint' : check.detail}`,
                   {
@@ -220,18 +245,30 @@ export function ReadinessDialog({
           ))}
         </div>
         <section className='space-y-1'>
-          <h2 className='font-medium'>{t('userAdmin.readiness.activation')}</h2>
+          <h2 className='text-sm font-medium'>
+            {t('userAdmin.readiness.activation')}
+          </h2>
           <p className='text-muted-foreground text-sm'>
             {t('userAdmin.readiness.activationUnknown')}
           </p>
         </section>
-        <div className='flex flex-wrap justify-end gap-2'>
-          <Button variant='outline' disabled={refreshing} onClick={refresh}>
-            {t('userAdmin.refresh')}
-          </Button>
-          <Button variant='outline' onClick={close}>
-            {t('userAdmin.close')}
-          </Button>
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <QuietRefreshStatus
+            updatedAt={updatedAt}
+            hasError={hasRefreshError}
+          />
+          <div className='ml-auto flex flex-wrap justify-end gap-2'>
+            <Button variant='outline' disabled={refreshing} onClick={refresh}>
+              <RefreshCw
+                aria-hidden='true'
+                className={showRefreshSpin ? 'animate-spin' : undefined}
+              />
+              {t('userAdmin.refresh')}
+            </Button>
+            <Button variant='outline' onClick={close}>
+              {t('userAdmin.close')}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

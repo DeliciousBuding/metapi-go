@@ -1,4 +1,3 @@
-/* eslint-disable no-nested-ternary -- status label selection uses chained ternaries */
 // metapi-go features/checkin/components — checkin log detail side sheet.
 // i18n: all user-visible strings migrated to t() calls.
 
@@ -6,7 +5,6 @@ import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -21,6 +19,7 @@ import { toBcp47 } from '@/i18n/languages'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
 import { type CheckinLogRow, checkinLogRowSchema } from '../types'
+import { CheckinStatusBadge } from './checkin-columns'
 import { FailureReasonBadge } from './failure-reason-badge'
 
 interface CheckinDetailSheetProps {
@@ -53,6 +52,24 @@ export function CheckinDetailSheet({
     params.set('accountId', String(inner.accountId))
     window.location.assign(`/accounts?${params.toString()}`)
   }
+  const localizedReasonTitle = reason
+    ? t(`checkin.failureReason.code.${reason.code}.title`, {
+        defaultValue: reason.title || '—',
+      })
+    : null
+  const localizedActionHint =
+    reason && reason.actionHint
+      ? t(`checkin.failureReason.code.${reason.code}.action`, {
+          defaultValue: reason.actionHint,
+        })
+      : null
+  const localizedDetailHint =
+    reason && reason.detailHint
+      ? t(`checkin.failureReason.code.${reason.code}.detail`, {
+          defaultValue: reason.detailHint,
+        })
+      : null
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -60,37 +77,27 @@ export function CheckinDetailSheet({
         className='flex w-full flex-col gap-0 sm:max-w-md'
       >
         <SheetHeader>
-          <SheetTitle className='flex items-center gap-2'>
-            <span className='truncate'>
+          <SheetTitle className='flex min-w-0 flex-wrap items-center gap-2'>
+            <span className='min-w-0 truncate'>
               {account?.username || `#${inner.accountId}`}
             </span>
-            <Badge
-              variant={
-                inner.status === 'success'
-                  ? 'default'
-                  : inner.status === 'skipped'
-                    ? 'secondary'
-                    : 'destructive'
-              }
-            >
-              {inner.status === 'success'
-                ? t('checkin.detail.statusSuccess')
-                : inner.status === 'skipped'
-                  ? t('checkin.detail.statusSkipped')
-                  : t('checkin.detail.statusFailed')}
-            </Badge>
+            <CheckinStatusBadge status={inner.status} />
           </SheetTitle>
         </SheetHeader>
-        <div className='flex-1 space-y-4 overflow-y-auto p-4'>
-          <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
+        <div className='min-w-0 flex-1 space-y-4 overflow-y-auto p-4'>
+          <dl className='grid grid-cols-1 gap-x-3 gap-y-2.5 text-sm sm:grid-cols-2'>
             <DetailField label={t('checkin.detail.createdAt')}>
-              {formatCheckinLogTime(inner.createdAt, locale)}
+              <span className='tabular-nums'>
+                {formatCheckinLogTime(inner.createdAt, locale)}
+              </span>
             </DetailField>
             <DetailField
               label={t('checkin.detail.account')}
               title={account?.username || `#${inner.accountId}`}
             >
-              {account?.username || `#${inner.accountId}`}
+              <span className='tabular-nums'>
+                {account?.username || `#${inner.accountId}`}
+              </span>
             </DetailField>
             <DetailField
               label={t('checkin.detail.site')}
@@ -99,14 +106,14 @@ export function CheckinDetailSheet({
               {site ? site.name || site.url || '—' : '—'}
             </DetailField>
             {site?.url && (
-              <DetailField label={t('checkin.detail.siteUrl')}>
+              <DetailField label={t('checkin.detail.siteUrl')} full>
                 {/^https?:\/\//i.test(site.url) &&
                 isValidEndpointUrl(site.url) ? (
                   <a
                     href={site.url}
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='text-primary underline-offset-4 hover:underline'
+                    className='text-primary break-all underline-offset-4 hover:underline'
                   >
                     {site.url}
                   </a>
@@ -121,85 +128,77 @@ export function CheckinDetailSheet({
               label={t('checkin.detail.reward')}
               title={inner.reward || undefined}
             >
-              {inner.reward || '—'}
+              <span className='tabular-nums'>{inner.reward || '—'}</span>
             </DetailField>
-            <DetailField
-              label={t('checkin.detail.logId')}
-            >{`#${inner.id}`}</DetailField>
+            <DetailField label={t('checkin.detail.logId')}>
+              <span className='font-mono tabular-nums'>{`#${inner.id}`}</span>
+            </DetailField>
           </dl>
           {inner.message && (
-            <div className='space-y-1'>
-              <dt className='text-muted-foreground text-2xs'>
+            <section className='min-w-0 space-y-1.5'>
+              <h3 className='text-muted-foreground text-xs font-medium'>
                 {t('checkin.detail.rawResponse')}
-              </dt>
-              <dd className='bg-muted/30 rounded-lg border p-3 font-mono text-sm break-words whitespace-pre-wrap'>
+              </h3>
+              <p className='bg-muted/30 rounded-lg border p-3 font-mono text-xs leading-relaxed [overflow-wrap:anywhere] break-words whitespace-pre-wrap'>
                 {inner.message}
-              </dd>
-            </div>
+              </p>
+            </section>
           )}
           {reason && (
             <>
               <Separator />
-              <div className='space-y-3'>
-                <div className='flex items-center gap-2'>
-                  <span className='text-muted-foreground text-2xs'>
+              <section className='min-w-0 space-y-3'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <h3 className='text-muted-foreground text-xs font-medium'>
                     {t('checkin.detail.failureReason')}
-                  </span>
+                  </h3>
                   <FailureReasonBadge reason={reason} />
                 </div>
-                <dl className='grid grid-cols-1 gap-y-2 text-sm'>
+                <dl className='grid grid-cols-1 gap-x-3 gap-y-2.5 text-sm sm:grid-cols-2'>
                   <DetailField label={t('checkin.detail.category')}>
                     {reason.category}
                   </DetailField>
                   <DetailField label={t('checkin.detail.errorCode')}>
-                    {reason.code}
+                    <span className='font-mono text-xs break-all'>
+                      {reason.code}
+                    </span>
                   </DetailField>
                   <DetailField
                     label={t('checkin.detail.description')}
-                    title={t(
-                      `checkin.failureReason.code.${reason.code}.title`,
-                      {
-                        defaultValue: reason.title || undefined,
-                      }
-                    )}
+                    title={localizedReasonTitle || undefined}
+                    full
                   >
-                    {t(`checkin.failureReason.code.${reason.code}.title`, {
-                      defaultValue: reason.title || '—',
-                    })}
+                    {localizedReasonTitle}
                   </DetailField>
-                  {reason.actionHint && (
+                  {localizedActionHint && (
                     <DetailField
                       label={t('checkin.detail.actionHint')}
-                      title={t(
-                        `checkin.failureReason.code.${reason.code}.action`,
-                        { defaultValue: reason.actionHint }
-                      )}
+                      title={localizedActionHint}
+                      full
                     >
-                      {t(`checkin.failureReason.code.${reason.code}.action`, {
-                        defaultValue: reason.actionHint,
-                      })}
+                      {localizedActionHint}
                     </DetailField>
                   )}
-                  {reason.detailHint && (
+                  {localizedDetailHint && (
                     <DetailField
                       label={t('checkin.detail.detailHint')}
-                      title={t(
-                        `checkin.failureReason.code.${reason.code}.detail`,
-                        { defaultValue: reason.detailHint }
-                      )}
+                      title={localizedDetailHint}
+                      full
                     >
-                      {t(`checkin.failureReason.code.${reason.code}.detail`, {
-                        defaultValue: reason.detailHint,
-                      })}
+                      {localizedDetailHint}
                     </DetailField>
                   )}
                 </dl>
-              </div>
+              </section>
             </>
           )}
         </div>
         <SheetFooter>
-          <Button onClick={handleViewAccount} variant='default'>
+          <Button
+            onClick={handleViewAccount}
+            variant='default'
+            className='w-full sm:w-auto'
+          >
             <ExternalLink />
             {t('checkin.detail.viewAccount')}
           </Button>

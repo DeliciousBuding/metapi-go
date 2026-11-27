@@ -188,6 +188,14 @@ export function AuthenticationSection() {
   }
 
   const isDirty = form.formState.isDirty
+  let currentTokenLabel = t('settings.basic.authentication.notSet')
+  if (authInfoQuery.data?.customized) {
+    currentTokenLabel = t('settings.basic.authentication.customizedToken', {
+      length: authInfoQuery.data.length ?? 0,
+    })
+  } else if (authInfoQuery.data?.configured) {
+    currentTokenLabel = t('settings.basic.authentication.defaultToken')
+  }
 
   return (
     <SectionCard
@@ -201,15 +209,7 @@ export function AuthenticationSection() {
               {t('settings.basic.authentication.currentToken')}
             </span>
             <code className='bg-muted rounded px-2 py-0.5 text-xs'>
-              {authInfoQuery.data
-                ? authInfoQuery.data.customized
-                  ? t('settings.basic.authentication.customizedToken', {
-                      length: authInfoQuery.data.length ?? 0,
-                    })
-                  : authInfoQuery.data.configured
-                    ? t('settings.basic.authentication.defaultToken')
-                    : t('settings.basic.authentication.notSet')
-                : t('settings.basic.authentication.notSet')}
+              {currentTokenLabel}
             </code>
             {generatedToken ? null : (
               <Button

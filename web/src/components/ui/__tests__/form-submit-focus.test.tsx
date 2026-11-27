@@ -96,7 +96,9 @@ beforeAll(() => {
 afterEach(() => cleanup())
 
 async function submitAndAwaitInvalid() {
-  fireEvent.click(screen.getAllByRole('button', { name: 'Submit' }).at(-1)!)
+  const submitButton = screen.getAllByRole('button', { name: 'Submit' }).at(-1)
+  if (!submitButton) throw new Error('Expected Submit button')
+  fireEvent.click(submitButton)
   await waitFor(() => {
     expect(document.querySelector('[aria-invalid="true"]')).not.toBeNull()
   })

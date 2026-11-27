@@ -24,7 +24,7 @@ function extractSideClasses(source: string, side: 'right' | 'left'): string {
     branch,
     `expected a '${side}' side branch in SheetContent`
   ).not.toBeNull()
-  return branch![1]
+  return branch?.[1] ?? ''
 }
 
 describe('sheet viewport safety', () => {
@@ -57,7 +57,7 @@ describe('sheet viewport safety', () => {
       /data-slot='sheet-content'[\s\S]*?className=\{cn\(\s*'([^']+)'/
     )
     expect(popupMatch).not.toBeNull()
-    const panelClasses = popupMatch![1]
+    const panelClasses = popupMatch?.[1] ?? ''
     expect(panelClasses).toMatch(/overflow-y-auto/)
     expect(panelClasses).not.toMatch(/overflow-hidden/)
   })
@@ -68,7 +68,7 @@ describe('sheet viewport safety', () => {
     const popupMatch = source.match(
       /data-slot='sheet-content'[\s\S]*?className=\{cn\(\s*'([^']+)'/
     )
-    const panelClasses = popupMatch![1]
+    const panelClasses = popupMatch?.[1] ?? ''
     expect(panelClasses).toMatch(/flex flex-col/)
 
     const footerMatch = source.match(
@@ -77,6 +77,6 @@ describe('sheet viewport safety', () => {
     expect(footerMatch).not.toBeNull()
     // mt-auto pins the footer to the bottom of the flex column when the
     // content region is the scroll container (e.g. settings keys sheet).
-    expect(footerMatch![1]).toMatch(/mt-auto/)
+    expect(footerMatch?.[1] ?? '').toMatch(/mt-auto/)
   })
 })
