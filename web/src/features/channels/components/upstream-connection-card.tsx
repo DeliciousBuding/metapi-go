@@ -14,6 +14,10 @@ import {
   connectionReadiness,
   type UpstreamDetailTab,
 } from '../lib/upstream-view'
+import {
+  collectConfiguredConversationProtocols,
+  ProtocolReachabilityPills,
+} from './protocol-reachability-pills'
 import { UpstreamIdentity } from './upstream-identity'
 
 export function UpstreamConnectionCard(props: {
@@ -33,6 +37,13 @@ export function UpstreamConnectionCard(props: {
       .map((member) => member.routeId)
   ).size
   const readiness = connectionReadiness(item, props.members, props.now)
+  const configuredProtocols = collectConfiguredConversationProtocols({
+    endpointConfig: item.endpointConfig,
+    protocolsBitmask: props.members.reduce(
+      (mask, member) => mask | member.protocols,
+      0
+    ),
+  })
   const steps = [
     {
       tab: 'credentials' as const,
@@ -115,6 +126,7 @@ export function UpstreamConnectionCard(props: {
           </span>
         )}
       </div>
+      <ProtocolReachabilityPills configured={configuredProtocols} />
       <div className='text-muted-foreground text-2xs space-y-0.5'>
         {[...new Set(props.members.map(memberProtocols))]
           .slice(0, 2)

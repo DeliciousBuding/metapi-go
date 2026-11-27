@@ -6,6 +6,7 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { request } from '@/lib/api/transport'
 
 import {
   channelsKeys,
@@ -13,6 +14,129 @@ import {
   type ChannelsErrorSummary,
   type ChannelsPageData,
 } from './types'
+
+export type ChannelProbeMode = 'models' | 'chat'
+
+export type ChannelProbeRequest = {
+  channelId: number
+  mode: ChannelProbeMode
+  model?: string
+}
+
+/**
+ * Response returned by `POST /api/admin/test-channel`.
+ *
+ * `firstByteLatencyMs` and `upstreamReportedModel` are optional additive fields
+ * so older servers that omit them remain fully supported without fabrication.
+ */
+export type ChannelProbeResult = {
+  success: boolean
+  statusCode: number
+  latencyMs: number
+  firstByteLatencyMs?: number | null
+  upstreamReportedModel?: string | null
+  truncatedBody: string
+  error: string | null
+  channelId?: number
+  routeId?: number
+  siteId?: number
+  siteName?: string
+  accountId?: number
+  model?: string
+  mode?: ChannelProbeMode | string
+  upstreamPath?: string
+  upstreamHost?: string
+  bodyTruncated?: boolean
+}
+
+function readOptionalFiniteNumber(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  return undefined
+}
+
+function readOptionalTrimmedString(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : null
+  }
+  return undefined
+}
+
+/** Parse and validate the `POST /api/admin/test-channel` response payload. */
+export function parseChannelProbeResult(result: unknown): ChannelProbeResult {
+  if (!result || typeof result !== 'object') {
+    throw new Error('Invalid channel probe response')
+  }
+  const body = result as Record<string, unknown>
+  if (
+    typeof body.success !== 'boolean' ||
+    typeof body.statusCode !== 'number' ||
+    !Number.isFinite(body.statusCode) ||
+    typeof body.latencyMs !== 'number' ||
+    !Number.isFinite(body.latencyMs)
+  ) {
+    throw new Error('Invalid channel probe response')
+  }
+  return {
+    success: body.success,
+    statusCode: body.statusCode,
+    latencyMs: body.latencyMs,
+    firstByteLatencyMs: readOptionalFiniteNumber(body.firstByteLatencyMs),
+    upstreamReportedModel: readOptionalTrimmedString(
+      body.upstreamReportedModel
+    ),
+    truncatedBody:
+      typeof body.truncatedBody === 'string' ? body.truncatedBody : '',
+    error: typeof body.error === 'string' && body.error ? body.error : null,
+    channelId: readOptionalFiniteNumber(body.channelId) ?? undefined,
+    routeId: readOptionalFiniteNumber(body.routeId) ?? undefined,
+    siteId: readOptionalFiniteNumber(body.siteId) ?? undefined,
+    siteName: typeof body.siteName === 'string' ? body.siteName : undefined,
+    accountId: readOptionalFiniteNumber(body.accountId) ?? undefined,
+    model: typeof body.model === 'string' ? body.model : undefined,
+    mode: typeof body.mode === 'string' ? body.mode : undefined,
+    upstreamPath:
+      typeof body.upstreamPath === 'string' ? body.upstreamPath : undefined,
+    upstreamHost:
+      typeof body.upstreamHost === 'string' ? body.upstreamHost : undefined,
+    bodyTruncated:
+      typeof body.bodyTruncated === 'boolean' ? body.bodyTruncated : undefined,
+  }
+}
+
+/**
+ * Run a synchronous single-channel diagnostic probe via
+ * `POST /api/admin/test-channel`. Business errors and HTTP errors are surfaced
+ * inline by the probe card rather than triggering duplicate global toasts.
+ */
+export async function probeChannel(
+  input: ChannelProbeRequest,
+  signal?: AbortSignal
+): Promise<ChannelProbeResult> {
+  const trimmedModel = input.model?.trim()
+  const payload: {
+    channelId: number
+    mode: ChannelProbeMode
+    model?: string
+  } = {
+    channelId: input.channelId,
+    mode: input.mode,
+    ...(trimmedModel ? { model: trimmedModel } : {}),
+  }
+  const response = await request<unknown>('/api/admin/test-channel', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    signal,
+    timeoutMs: 65_000,
+    skipBusinessError: true,
+    skipErrorHandler: true,
+  })
+  return parseChannelProbeResult(response)
+}
 
 /**
  * Parse the legacy/full GET /api/channels envelope. Returns the `items` array

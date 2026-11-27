@@ -11,6 +11,10 @@ import { formatDateTime } from '@/lib/format'
 
 import { memberProtocols } from '../lib/upstream-config'
 import { memberAvailability } from '../lib/upstream-view'
+import {
+  collectConfiguredConversationProtocols,
+  ProtocolReachabilityPills,
+} from './protocol-reachability-pills'
 
 export function UpstreamRouteTopology(props: {
   group: UpstreamGroup
@@ -115,9 +119,18 @@ export function UpstreamRouteTopology(props: {
                 {member.credentialName}
               </p>
               {observed && (
-                <p className='text-muted-foreground text-xs break-words'>
-                  {memberProtocols(observed)}
-                </p>
+                <div className='space-y-1.5'>
+                  <ProtocolReachabilityPills
+                    configured={collectConfiguredConversationProtocols({
+                      endpointConfig: channel?.endpointConfig,
+                      protocolsBitmask: observed.protocols,
+                      protocolOrder: observed.protocolOrder,
+                    })}
+                  />
+                  <p className='text-muted-foreground text-xs break-words'>
+                    {memberProtocols(observed)}
+                  </p>
+                </div>
               )}
               {state === 'cooling' && observed?.cooldownUntil && (
                 <p className='text-warning text-xs'>
