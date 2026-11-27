@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"slices"
 	"testing"
 )
 
@@ -412,20 +412,30 @@ func TestGroupInsertStatements(t *testing.T) {
 	}
 }
 
-// TestBuildInsertBatchPGNumbering pins the PostgreSQL batch builder: $N
-// placeholders must count across all rows in order.
-func TestBuildInsertBatchPGNumbering(t *testing.T) {
-	stmts := []insertStmt{
-		{table: "sites", columns: []string{"id", "name", "weight"}, values: []interface{}{int64(1), "a", 2.5}},
-		{table: "sites", columns: []string{"id", "name", "weight"}, values: []interface{}{int64(2), "b", 3.5}},
+func TestMigrationInsertSQL(t *testing.T) {
+	rows := []insertStmt{
+		{table: "order", columns: []string{"key", "read"}, values: []interface{}{"first", true}},
+		{table: "order", columns: []string{"key", "read"}, values: []interface{}{"second", false}},
 	}
-	sqlText, args := buildInsertBatchPG(stmts)
-	wantTuple := "($1, $2, $3), ($4, $5, $6)"
-	if !strings.Contains(sqlText, wantTuple) {
-		t.Errorf("batch PG SQL = %q, want it to contain %q", sqlText, wantTuple)
-	}
-	if len(args) != 6 {
-		t.Fatalf("batch PG args = %d, want 6", len(args))
+	const prefix = `INSERT INTO "order" ("key", "read") VALUES `
+	for _, tc := range []struct {
+		name     string
+		render   func(...insertStmt) (string, []interface{})
+		rows     []insertStmt
+		wantSQL  string
+		wantArgs []interface{}
+	}{
+		{"postgres/single", buildInsertPG, rows[:1], prefix + "($1, $2)", []interface{}{"first", true}},
+		{"postgres/batch", buildInsertPG, rows, `INSERT INTO order ("key", "read") VALUES ($1, $2), ($3, $4)`, []interface{}{"first", true, "second", false}},
+		{"sqlite/single", buildInsertSQLite, rows[:1], prefix + "(?, ?)", []interface{}{"first", int64(1)}},
+		{"sqlite/batch", buildInsertSQLite, rows, prefix + "(?, ?), (?, ?)", []interface{}{"first", int64(1), "second", int64(0)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			query, args := tc.render(tc.rows...)
+			if query != tc.wantSQL || !slices.Equal(args, tc.wantArgs) {
+				t.Fatalf("query = %q, args = %#v; want %q, %#v", query, args, tc.wantSQL, tc.wantArgs)
+			}
+		})
 	}
 }
 
