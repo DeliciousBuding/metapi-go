@@ -28,10 +28,14 @@ func (n *NewApiAdapter) userIDHeaders(userID *int) map[string]string {
 }
 
 func (n *NewApiAdapter) authHeaders(accessToken string, userID *int) map[string]string {
-	headers := map[string]string{"Authorization": "Bearer " + accessToken}
-	for k, v := range n.userIDHeaders(userID) {
-		headers[k] = v
-	}
+	headers := n.userIDHeaders(userID)
+	headers["Authorization"] = "Bearer " + accessToken
+	return headers
+}
+
+func (n *NewApiAdapter) cookieHeaders(cookie string, userID *int) map[string]string {
+	headers := n.userIDHeaders(userID)
+	headers["Cookie"] = cookie
 	return headers
 }
 
@@ -295,10 +299,7 @@ func (n *NewApiAdapter) fetchUserSelfByCookie(ctx context.Context, baseURL, toke
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		headers := map[string]string{"Cookie": cookie}
-		for k, v := range n.userIDHeaders(userID) {
-			headers[k] = v
-		}
+		headers := n.cookieHeaders(cookie, userID)
 
 		resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, headers, proxy)
 		if err != nil {
@@ -321,10 +322,7 @@ func (n *NewApiAdapter) probeUserIDByCookie(ctx context.Context, baseURL, token 
 				return nil
 			}
 			idCopy := id
-			headers := map[string]string{"Cookie": cookie}
-			for k, v := range n.userIDHeaders(&idCopy) {
-				headers[k] = v
-			}
+			headers := n.cookieHeaders(cookie, &idCopy)
 
 			resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, headers, proxy)
 			if err != nil {
@@ -400,4 +398,56 @@ func (n *NewApiAdapter) discoverUserID(ctx context.Context, baseURL, accessToken
 
 	// 4. Cookie probe
 	return n.probeUserIDByCookie(ctx, baseURL, accessToken, proxy)
+}
+
+func (n *NewApiAdapter) probeUserID(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) *int {
+	if err := ctx.Err(); err != nil {
+		return nil
+	}
+	if jwtID := n.tryDecodeUserID(accessToken); jwtID != nil {
+		idCopy := *jwtID
+		if n.testUserID(ctx, baseURL, accessToken, idCopy, proxy) {
+			return &idCopy
+		}
+	}
+
+	for _, id := range n.buildUserIDProbeCandidates(accessToken) {
+		if err := ctx.Err(); err != nil {
+			return nil
+		}
+		if n.testUserID(ctx, baseURL, accessToken, id, proxy) {
+			result := id
+			return &result
+		}
+	}
+	return nil
+}
+
+func (n *NewApiAdapter) testUserID(ctx context.Context, baseURL, accessToken string, userID int, proxy *ProxyConfig) bool {
+	idCopy := userID
+	resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, n.authHeaders(accessToken, &idCopy), proxy)
+	if err != nil {
+		return false
+	}
+	success, _ := getBool(resp, "success")
+	return success
+}
+
+func (n *NewApiAdapter) userSelfDataByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig) (map[string]interface{}, *int) {
+	resp, err := n.fetchUserSelfByCookie(ctx, baseURL, token, userID, proxy)
+	if err == nil {
+		if data, ok := getMap(resp, "data"); ok {
+			return data, getIntPtr(data, "id")
+		}
+	}
+	altID := n.probeAlternateUserIDByCookie(ctx, baseURL, token, userID, proxy)
+	if altID != nil {
+		resp, err = n.fetchUserSelfByCookie(ctx, baseURL, token, altID, proxy)
+		if err == nil {
+			if data, ok := getMap(resp, "data"); ok {
+				return data, altID
+			}
+		}
+	}
+	return nil, nil
 }

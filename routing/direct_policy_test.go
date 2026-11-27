@@ -1,7 +1,7 @@
 package routing
 
 import (
-	"strings"
+	"slices"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -20,12 +20,13 @@ func TestDirectGrantAllowedRouteMatchesNativeSupportedModelOrPolicy(t *testing.T
 		AllowedRouteIDs: []int64{99}, SupportedModels: []string{"gpt-*"},
 		RequiredUpstreamProtocol: 2,
 	}
-	reasons := selector.getCandidateEligibilityReasons(candidate, "gpt-4o", false, nil, "", policy)
-	if strings.Contains(strings.Join(reasons, " "), "route is not allowed") {
-		t.Fatalf("direct route was ANDed with supported model policy: %v", reasons)
+	routeDenied := CandidateBlocker{"route_not_allowed", "direct upstream route is not allowed by downstream key"}
+	blockers := selector.getCandidateBlockers(candidate, "gpt-4o", false, nil, "", policy)
+	if slices.Contains(blockers, routeDenied) {
+		t.Fatalf("direct route was ANDed with supported model policy: %v", blockers)
 	}
-	reasons = selector.getCandidateEligibilityReasons(candidate, "claude-3", false, nil, "", policy)
-	if !strings.Contains(strings.Join(reasons, " "), "route is not allowed") {
-		t.Fatalf("route-id-only policy did not restrict non-matching model: %v", reasons)
+	blockers = selector.getCandidateBlockers(candidate, "claude-3", false, nil, "", policy)
+	if !slices.Contains(blockers, routeDenied) {
+		t.Fatalf("route-id-only policy did not restrict non-matching model: %v", blockers)
 	}
 }

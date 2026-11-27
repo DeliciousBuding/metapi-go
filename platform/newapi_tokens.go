@@ -123,10 +123,7 @@ func (n *NewApiAdapter) getAPITokensWithUserComplete(ctx context.Context, baseUR
 func (n *NewApiAdapter) getAPITokensByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig) ([]ApiTokenInfo, bool, bool, error) {
 	var lastErr error
 	for _, cookie := range buildCookieCandidates(token) {
-		headers := map[string]string{"Cookie": cookie}
-		for k, v := range n.userIDHeaders(userID) {
-			headers[k] = v
-		}
+		headers := n.cookieHeaders(cookie, userID)
 
 		tokens, started, complete, err := n.fetchNewAPITokens(ctx, baseURL, headers, proxy)
 		if err == nil || errors.Is(err, ErrNewAPITokenListingCompletenessUnproven) {
@@ -549,10 +546,7 @@ func (n *NewApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToken
 		cookieUserID = n.probeUserIDByCookie(ctx, baseURL, accessToken, proxy)
 	}
 	for _, cookie := range buildCookieCandidates(accessToken) {
-		headers := map[string]string{"Cookie": cookie}
-		for k, v := range n.userIDHeaders(cookieUserID) {
-			headers[k] = v
-		}
+		headers := n.cookieHeaders(cookie, cookieUserID)
 
 		resp, err := fetchJSON(ctx, baseURL+"/api/token/", "POST", json.RawMessage(bodyBytes), headers, proxy)
 		if err != nil {
@@ -621,10 +615,7 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	// The bearer shape never answered. Retry listing with cookie transport for
 	// the same stored credential; no user-identity probe is performed.
 	for _, cookie := range buildCookieCandidates(accessToken) {
-		cookieHeaders := map[string]string{"Cookie": cookie}
-		for k, v := range n.userIDHeaders(resolvedUserID) {
-			cookieHeaders[k] = v
-		}
+		cookieHeaders := n.cookieHeaders(cookie, resolvedUserID)
 
 		tokenID, started, resolveErr = n.listedTokenIDForDelete(ctx, baseURL, cookieHeaders, targetKey, proxy)
 		if resolveErr != nil {

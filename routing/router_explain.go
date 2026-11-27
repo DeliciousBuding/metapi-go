@@ -203,6 +203,9 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		// Missing protocol remains fail-closed in execution, but is an unknown
 		// dimension in a preview, not proof that a grant is unauthorized.
 		blockers := selector.getCandidateBlockers(row, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)
+		if associationBlocker.Code != "" {
+			blockers = append([]CandidateBlocker{associationBlocker}, blockers...)
+		}
 		reasons := make([]string, 0, len(blockers))
 		filtered := make([]CandidateBlocker, 0, len(blockers))
 		for _, blocker := range blockers {

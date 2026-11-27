@@ -54,13 +54,7 @@ func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 // so the cookie header becomes the stored credential. Mirrors
 // NewApiAdapter.Login (same fetchLoginResponse + hasUsableSessionCookie flow).
 func (o *OneApiAdapter) Login(ctx context.Context, baseURL, username, password string, platformUserId *int, proxy *ProxyConfig) (*LoginResult, error) {
-	body := map[string]string{"username": username, "password": password}
-	headers := map[string]string{
-		"X-Requested-With": "XMLHttpRequest",
-		"User-Agent":       DefaultBrowserUserAgent,
-	}
-
-	answer, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)
+	answer, err := fetchLoginResponse(ctx, baseURL, username, password, proxy)
 	if err != nil {
 		return &LoginResult{Success: false, Message: err.Error()}, nil
 	}
@@ -327,7 +321,7 @@ func (o *OneApiAdapter) GetUserGroups(ctx context.Context, baseURL, accessToken 
 	var terminalError string
 
 	// Try /api/user_group_map first (OneApi order)
-	groups, err := o.tryGetGroups(ctx, baseURL+"/api/user_group_map", headers, proxy)
+	groups, err := fetchUserGroups(ctx, baseURL+"/api/user_group_map", headers, proxy)
 	if err != nil {
 		terminalError = err.Error()
 	}
@@ -336,7 +330,7 @@ func (o *OneApiAdapter) GetUserGroups(ctx context.Context, baseURL, accessToken 
 	}
 
 	// Fallback: /api/user/self/groups
-	groups, err = o.tryGetGroups(ctx, baseURL+"/api/user/self/groups", headers, proxy)
+	groups, err = fetchUserGroups(ctx, baseURL+"/api/user/self/groups", headers, proxy)
 	if err != nil {
 		if terminalError == "" {
 			terminalError = err.Error()
@@ -353,7 +347,7 @@ func (o *OneApiAdapter) GetUserGroups(ctx context.Context, baseURL, accessToken 
 	return []string{"default"}, nil
 }
 
-func (o *OneApiAdapter) tryGetGroups(ctx context.Context, url string, headers map[string]string, proxy *ProxyConfig) ([]string, error) {
+func fetchUserGroups(ctx context.Context, url string, headers map[string]string, proxy *ProxyConfig) ([]string, error) {
 	resp, err := fetchJSON(ctx, url, "GET", nil, headers, proxy)
 	if err != nil {
 		return nil, err

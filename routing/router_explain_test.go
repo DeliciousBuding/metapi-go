@@ -52,7 +52,7 @@ func TestExplanationDirectProtocolContextAndExecutionFailClosed(t *testing.T) {
 				if len(c.Blockers) != 0 || strings.Contains(c.Reason, "not authorized") {
 					t.Fatalf("missing context misreported as denial: %+v", c)
 				}
-				if len(selector.getCandidateEligibilityReasons(row, "coding", false, nil, "", policy)) == 0 {
+				if len(selector.getCandidateBlockers(row, "coding", false, nil, "", policy)) == 0 {
 					t.Fatal("execution must still fail closed without protocol")
 				}
 			}

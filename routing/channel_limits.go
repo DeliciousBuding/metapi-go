@@ -24,22 +24,11 @@ func (tr *TokenRouter) RevalidateQueuedChannel(ctx context.Context, selected *Se
 	now := time.Now()
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	byDisplay := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
-	var eligible []RouteChannelCandidate
-	for _, candidate := range match.Channels {
-		var associationBlocker CandidateBlocker
-		candidate, associationBlocker = resolveAssociationCandidate(candidate, policy)
-		if associationBlocker.Code != "" {
-			continue
-		}
-		if len(selector.getCandidateBlockers(candidate, requestedModel, byDisplay, nil, now.UTC().Format(time.RFC3339), policy)) != 0 {
-			continue
-		}
-		eligible = append(eligible, candidate)
-	}
 	// Queue waiting can outlive configuration changes on a different channel.
 	// Re-evaluate native preference over the fresh authorized pool, not just
 	// the previously selected row.
-	for _, candidate := range filterStreamPolicyCandidates(eligible, policy) {
+	eligible := selector.eligibleChannels(match, requestedModel, byDisplay, nil, now.UTC().Format(time.RFC3339), policy)
+	for _, candidate := range eligible {
 		if candidate.Channel.ID != selected.Channel.ID || candidate.Direct == nil ||
 			candidate.Direct.ChannelID != selected.Direct.ChannelID || candidate.Direct.CredentialID != selected.Direct.CredentialID {
 			continue
@@ -50,7 +39,7 @@ func (tr *TokenRouter) RevalidateQueuedChannel(ctx context.Context, selected *Se
 			return nil, nil
 		}
 		fresh, err := selector.finalizeDispatch(ctx, &candidate, match, requestedModel, mappedModel, policy,
-			false, "", "", false, nil, now.UTC().Format(time.RFC3339), now.UnixMilli())
+			false, "", false, nil, now.UTC().Format(time.RFC3339), now.UnixMilli())
 		if fresh != nil && fresh.AffinityScope != "" {
 			fresh.AffinityPreferred = selected.AffinityPreferred
 		}
