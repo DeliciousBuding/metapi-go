@@ -12,6 +12,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // observeProxyTerminal records labeled counters, latency histogram, and optional export hook.
