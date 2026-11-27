@@ -117,11 +117,17 @@ describe('OAuthDetailSheet overview section', () => {
     expect(emDashes.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('renders the abnormal status through the destructive badge variant', () => {
+  it('renders the abnormal status through the destructive dual-channel badge and shows recovery guidance', () => {
     const { baseElement } = renderSheet(buildConnection({ status: 'abnormal' }))
 
-    const badge = baseElement.querySelector('[data-slot="badge"]')
-    expect(badge?.getAttribute('data-variant')).toBe('destructive')
+    const badge = baseElement.querySelector('[data-tone="destructive"]')
+    expect(badge).not.toBeNull()
+    expect(badge).toHaveTextContent('Abnormal')
+    expect(
+      baseElement.querySelector('[data-tone-marker="destructive"]')
+    ).not.toBeNull()
+    expect(screen.getByTestId('oauth-abnormal-recovery')).toBeInTheDocument()
+    expect(screen.getByText('Connection needs attention')).toBeInTheDocument()
   })
 })
 
@@ -162,6 +168,47 @@ describe('OAuthDetailSheet quota section', () => {
     expect(screen.getByText('600')).toBeInTheDocument()
     expect(screen.getByText('12')).toBeInTheDocument()
     expect(screen.getByText('900')).toBeInTheDocument()
+    const bars = screen.getAllByRole('progressbar')
+    expect(bars).toHaveLength(2)
+    expect(bars[0]).toHaveAttribute('aria-valuenow', '24')
+    expect(bars[1]).toHaveAttribute('aria-valuenow', '33')
+  })
+
+  it('shows live reset countdown, high/exhausted badges, and subscription expiry status', () => {
+    const inNinetySeconds = new Date(Date.now() + 90_000).toISOString()
+    const expiredYesterday = new Date(Date.now() - 86_400_000).toISOString()
+    renderSheet(
+      buildConnection({
+        quota: {
+          status: 'supported',
+          source: 'official',
+          subscription: {
+            planType: 'pro',
+            activeUntil: expiredYesterday,
+          },
+          windows: {
+            fiveHour: {
+              supported: true,
+              used: 50,
+              limit: 50,
+              remaining: 0,
+              resetAt: inNinetySeconds,
+            },
+            sevenDay: {
+              supported: true,
+              used: 85,
+              limit: 100,
+              remaining: 15,
+            },
+          },
+        },
+      })
+    )
+
+    expect(screen.getByText('Exhausted')).toBeInTheDocument()
+    expect(screen.getByText('Near limit')).toBeInTheDocument()
+    expect(screen.getByText(/Resets in \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(screen.getByText('Expired')).toBeInTheDocument()
   })
 
   it('states that an unsupported provider reports no quota instead of showing zeros', () => {

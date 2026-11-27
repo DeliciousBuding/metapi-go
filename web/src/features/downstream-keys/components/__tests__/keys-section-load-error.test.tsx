@@ -43,6 +43,7 @@ vi.mock('@/lib/api', () => ({
     updateDownstreamApiKey: vi.fn(),
     deleteDownstreamApiKey: vi.fn(),
     getSites: () => Promise.resolve([]),
+    getImportedUpstreams: () => Promise.resolve({ items: [], members: [] }),
     getAccountsSnapshot: () =>
       Promise.resolve({ accounts: [], sites: [], generatedAt: '' }),
     getAccountTokens: () => Promise.resolve([]),

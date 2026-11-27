@@ -66,6 +66,41 @@ export function resolveOAuthQuotaWindowState(
 }
 
 /**
+ * Usage ratio in [0, 1] when both `used` and positive `limit` are reported.
+ * Returns `null` when either value is missing or `limit <= 0` so bars and
+ * tone helpers never fabricate percentages from absent numbers.
+ */
+export function resolveOAuthQuotaUsageRatio(
+  window: OAuthQuotaWindow | null | undefined
+): number | null {
+  if (!window || !window.supported) return null
+  if (
+    typeof window.used !== 'number' ||
+    !Number.isFinite(window.used) ||
+    typeof window.limit !== 'number' ||
+    !Number.isFinite(window.limit) ||
+    window.limit <= 0
+  ) {
+    return null
+  }
+  return Math.max(0, Math.min(1, window.used / window.limit))
+}
+
+export type OAuthQuotaSeverity = 'ok' | 'high' | 'exhausted'
+
+/**
+ * Classify a usage ratio into a semantic utilization band.
+ * - `>= 1`: exhausted
+ * - `>= 0.8`: high
+ * - `< 0.8`: ok
+ */
+export function classifyOAuthQuotaSeverity(ratio: number): OAuthQuotaSeverity {
+  if (ratio >= 1) return 'exhausted'
+  if (ratio >= 0.8) return 'high'
+  return 'ok'
+}
+
+/**
  * True when the subscription block carries at least one non-empty field.
  * An all-null `subscription` object must hide the block entirely rather than
  * render three em dashes (the accounts/sites detail-sheet empty-value
@@ -81,4 +116,30 @@ export function hasOAuthSubscriptionDetails(
     subscription.activeStart?.trim() ||
     subscription.activeUntil?.trim()
   )
+}
+
+/**
+ * Classify a subscription's `activeUntil` timestamp relative to `nowMs`.
+ * Returns `expired` when in the past, `expiringSoon` within 7 days, `active`
+ * otherwise, or `unknown` when absent/unparseable.
+ */
+export type OAuthSubscriptionExpiryState =
+  | 'expired'
+  | 'expiringSoon'
+  | 'active'
+  | 'unknown'
+
+const EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+export function resolveOAuthSubscriptionExpiryState(
+  activeUntil: string | null | undefined,
+  nowMs: number
+): OAuthSubscriptionExpiryState {
+  if (!activeUntil?.trim()) return 'unknown'
+  const ts = Date.parse(activeUntil)
+  if (!Number.isFinite(ts)) return 'unknown'
+  const remainingMs = ts - nowMs
+  if (remainingMs <= 0) return 'expired'
+  if (remainingMs <= EXPIRING_SOON_WINDOW_MS) return 'expiringSoon'
+  return 'active'
 }

@@ -317,6 +317,10 @@ export function GatewayRequestDetailSheet({
                                 isStream={attempt.isStream}
                                 streamTiming={effectiveStreamTiming}
                                 scaleMaxMs={scaleMaxMs}
+                                compact={
+                                  isSelectedAttempt &&
+                                  effectiveStreamTiming !== null
+                                }
                               />
                             </div>
                           </summary>
@@ -331,18 +335,34 @@ export function GatewayRequestDetailSheet({
                                 t('requestLogs.unknownCandidate')}{' '}
                               · {formatDateTime(attempt.createdAt, locale)}
                             </p>
-                            <div className='grid grid-cols-2 gap-4'>
-                              <TimingCell {...attempt} />
-                              <UsageCell log={attempt} />
-                            </div>
-                            <p className='text-muted-foreground text-xs'>
-                              {t('requestLogs.estimatedCost')}:{' '}
-                              {attempt.estimatedCost == null
-                                ? t('requestLogs.unknown')
-                                : formatCurrency(attempt.estimatedCost, {
-                                    fractionDigits: 6,
-                                  })}
-                            </p>
+                            {effectiveStreamTiming ? (
+                              <div className='flex flex-wrap items-center justify-between gap-3'>
+                                <UsageCell log={attempt} />
+                                <p className='text-muted-foreground text-xs tabular-nums'>
+                                  {t('requestLogs.estimatedCost')}:{' '}
+                                  {attempt.estimatedCost == null
+                                    ? t('requestLogs.unknown')
+                                    : formatCurrency(attempt.estimatedCost, {
+                                        fractionDigits: 6,
+                                      })}
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <div className='grid grid-cols-2 gap-4'>
+                                  <TimingCell {...attempt} />
+                                  <UsageCell log={attempt} />
+                                </div>
+                                <p className='text-muted-foreground text-xs tabular-nums'>
+                                  {t('requestLogs.estimatedCost')}:{' '}
+                                  {attempt.estimatedCost == null
+                                    ? t('requestLogs.unknown')
+                                    : formatCurrency(attempt.estimatedCost, {
+                                        fractionDigits: 6,
+                                      })}
+                                </p>
+                              </>
+                            )}
                             {attempt.errorMessage && (
                               <ExpandableText
                                 text={

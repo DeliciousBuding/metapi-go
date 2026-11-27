@@ -347,6 +347,13 @@ export function ModelTesterPage() {
     }
   }, [failedChannelIds, isDisablingFailed, queryClient, t])
 
+  const handleCompareChange = useCallback((enabled: boolean) => {
+    if (!enabled) {
+      setComparison(null)
+      setComparisonTotal(0)
+    }
+  }, [])
+
   const isRunning =
     testModel.isPending || isComparing || rerunningChannelIds.size > 0
 
@@ -374,12 +381,7 @@ export function ModelTesterPage() {
         defaultChannelId={defaultChannelId}
         onSubmit={handleSubmit}
         onStop={handleStop}
-        onCompareChange={(enabled) => {
-          if (!enabled) {
-            setComparison(null)
-            setComparisonTotal(0)
-          }
-        }}
+        onCompareChange={handleCompareChange}
       >
         {comparison || isComparing ? (
           <BatchResults

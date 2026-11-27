@@ -165,26 +165,35 @@ export function TestForm({
   )
 
   useEffect(() => {
-    if (
-      defaultTargetFormat &&
-      appliedTargetFormat.current !== defaultTargetFormat
-    ) {
+    if (!defaultTargetFormat) {
+      appliedTargetFormat.current = null
+      return
+    }
+    if (appliedTargetFormat.current !== defaultTargetFormat) {
       form.setValue('targetFormat', defaultTargetFormat)
       appliedTargetFormat.current = defaultTargetFormat
     }
   }, [defaultTargetFormat, form])
 
   useEffect(() => {
+    if (!defaultChannelId) {
+      appliedChannelId.current = null
+      return
+    }
     const channels = channelsQuery.data ?? []
-    if (!defaultChannelId || channels.length === 0) return
+    if (channels.length === 0) return
     if (
       appliedChannelId.current !== defaultChannelId &&
       channels.some((channel) => channel.id === defaultChannelId)
     ) {
       form.setValue('channelId', defaultChannelId)
+      if (form.getValues('compareChannels')) {
+        form.setValue('compareChannels', false)
+        onCompareChange?.(false)
+      }
       appliedChannelId.current = defaultChannelId
     }
-  }, [defaultChannelId, channelsQuery.data, form])
+  }, [defaultChannelId, channelsQuery.data, form, onCompareChange])
 
   // A deep link wins over local preference; once applied, a background model
   // refetch must not reset a model the user chose afterward. The saved model
@@ -202,6 +211,7 @@ export function TestForm({
       }
       return
     }
+    appliedDeepLink.current = null
     if (form.getValues('model')) return
     const saved = readLastModel()
     if (saved && models.some((model) => model.name === saved)) {

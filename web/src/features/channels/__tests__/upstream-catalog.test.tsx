@@ -37,6 +37,7 @@ const state = vi.hoisted(() => ({
   updateCredential: vi.fn(),
   preview: vi.fn(),
   remove: vi.fn(),
+  groups: vi.fn(),
   dirty: vi.fn(),
   message: vi.fn(),
   dismiss: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock('@/lib/api', () => ({
     getImportedCredentials: state.credentials,
     createUpstreamCredential: state.createCredential,
     updateImportedCredential: state.updateCredential,
+    getUpstreamGroups: state.groups,
     previewUpstreamDeletion: state.preview,
     deleteUpstreamEntity: state.remove,
   },
@@ -115,6 +117,7 @@ beforeEach(() => {
   state.models.mockResolvedValue({ items: [model] })
   state.detail.mockResolvedValue(detail)
   state.credentials.mockResolvedValue({ items: [credential] })
+  state.groups.mockResolvedValue({ items: [] })
   state.createModels.mockResolvedValue({ items: [] })
   state.updateModel.mockResolvedValue({ success: true })
   state.createGrant.mockResolvedValue({ id: 7 })

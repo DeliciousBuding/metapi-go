@@ -52,6 +52,7 @@ vi.mock('@/lib/api', () => ({
     createDownstreamApiKey: mockCreateKey,
     updateDownstreamApiKey: mockUpdateKey,
     getSites: mockGetSites,
+    getImportedUpstreams: vi.fn().mockResolvedValue({ items: [], members: [] }),
     getAccountsSnapshot: mockGetAccountsSnapshot,
     getAccountTokens: mockGetAccountTokens,
   },

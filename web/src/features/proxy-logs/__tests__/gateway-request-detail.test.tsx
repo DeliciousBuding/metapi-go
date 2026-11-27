@@ -232,4 +232,65 @@ describe('gateway request detail', () => {
     expect(onNext).toHaveBeenCalledTimes(1)
     input.remove()
   })
+
+  it('deduplicates waterfall legend and TimingCell when expanding a streamTiming attempt', async () => {
+    const streamTiming = {
+      headerMs: 120,
+      firstReasoningMs: 260,
+      firstTextMs: 520,
+      lastContentMs: 1420,
+      maxContentGapMs: 185,
+      reasoningEvidence: 'visible' as const,
+      decodeTokens: 180,
+      decodeWindowMs: 900,
+      decodeTps: 64.5,
+      decodeStatus: 'measured' as const,
+    }
+    vi.mocked(api.getGatewayRequest).mockResolvedValue(
+      gatewayRequestFixture({
+        latencyMs: 1420,
+        attempts: [
+          {
+            ...gatewayRequestFixture().attempts[0],
+            id: 17,
+            retryCount: 0,
+            latencyMs: 1420,
+            firstByteLatencyMs: 120,
+            firstOutputLatencyMs: 260,
+            isStream: true,
+            streamTiming,
+          },
+        ],
+      })
+    )
+    renderDetail()
+    // Collapsed: summary waterfall displays the full stage legend for quick scanning.
+    expect(
+      await screen.findByTestId('attempt-waterfall-legend')
+    ).toBeInTheDocument()
+
+    // Expand the attempt: summary switches to compact bar while StreamTimingCard
+    // takes ownership of the full stage legend and metrics, avoiding double legends
+    // and redundant TimingCell.
+    const disclosure = screen.getByText('Attempt 1').closest('details')
+    if (!disclosure) throw new Error('Missing attempt disclosure')
+    disclosure.open = true
+    fireEvent(disclosure, new Event('toggle'))
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('attempt-waterfall-legend')
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId('attempt-waterfall')).toHaveAttribute(
+      'data-waterfall-compact',
+      'true'
+    )
+    expect(screen.getByTestId('stream-timing-card')).toBeInTheDocument()
+    // Only StreamTimingCard shows the max content gap metric (no duplicate in summary).
+    expect(screen.getByTestId('stream-timing-max-gap')).toHaveTextContent(
+      '185ms'
+    )
+    expect(screen.getAllByText('185ms')).toHaveLength(1)
+  })
 })
