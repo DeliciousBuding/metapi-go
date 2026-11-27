@@ -14,7 +14,7 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 	config.SetRuntime(&config.RuntimeSettings{})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	cfg := &config.Config{}
-	reg, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(cfg)
+	reg, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(nil, cfg)
 
 	got := reg.List()
 	want := []string{

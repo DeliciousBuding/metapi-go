@@ -72,7 +72,7 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 	db := store.GetDB()
 	channelID := seedProxyRoute(t, db, upstream.URL, "gpt-real", "upstream-token")
 
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 
@@ -246,7 +246,7 @@ func TestOctopusV5DirectGrantTraversesProxyRouter(t *testing.T) {
 			routing.InvalidateCache()
 		})
 	}
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 	t.Cleanup(func() {
@@ -353,7 +353,7 @@ func TestOctopusClientHeaderTemplateExpandsOnlySafeHeaders(t *testing.T) {
 	if _, err := backup.ImportOctopusV5(db, []byte(payload), "client-header-template"); err != nil {
 		t.Fatalf("import safe template fixture: %v", err)
 	}
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
@@ -421,7 +421,7 @@ func TestOctopusV5DirectGrantDispatchesResponsesAndMessages(t *testing.T) {
 	if _, err := backup.ImportOctopusV5(db, []byte(octopusDirectProtocolsFixture(upstream.URL)), "direct-protocols-e2e"); err != nil {
 		t.Fatalf("import fixture: %v", err)
 	}
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 	r := chi.NewRouter()

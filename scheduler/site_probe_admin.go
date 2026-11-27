@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ProbeSiteResult is one model outcome for admin probe-now.
@@ -63,7 +61,7 @@ func (s *ModelProbeScheduler) ProbeSiteIncremental(ctx context.Context, siteID i
 	if s == nil || siteID <= 0 {
 		return nil
 	}
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return nil
 	}

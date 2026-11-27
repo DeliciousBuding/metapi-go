@@ -392,7 +392,7 @@ func (h *accountsHandler) deleteAccount(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to delete account"})
 		return
 	}
-	service.RebuildRoutesBestEffort()
+	service.RebuildRoutesBestEffort(h.db)
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -484,7 +484,7 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if shouldRebuildRoutes {
-		service.RebuildRoutesBestEffort()
+		service.RebuildRoutesBestEffort(h.db)
 	} else if shouldInvalidateRoutes {
 		routing.InvalidateCache()
 	}

@@ -52,6 +52,7 @@ type ChannelHealthRecorder interface {
 // lightweight request so routing can avoid dead channels before user traffic fails.
 // Supports account-level lease to prevent concurrent probes on the same account.
 type ModelProbeScheduler struct {
+	db            *store.DB
 	cfg           *config.Config
 	mu            sync.Mutex
 	accountLeases map[int64]bool
@@ -85,8 +86,9 @@ type ProbeRunSummary struct {
 }
 
 // NewModelProbeScheduler creates a new model availability probe scheduler.
-func NewModelProbeScheduler(cfg *config.Config) *ModelProbeScheduler {
+func NewModelProbeScheduler(db *store.DB, cfg *config.Config) *ModelProbeScheduler {
 	return &ModelProbeScheduler{
+		db:            db,
 		cfg:           cfg,
 		accountLeases: make(map[int64]bool),
 		runner:        &intervalRunner{},
@@ -319,7 +321,7 @@ func GetGlobalModelProbeScheduler() *ModelProbeScheduler {
 }
 
 func (s *ModelProbeScheduler) runProbe() {
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

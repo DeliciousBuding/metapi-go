@@ -15,7 +15,7 @@ import (
 // never cancelled, so in-flight cleanups survived shutdown.
 func TestRetentionScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 	cfg := testConfig()
-	s := NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+	s := NewRetentionScheduler(nil, cfg, RetentionSchedulerOptions{
 		Name:               "test-retention-cancel",
 		Table:              "proxy_logs",
 		DefaultIntervalMin: 30,
@@ -59,7 +59,7 @@ func TestRetentionScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 // job timeout from s.ctx; Stop must cancel that chain.
 func TestOAuthRefreshScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 	cfg := testConfig()
-	s := NewOAuthRefreshScheduler(cfg)
+	s := NewOAuthRefreshScheduler(nil, cfg)
 
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
@@ -97,7 +97,7 @@ func TestOAuthRefreshScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 // Start arms the lifecycle ctx + cron runner without firing a real pass.
 func TestCheckinScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 	cfg := testConfig() // cron mode, valid CheckinCron
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
@@ -133,7 +133,7 @@ func TestCheckinScheduler_StopCancelsInFlightJobContext(t *testing.T) {
 // that runs before Start completes.
 func TestSchedulerJobContextFallsBackBeforeStart(t *testing.T) {
 	cfg := testConfig()
-	s := NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+	s := NewRetentionScheduler(nil, cfg, RetentionSchedulerOptions{
 		Name:               "test-retention-fallback",
 		Table:              "proxy_logs",
 		DefaultIntervalMin: 30,

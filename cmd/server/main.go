@@ -112,10 +112,11 @@ func main() {
 	// One-time OAuth identity column backfill (bounded, marker-gated). Runs
 	// before the server accepts traffic so the admin list endpoint never
 	// pays the old per-request scan+update cost. See app.RunOauthIdentityBackfill.
-	app.RunOauthIdentityBackfill()
+	db := store.GetDB()
+	app.RunOauthIdentityBackfill(db)
 	// Apply operator-configured cache-ratio fallback overrides to routing.
 	app.ApplyCacheRatioOverrides()
-	if err := app.ConfigureProxyUpstream(cfg); err != nil {
+	if err := app.ConfigureProxyUpstream(db, cfg); err != nil {
 		slog.Error("proxy upstream wiring failed", "error", err)
 		os.Exit(1)
 	}
@@ -128,7 +129,7 @@ func main() {
 	// For now, the router.New already registers a valid /health handler.
 
 	// ---- 17. Start background services (stubs) ----
-	app.StartBackgroundServices()
+	app.StartBackgroundServices(db)
 
 	// ---- 18. Start pprof debug server (port 6060, only with -tags debug) ----
 	app.StartDebugServer(6060)

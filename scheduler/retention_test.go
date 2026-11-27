@@ -27,7 +27,7 @@ func openRetentionSchedTestDB(t *testing.T) *store.DB {
 // wrapper: Start begins the ticker; Stop halts it.
 func TestProxyLogRetention_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -47,7 +47,7 @@ func TestProxyLogRetention_StartStop_Lifecycle(t *testing.T) {
 func TestProxyLogRetention_StartDisabled(t *testing.T) {
 	cfg := testConfig()
 	cfg.ProxyLogRetentionDays = 0
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start should not error when disabled: %v", err)
@@ -64,7 +64,7 @@ func TestProxyLogRetention_StartDisabled(t *testing.T) {
 func TestProxyLogRetention_StartDisabled_LogCleanupConfigured(t *testing.T) {
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start should not error when disabled: %v", err)
@@ -75,16 +75,14 @@ func TestProxyLogRetention_StartDisabled_LogCleanupConfigured(t *testing.T) {
 }
 
 // TestRetentionScheduler_runCleanup_WithDB exercises the full runCleanup flow:
-// store.GetDB lookup, retention-days check, context creation, lease
+// retention-days check, context creation, lease
 // acquisition, and runCleanupLocked. On an empty DB the DELETE affects 0 rows.
 func TestRetentionScheduler_runCleanup_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openRetentionSchedTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(db, cfg)
 	// Set lifecycle ctx so runCleanup can derive a job timeout.
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
@@ -95,11 +93,9 @@ func TestRetentionScheduler_runCleanup_WithDB(t *testing.T) {
 // nil DB gracefully (returns without panic).
 func TestRetentionScheduler_runCleanup_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 
 	s.runCleanup()
 }
@@ -109,12 +105,10 @@ func TestRetentionScheduler_runCleanup_NilDB(t *testing.T) {
 func TestRetentionScheduler_runCleanup_ZeroRetentionDays(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openRetentionSchedTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
 	cfg.ProxyLogRetentionDays = 0
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(db, cfg)
 
 	// Should return without panic (retentionDays <= 0 guard).
 	s.runCleanup()
@@ -125,9 +119,9 @@ func TestRetentionScheduler_runCleanup_ZeroRetentionDays(t *testing.T) {
 func TestRetentionScheduler_runCleanupLocked_EmptyDB(t *testing.T) {
 	db := openRetentionSchedTestDB(t)
 	cfg := testConfig()
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(db, cfg)
 
-	// Direct call — no lease, no GetDB. The DELETE on an empty proxy_logs
+	// Direct call — without a lease. The DELETE on an empty proxy_logs
 	// table affects 0 rows and the method returns without error.
 	s.runCleanupLocked(db, 90)
 }
@@ -136,7 +130,7 @@ func TestRetentionScheduler_runCleanupLocked_EmptyDB(t *testing.T) {
 // admin-background-task retention scheduler lifecycle.
 func TestAdminBackgroundTaskRetention_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
-	s := NewAdminBackgroundTaskRetentionScheduler(cfg)
+	s := NewAdminBackgroundTaskRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -154,7 +148,7 @@ func TestAdminBackgroundTaskRetention_StartStop_Lifecycle(t *testing.T) {
 func TestAdminBackgroundTaskRetention_runCleanupLocked_EmptyDB(t *testing.T) {
 	db := openRetentionSchedTestDB(t)
 	cfg := testConfig()
-	s := NewAdminBackgroundTaskRetentionScheduler(cfg)
+	s := NewAdminBackgroundTaskRetentionScheduler(db, cfg)
 
 	s.runCleanupLocked(db, adminBackgroundTaskRetentionDays)
 }
@@ -166,7 +160,7 @@ func TestProxyVideoTaskRetention_StartStop_Lifecycle(t *testing.T) {
 		ProxyVideoTaskRetentionDays:                 90,
 		ProxyVideoTaskRetentionPruneIntervalMinutes: 60,
 	}
-	s := NewProxyVideoTaskRetentionScheduler(cfg)
+	s := NewProxyVideoTaskRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -183,11 +177,9 @@ func TestProxyVideoTaskRetention_StartStop_Lifecycle(t *testing.T) {
 func TestAdminBackgroundTaskRetention_runCleanup_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openRetentionSchedTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewAdminBackgroundTaskRetentionScheduler(cfg)
+	s := NewAdminBackgroundTaskRetentionScheduler(db, cfg)
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	s.runCleanup()
@@ -200,7 +192,7 @@ func TestProxyVideoTaskRetention_runCleanupLocked_EmptyDB(t *testing.T) {
 	cfg := &config.Config{
 		ProxyVideoTaskRetentionDays: 90,
 	}
-	s := NewProxyVideoTaskRetentionScheduler(cfg)
+	s := NewProxyVideoTaskRetentionScheduler(db, cfg)
 
 	s.runCleanupLocked(db, 90)
 }
@@ -211,7 +203,7 @@ func TestProxyVideoTaskRetention_StartDisabled(t *testing.T) {
 	cfg := &config.Config{
 		ProxyVideoTaskRetentionDays: 0,
 	}
-	s := NewProxyVideoTaskRetentionScheduler(cfg)
+	s := NewProxyVideoTaskRetentionScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start should not error when disabled: %v", err)

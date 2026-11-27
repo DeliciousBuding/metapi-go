@@ -302,8 +302,6 @@ func TestRebuildTokenRoutesFromAvailability_GroupSourcesExpandAtSelectTime(t *te
 
 func TestRebuildRoutesBestEffort_ConcurrentSafe(t *testing.T) {
 	db := setupRouteRebuildDB(t)
-	SetRouteRebuildDB(db.DB)
-	t.Cleanup(func() { SetRouteRebuildDB(nil) })
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, _, tokenID := seedSiteAccountToken(t, db, "conc")
@@ -323,7 +321,7 @@ func TestRebuildRoutesBestEffort_ConcurrentSafe(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			RebuildRoutesBestEffort()
+			RebuildRoutesBestEffort(db.DB)
 		}()
 	}
 	wg.Wait()

@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // adminBackgroundTaskRetentionDays is the fixed retention window for
@@ -25,8 +26,8 @@ type AdminBackgroundTaskRetentionScheduler = RetentionScheduler
 // retention scheduler. It deletes only rows whose status is 'succeeded' or
 // 'failed' and whose created_at is older than the 30-day cutoff, so pending
 // and running tasks are always retained.
-func NewAdminBackgroundTaskRetentionScheduler(cfg *config.Config) *RetentionScheduler {
-	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+func NewAdminBackgroundTaskRetentionScheduler(db *store.DB, cfg *config.Config) *RetentionScheduler {
+	return NewRetentionScheduler(db, cfg, RetentionSchedulerOptions{
 		Name:               "admin-background-task-retention",
 		Table:              "admin_background_tasks",
 		ExtraWhere:         " AND status IN ('succeeded', 'failed')",

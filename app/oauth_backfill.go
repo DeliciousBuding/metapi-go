@@ -14,10 +14,8 @@ import (
 //
 // Safe to call on every boot: the settings marker short-circuits healthy
 // instances, and a partial run (process killed mid-batch) leaves the marker
-// unset and retries on the next boot. Must run after the runtime database is
-// bootstrapped (store.EnsureRuntimeDatabase) so store.GetDB is non-nil.
-func RunOauthIdentityBackfill() {
-	db := store.GetDB()
+// unset and retries on the next boot. Run after runtime database bootstrap.
+func RunOauthIdentityBackfill(db *store.DB) {
 	if db == nil {
 		slog.Warn("oauth identity backfill skipped: database not initialized")
 		return

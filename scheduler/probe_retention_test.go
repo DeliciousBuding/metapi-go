@@ -100,7 +100,7 @@ func runModelProbeResultRetentionLifecycle(t *testing.T, db *store.DB, suffix st
 		t.Fatalf("seeded %d probe rows, want 6 — the lifecycle would prove nothing", got)
 	}
 
-	s := NewModelProbeResultRetentionScheduler(&config.Config{})
+	s := NewModelProbeResultRetentionScheduler(db, &config.Config{})
 	s.runCleanupLocked(db, modelProbeResultRetentionDays)
 
 	if got := countMine(); got != 3 {
@@ -140,7 +140,7 @@ func runModelProbeResultRetentionLifecycle(t *testing.T, db *store.DB, suffix st
 // keeps growing while everything looks wired.
 func TestModelProbeResultRetentionJobRuns(t *testing.T) {
 	cfg := &config.Config{}
-	s := NewModelProbeResultRetentionScheduler(cfg)
+	s := NewModelProbeResultRetentionScheduler(nil, cfg)
 
 	if got := s.Name(); got != "model-probe-result-retention" {
 		t.Errorf("Name() = %q, want %q", got, "model-probe-result-retention")

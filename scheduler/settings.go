@@ -14,8 +14,7 @@ import (
 // resolveCronSetting reads a cron expression from the DB settings table,
 // validates it, and returns the fallback if invalid or missing.
 // Mirrors TS resolveCronSetting().
-func resolveCronSetting(settingKey string, fallback string) string {
-	db := store.GetDB()
+func resolveCronSetting(db *store.DB, settingKey string, fallback string) string {
 	if db == nil {
 		return fallback
 	}
@@ -40,8 +39,7 @@ func resolveCronSetting(settingKey string, fallback string) string {
 
 // resolveBooleanSetting reads a boolean from the DB settings table.
 // Falls back to the provided default if missing or invalid.
-func resolveBooleanSetting(settingKey string, fallback bool) bool {
-	db := store.GetDB()
+func resolveBooleanSetting(db *store.DB, settingKey string, fallback bool) bool {
 	if db == nil {
 		return fallback
 	}
@@ -62,8 +60,7 @@ func resolveBooleanSetting(settingKey string, fallback bool) bool {
 
 // resolveStringSetting reads a string value from DB settings.
 // E1: window bounds hydration (checkin_window_start/end).
-func resolveStringSetting(settingKey string, fallback string) string {
-	db := store.GetDB()
+func resolveStringSetting(db *store.DB, settingKey string, fallback string) string {
 	if db == nil {
 		return fallback
 	}
@@ -85,8 +82,7 @@ func resolveStringSetting(settingKey string, fallback string) string {
 }
 
 // resolvePositiveIntegerSetting reads a positive integer (>=1) from DB settings.
-func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
-	db := store.GetDB()
+func resolvePositiveIntegerSetting(db *store.DB, settingKey string, fallback int) int {
 	if db == nil {
 		return fallback
 	}
@@ -113,8 +109,7 @@ func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
 
 // resolveCheckinScheduleMode reads the checkin schedule mode from config and DB.
 // Returns "cron", "interval", or "window" (E1).
-func resolveCheckinScheduleMode(rt *config.RuntimeSettings) string {
-	db := store.GetDB()
+func resolveCheckinScheduleMode(db *store.DB, rt *config.RuntimeSettings) string {
 	if db == nil {
 		return rt.CheckinScheduleMode
 	}

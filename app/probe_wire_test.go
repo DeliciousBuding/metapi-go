@@ -104,11 +104,11 @@ func TestWireModelProbeScheduler_ProbeMutatesHealth(t *testing.T) {
 	}
 	channelID, _ := res.LastInsertId()
 
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 
-	s := scheduler.NewModelProbeScheduler(cfg)
+	s := scheduler.NewModelProbeScheduler(db, cfg)
 	WireModelProbeScheduler(s)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)

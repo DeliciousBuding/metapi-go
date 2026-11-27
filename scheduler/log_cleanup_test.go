@@ -27,7 +27,7 @@ func openLogCleanupTestDB(t *testing.T) *store.DB {
 // Start registers a cron job and begins the runner; Stop halts it.
 func TestLogCleanupScheduler_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -48,9 +48,9 @@ func TestLogCleanupScheduler_runJob_NotConfigured(t *testing.T) {
 	ResetLeasePressureForTest()
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = false
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 
-	// Should return without touching the DB (no GetDB call).
+	// Should return without touching the DB.
 	s.runJob()
 }
 
@@ -62,7 +62,7 @@ func TestLogCleanupScheduler_runJob_NoLogTargetEnabled(t *testing.T) {
 	cfg.LogCleanupConfigured = true
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = false })
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = false })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 
 	// Should return without touching the DB.
 	s.runJob()
@@ -74,17 +74,15 @@ func TestLogCleanupScheduler_runJob_NoLogTargetEnabled(t *testing.T) {
 func TestLogCleanupScheduler_runJob_Configured(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openLogCleanupTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = true })
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = true })
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupRetentionDays = 90 })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(db, cfg)
 
-	// runJob calls store.GetDB(), acquires a local lease, then runJobLocked
+	// runJob acquires a local lease, then runJobLocked
 	// which DELETEs from proxy_logs and events. On an empty DB, 0 rows deleted.
 	s.runJob()
 }
@@ -93,12 +91,10 @@ func TestLogCleanupScheduler_runJob_Configured(t *testing.T) {
 // gracefully (logs "database not available" and returns without panic).
 func TestLogCleanupScheduler_runJob_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 
 	s.runJob()
 }
@@ -112,7 +108,7 @@ func TestLogCleanupScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = true })
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = true })
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupRetentionDays = 90 })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(db, cfg)
 
 	s.runJobLocked(db, config.Runtime())
 }

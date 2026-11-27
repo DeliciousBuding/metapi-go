@@ -1,4 +1,4 @@
-package scheduler
+package schedulespec
 
 import (
 	"fmt"
@@ -33,12 +33,10 @@ type ScheduleSpec struct {
 func CronToSchedule(expr string) ScheduleSpec {
 	trimmed := strings.TrimSpace(expr)
 	spec := ScheduleSpec{Version: ScheduleSpecVersion, Cron: trimmed}
-	if trimmed == "" || !ValidateCronExpr(trimmed) {
-		spec.Type = "custom"
-		return spec
+	fields := strings.Fields(trimmed)
+	if len(fields) == 5 {
+		fields = append([]string{"0"}, fields...)
 	}
-
-	fields := strings.Fields(normalizeCronExpr(trimmed))
 	if len(fields) != 6 {
 		spec.Type = "custom"
 		return spec
@@ -76,7 +74,7 @@ func CronToSchedule(expr string) ScheduleSpec {
 // returns the original bytes unchanged; otherwise it generates a normalized
 // expression. Type "window" has no deterministic cron (the runtime re-rolls a
 // random time inside the window) and returns the preserved expression only.
-func ScheduleToCron(spec ScheduleSpec) (string, error) {
+func ScheduleToCron(spec ScheduleSpec, validCron func(string) bool) (string, error) {
 	switch spec.Type {
 	case "daily":
 		if !validHHMM(spec.Time) {
@@ -103,12 +101,12 @@ func ScheduleToCron(spec ScheduleSpec) (string, error) {
 		}
 		return fmt.Sprintf("0 0 */%d * * *", spec.EveryHours), nil
 	case "window":
-		if spec.Cron != "" && ValidateCronExpr(spec.Cron) {
+		if spec.Cron != "" && validCron(spec.Cron) {
 			return spec.Cron, nil
 		}
 		return "", nil
 	case "custom", "":
-		if spec.Cron != "" && ValidateCronExpr(spec.Cron) {
+		if spec.Cron != "" && validCron(spec.Cron) {
 			return spec.Cron, nil
 		}
 		return "", fmt.Errorf("custom schedule requires a valid cron expression")
@@ -120,7 +118,7 @@ func ScheduleToCron(spec ScheduleSpec) (string, error) {
 // Validate checks that a ScheduleSpec is well-formed and self-consistent.
 // Version must match ScheduleSpecVersion so stale documents cannot be applied
 // silently.
-func (s ScheduleSpec) Validate() error {
+func (s ScheduleSpec) Validate(validCron func(string) bool) error {
 	if s.Version != ScheduleSpecVersion {
 		return fmt.Errorf("unsupported schedule spec version %d (expected %d)", s.Version, ScheduleSpecVersion)
 	}
@@ -134,11 +132,11 @@ func (s ScheduleSpec) Validate() error {
 			return fmt.Errorf("interval schedule requires everyHours in [1, 24], got %d", s.EveryHours)
 		}
 	case "window":
-		if _, err := RandomCronInWindow(s.WindowStart, s.WindowEnd); err != nil {
+		if _, _, err := WindowBounds(s.WindowStart, s.WindowEnd); err != nil {
 			return err
 		}
 	case "custom", "":
-		if !ValidateCronExpr(s.Cron) {
+		if !validCron(s.Cron) {
 			return fmt.Errorf("custom schedule requires a valid cron expression")
 		}
 	default:

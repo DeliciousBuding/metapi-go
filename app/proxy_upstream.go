@@ -25,8 +25,7 @@ import (
 // ConfigureProxyUpstream wires the /v1 data plane to the runtime database.
 // Without this, proxy handlers can parse requests but cannot select real channels.
 // Also publishes the TokenRouter / RouteDecisionService for admin decision APIs.
-func ConfigureProxyUpstream(cfg *config.Config) error {
-	db := store.GetDB()
+func ConfigureProxyUpstream(db *store.DB, cfg *config.Config) error {
 	if db == nil {
 		proxyhandler.SetBillingCatalogProvider(nil)
 		proxyhandler.SetUpstreamConfig(nil)

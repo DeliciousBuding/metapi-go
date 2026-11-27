@@ -63,7 +63,7 @@ func TestLogCleanupDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 		LogCleanupRetentionDays:      1,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(db, cfg)
 
 	// Sanity: historical space-format bug shields same-day old RFC3339 rows.
 	sameDayOld := "2026-07-10T08:00:00Z"
@@ -99,7 +99,7 @@ func TestProxyLogRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 		t.Fatalf("seed proxy_logs: %v", err)
 	}
 
-	s := NewProxyLogRetentionScheduler(&config.Config{ProxyLogRetentionDays: 1})
+	s := NewProxyLogRetentionScheduler(db, &config.Config{ProxyLogRetentionDays: 1})
 	s.runCleanupLocked(db, 1)
 
 	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_logs`); got != 1 {
@@ -127,7 +127,7 @@ func TestProxyVideoTaskRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T)
 		t.Fatalf("seed proxy_video_tasks: %v", err)
 	}
 
-	s := NewProxyVideoTaskRetentionScheduler(&config.Config{ProxyVideoTaskRetentionDays: 1})
+	s := NewProxyVideoTaskRetentionScheduler(db, &config.Config{ProxyVideoTaskRetentionDays: 1})
 	s.runCleanupLocked(db, 1)
 
 	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_video_tasks`); got != 1 {
@@ -144,7 +144,7 @@ func TestProxyVideoRetentionPreservesUnconfirmedCapture(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO proxy_video_tasks(public_id,upstream_video_id,site_url,token_value,created_at,updated_at) VALUES('pending','','','',?,?),('confirmed','vendor-id','','',?,?)`, oldAt, oldAt, oldAt, oldAt); err != nil {
 		t.Fatal(err)
 	}
-	s := NewProxyVideoTaskRetentionScheduler(&config.Config{ProxyVideoTaskRetentionDays: 1})
+	s := NewProxyVideoTaskRetentionScheduler(db, &config.Config{ProxyVideoTaskRetentionDays: 1})
 	s.runCleanupLocked(db, 1)
 	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_video_tasks WHERE public_id='pending'`); got != 1 {
 		t.Fatal("age was treated as proof that a capture had ended")

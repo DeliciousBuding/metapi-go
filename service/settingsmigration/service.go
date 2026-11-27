@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/internal/schedulespec"
+
 	"github.com/jmoiron/sqlx"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 )
 
 // Settings schema version bookkeeping. The settings table keeps the legacy
@@ -29,11 +30,11 @@ const (
 
 // MigrationItem describes one legacy -> v2 schedule conversion.
 type MigrationItem struct {
-	Task        string                 `json:"task"`
-	LegacyKey   string                 `json:"legacyKey"`
-	LegacyValue string                 `json:"legacyValue"`
-	V2Key       string                 `json:"v2Key"`
-	Schedule    scheduler.ScheduleSpec `json:"schedule"`
+	Task        string                    `json:"task"`
+	LegacyKey   string                    `json:"legacyKey"`
+	LegacyValue string                    `json:"legacyValue"`
+	V2Key       string                    `json:"v2Key"`
+	Schedule    schedulespec.ScheduleSpec `json:"schedule"`
 }
 
 // MigrationPlan is the top-level flat preview of a pending migration.
@@ -208,29 +209,29 @@ func buildCheckinItem(settings map[string]string) (MigrationItem, bool) {
 	windowStart := jsonString(settings["checkin_window_start"], "00:00")
 	windowEnd := jsonString(settings["checkin_window_end"], "23:59")
 
-	var spec scheduler.ScheduleSpec
+	var spec schedulespec.ScheduleSpec
 	switch strings.ToLower(mode) {
 	case "window":
-		spec = scheduler.ScheduleSpec{
-			Version:     scheduler.ScheduleSpecVersion,
+		spec = schedulespec.ScheduleSpec{
+			Version:     schedulespec.ScheduleSpecVersion,
 			Type:        "window",
 			WindowStart: windowStart,
 			WindowEnd:   windowEnd,
 			Cron:        cron,
 		}
-		if err := spec.Validate(); err != nil {
+		if err := spec.Validate(config.ValidateCronExpr); err != nil {
 			spec.WindowStart = "00:00"
 			spec.WindowEnd = "23:59"
 		}
 	case "interval":
-		spec = scheduler.ScheduleSpec{
-			Version:    scheduler.ScheduleSpecVersion,
+		spec = schedulespec.ScheduleSpec{
+			Version:    schedulespec.ScheduleSpecVersion,
 			Type:       "interval",
 			EveryHours: intervalHours,
 			Cron:       cron,
 		}
 	default:
-		spec = scheduler.CronToSchedule(cron)
+		spec = schedulespec.CronToSchedule(cron)
 	}
 	return MigrationItem{
 		Task:        "checkin",
@@ -254,7 +255,7 @@ func buildCronItem(task, v2Key, legacyKey string, settings map[string]string) (M
 		LegacyKey:   legacyKey,
 		LegacyValue: cron,
 		V2Key:       v2Key,
-		Schedule:    scheduler.CronToSchedule(cron),
+		Schedule:    schedulespec.CronToSchedule(cron),
 	}, true
 }
 

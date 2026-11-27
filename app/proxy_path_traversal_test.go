@@ -55,7 +55,7 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 	// succeed independently of the (attacker-controlled) path shape.
 	seedProxyRoute(t, store.GetDB(), upstream.URL, "gemini-trav", "upstream-token")
 
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(store.GetDB(), cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 

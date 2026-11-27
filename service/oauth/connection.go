@@ -67,8 +67,7 @@ type ListConnectionsResult struct {
 }
 
 // ListOauthConnections lists OAuth connections with pagination.
-func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, error) {
-	db := store.GetDB()
+func ListOauthConnections(db *store.DB, input ListConnectionsInput) (*ListConnectionsResult, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -109,7 +108,7 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 	}
 
 	// Get route unit participation.
-	routeUnits := ListOauthRouteUnitsByAccountIDs(accountIDs)
+	routeUnits := ListOauthRouteUnitsByAccountIDs(db, accountIDs)
 
 	items := make([]OauthConnectionItem, 0, len(rows))
 	for _, row := range rows {
@@ -171,8 +170,7 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 }
 
 // DeleteOauthConnection deletes an OAuth connection.
-func DeleteOauthConnection(accountID int64) error {
-	db := store.GetDB()
+func DeleteOauthConnection(db *store.DB, accountID int64) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
@@ -205,8 +203,7 @@ func DeleteOauthConnection(accountID int64) error {
 }
 
 // UpdateOauthConnectionProxySettings updates proxy settings for an OAuth connection.
-func UpdateOauthConnectionProxySettings(accountID int64, proxyURL *string, useSystemProxy *bool) (*UpdateProxyResult, error) {
-	db := store.GetDB()
+func UpdateOauthConnectionProxySettings(db *store.DB, accountID int64, proxyURL *string, useSystemProxy *bool) (*UpdateProxyResult, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -290,8 +287,7 @@ type ModelRefreshResult struct {
 }
 
 // StartOauthRebindFlow starts a rebind flow for an existing OAuth account.
-func StartOauthRebindFlow(accountID int64, requestOrigin string, proxyURL *string, useSystemProxy *bool) (*FlowStartResult, error) {
-	db := store.GetDB()
+func StartOauthRebindFlow(db *store.DB, accountID int64, requestOrigin string, proxyURL *string, useSystemProxy *bool) (*FlowStartResult, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -320,7 +316,7 @@ func StartOauthRebindFlow(accountID int64, requestOrigin string, proxyURL *strin
 		resolvedUseSystemProxy = GetUseSystemProxyFromExtraConfig(account.ExtraConfig)
 	}
 
-	return StartFlow(StartFlowInput{
+	return StartFlow(db, StartFlowInput{
 		Provider:        oauth.Provider,
 		RebindAccountID: accountID,
 		ProjectID:       oauth.ProjectID,

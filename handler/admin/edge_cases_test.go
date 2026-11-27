@@ -705,15 +705,13 @@ func TestEdge_UpsertSettingDB_ConcurrentWrites(t *testing.T) {
 // RebuildRoutesBestEffort now performs real channel recompose under a process mutex.
 func TestEdge_RebuildRoutesConcurrent(t *testing.T) {
 	db, _, _ := setupEdgeTest(t)
-	service.SetRouteRebuildDB(db.DB)
-	t.Cleanup(func() { service.SetRouteRebuildDB(nil) })
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			service.RebuildRoutesBestEffort()
+			service.RebuildRoutesBestEffort(db.DB)
 		}()
 	}
 	wg.Wait()

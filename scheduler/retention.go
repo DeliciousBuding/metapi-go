@@ -37,6 +37,7 @@ type RetentionSchedulerOptions struct {
 // RetentionScheduler prunes rows older than a per-config retention window on
 // a fixed interval, under a scheduler lease (multi-instance safe).
 type RetentionScheduler struct {
+	db     *store.DB
 	cfg    *config.Config
 	opts   RetentionSchedulerOptions
 	runner *intervalRunner
@@ -50,8 +51,9 @@ type RetentionScheduler struct {
 }
 
 // NewRetentionScheduler builds a generic retention scheduler.
-func NewRetentionScheduler(cfg *config.Config, opts RetentionSchedulerOptions) *RetentionScheduler {
+func NewRetentionScheduler(db *store.DB, cfg *config.Config, opts RetentionSchedulerOptions) *RetentionScheduler {
 	return &RetentionScheduler{
+		db:     db,
 		cfg:    cfg,
 		opts:   opts,
 		runner: &intervalRunner{},
@@ -96,7 +98,7 @@ func (s *RetentionScheduler) Stop() error {
 }
 
 func (s *RetentionScheduler) runCleanup() {
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

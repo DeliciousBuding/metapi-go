@@ -15,18 +15,19 @@ const dailySummaryDefaultCron = "58 23 * * *"
 
 // DailySummaryScheduler sends a daily summary notification at 23:58 daily.
 type DailySummaryScheduler struct {
+	db         *store.DB
 	cronRunner *cronRunner
 }
 
 // NewDailySummaryScheduler creates a new daily summary scheduler.
-func NewDailySummaryScheduler() *DailySummaryScheduler {
-	return &DailySummaryScheduler{}
+func NewDailySummaryScheduler(db *store.DB) *DailySummaryScheduler {
+	return &DailySummaryScheduler{db: db}
 }
 
 func (s *DailySummaryScheduler) Name() string { return "daily-summary" }
 
 func (s *DailySummaryScheduler) Start(ctx context.Context) error {
-	activeCron := resolveCronSetting("daily_summary_cron", dailySummaryDefaultCron)
+	activeCron := resolveCronSetting(s.db, "daily_summary_cron", dailySummaryDefaultCron)
 	s.cronRunner = newCronRunner()
 	_, err := s.cronRunner.addJob(activeCron, s.runJob)
 	if err != nil {
@@ -48,7 +49,7 @@ func (s *DailySummaryScheduler) Stop() error {
 
 func (s *DailySummaryScheduler) runJob() {
 	slog.Info("daily-summary: collecting metrics")
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		slog.Error("daily-summary: database not available")
 		return

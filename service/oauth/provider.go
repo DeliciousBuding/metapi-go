@@ -3,6 +3,8 @@ package oauth
 import (
 	"context"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ---- OAuthProviderId ----
@@ -92,6 +94,8 @@ const (
 )
 
 type SessionRecord struct {
+	// The callback and device poll persist to the database that started this flow.
+	db              *store.DB
 	Provider        string        `json:"provider"`
 	State           string        `json:"state"`
 	Status          SessionStatus `json:"status"`

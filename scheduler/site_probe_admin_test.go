@@ -7,7 +7,7 @@ func TestGlobalModelProbeRegistry(t *testing.T) {
 	if GetGlobalModelProbeScheduler() != nil {
 		t.Fatal("expected nil")
 	}
-	s := NewModelProbeScheduler(nil)
+	s := NewModelProbeScheduler(nil, nil)
 	SetGlobalModelProbeScheduler(s)
 	if GetGlobalModelProbeScheduler() != s {
 		t.Fatal("expected same instance")
@@ -16,7 +16,7 @@ func TestGlobalModelProbeRegistry(t *testing.T) {
 }
 
 func TestProbeSite_EmptyWithoutDB(t *testing.T) {
-	s := NewModelProbeScheduler(nil)
+	s := NewModelProbeScheduler(nil, nil)
 	res, a, u := s.ProbeSite(1)
 	if a != 0 || u != 0 {
 		t.Fatalf("a=%d u=%d res=%v", a, u, res)

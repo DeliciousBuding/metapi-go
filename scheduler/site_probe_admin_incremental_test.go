@@ -37,7 +37,7 @@ func (p *timedProbe) ProbeChannel(_ context.Context, target ProbeTarget) (ProbeO
 // 80ms / 150ms) are probed concurrently; the first result must arrive before
 // the slowest probe's delay elapses.
 func TestProbeSiteTargets_StreamsResultsIncrementally(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	probe := &timedProbe{delays: map[int64]time.Duration{
 		101: 10 * time.Millisecond,
 		102: 80 * time.Millisecond,
@@ -47,7 +47,7 @@ func TestProbeSiteTargets_StreamsResultsIncrementally(t *testing.T) {
 	s.SetHealthRecorder(&fakeRecorder{})
 
 	// Drive the bounded-concurrency runner directly with synthetic targets so
-	// this test does not need a seeded store.GetDB().
+	// this test does not need a seeded database.
 	targets := []ProbeTarget{
 		{ChannelID: 101, AccountID: 1, ModelName: "fast"},
 		{ChannelID: 102, AccountID: 1, ModelName: "mid"},
@@ -123,7 +123,7 @@ func (p *releaseProbe) startedCount() int {
 // from ever starting. In-flight probes finish after the test releases them,
 // but their results are NOT streamed to the cancelled caller.
 func TestProbeSiteTargets_CancelStopsScheduling(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	probe := &releaseProbe{release: make(chan struct{})}
 	s.SetProbeExecutor(probe)
 	s.SetHealthRecorder(&fakeRecorder{})

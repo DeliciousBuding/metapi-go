@@ -854,7 +854,7 @@ func (h *sitesHandler) probeNow(w http.ResponseWriter, r *http.Request) {
 	sched := scheduler.GetGlobalModelProbeScheduler()
 	if sched == nil {
 		// Fall back: create ephemeral scheduler for one-shot probe.
-		sched = scheduler.NewModelProbeScheduler(nil)
+		sched = scheduler.NewModelProbeScheduler(wrapStoreDB(h.db), nil)
 	}
 
 	// Bound the total work via the request context so a slow site cannot block
@@ -934,7 +934,7 @@ func (h *sitesHandler) probeStream(w http.ResponseWriter, r *http.Request) {
 
 	sched := scheduler.GetGlobalModelProbeScheduler()
 	if sched == nil {
-		sched = scheduler.NewModelProbeScheduler(nil)
+		sched = scheduler.NewModelProbeScheduler(wrapStoreDB(h.db), nil)
 	}
 
 	sseWrite(w, flusher, "probe-start", map[string]any{

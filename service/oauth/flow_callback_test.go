@@ -51,6 +51,7 @@ func TestHandleCallback_Success_Codex(t *testing.T) {
 
 	// Create a session for codex.
 	session, err := CreateSession(CreateSessionInput{
+		db:          db,
 		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
@@ -154,6 +155,7 @@ func TestHandleCallback_Success_Codex_WithRebind(t *testing.T) {
 	withCodexTokenURLSwap(t, tokenServer.URL)
 
 	session, err := CreateSession(CreateSessionInput{
+		db:              db,
 		Provider:        "codex",
 		RedirectURI:     "http://localhost:1455/auth/callback",
 		RebindAccountID: 1,

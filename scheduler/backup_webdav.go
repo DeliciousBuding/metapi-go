@@ -42,13 +42,14 @@ type BackupWebdavConfig struct {
 
 // BackupWebdavScheduler periodically exports backups to a WebDAV endpoint.
 type BackupWebdavScheduler struct {
+	db         *store.DB
 	cfg        *config.Config
 	cronRunner *cronRunner
 }
 
 // NewBackupWebdavScheduler creates a new WebDAV backup scheduler.
-func NewBackupWebdavScheduler(cfg *config.Config) *BackupWebdavScheduler {
-	return &BackupWebdavScheduler{cfg: cfg}
+func NewBackupWebdavScheduler(db *store.DB, cfg *config.Config) *BackupWebdavScheduler {
+	return &BackupWebdavScheduler{db: db, cfg: cfg}
 }
 
 func (s *BackupWebdavScheduler) Name() string { return "backup-webdav" }
@@ -79,7 +80,7 @@ func (s *BackupWebdavScheduler) reload() error {
 		s.cronRunner = nil
 	}
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return fmt.Errorf("database not available")
 	}
@@ -119,7 +120,7 @@ func (s *BackupWebdavScheduler) reload() error {
 func (s *BackupWebdavScheduler) runExport(cfg *BackupWebdavConfig) {
 	slog.Info("backup-webdav: starting export")
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

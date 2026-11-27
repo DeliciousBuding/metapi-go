@@ -51,7 +51,7 @@ func testOAuthMemberCooldown(t *testing.T, db *store.DB) {
 	t.Cleanup(func() { store.OverrideDB(previous); config.SetRuntime(previousRuntime); routing.SetGlobalCache(nil) })
 	engine := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{TokenRouterCacheTtlMs: 60000}, nil, nil)
 	r := chi.NewRouter()
-	RegisterOauthRoutes(r, db.DB)
+	RegisterOauthRoutes(r, db)
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{Router: engine})
 	check := func(want string) {
 		t.Helper()

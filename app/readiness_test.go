@@ -31,7 +31,7 @@ func TestReadyReportsDrainingWhenShutdownStarts(t *testing.T) {
 
 	markReadinessDraining(true)
 	rec := httptest.NewRecorder()
-	Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	Ready(store.GetDB())(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("ready while draining: got %d, want %d body=%s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())

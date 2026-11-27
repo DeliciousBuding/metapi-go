@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // In-flight flag race tests (run under -race).
@@ -19,12 +17,10 @@ import (
 // point against the ticker path. Before the fix the race detector reports
 // the lock-free projectionInFlight read vs the under-mutex write.
 func TestRunProjectionPassInFlightReadIsSynchronized(t *testing.T) {
-	// Keep store.GetDB() nil so runPass stays a fast no-op after the
+	// Pass a nil DB so runPass stays a fast no-op after the
 	// in-flight bookkeeping (no lease/DB machinery in the loop).
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(nil, testConfig())
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 

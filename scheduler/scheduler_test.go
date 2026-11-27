@@ -402,7 +402,7 @@ func TestFormatTimeToSQL(t *testing.T) {
 
 func TestNewCheckinScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewCheckinScheduler returned nil")
 	}
@@ -417,7 +417,7 @@ func TestNewCheckinScheduler(t *testing.T) {
 func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinScheduleMode = "interval" })
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 
 	t.Run("invalid mode", func(t *testing.T) {
 		err := s.UpdateCheckinSchedule("bogus", "* * * * *", 6, "00:00", "23:59")
@@ -503,7 +503,7 @@ func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 func TestCheckinScheduler_FilterDue(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinIntervalHours = 6 })
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 
 	now := time.Date(2026, 7, 4, 12, 0, 0, 0, time.UTC)
 
@@ -593,7 +593,7 @@ func TestCheckinScheduler_FilterDue(t *testing.T) {
 
 func TestCheckinScheduler_ResetAttempts(t *testing.T) {
 	cfg := testConfig()
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 	s.mu.Lock()
 	s.attemptByAccount[1] = 12345
 	s.mu.Unlock()
@@ -609,7 +609,7 @@ func TestCheckinScheduler_ResetAttempts(t *testing.T) {
 func TestCheckinScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinScheduleMode = "interval" })
-	s := NewCheckinScheduler(cfg)
+	s := NewCheckinScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -674,7 +674,7 @@ func TestCountResults(t *testing.T) {
 
 func TestNewBalanceScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewBalanceScheduler returned nil")
 	}
@@ -686,7 +686,7 @@ func TestNewBalanceScheduler(t *testing.T) {
 func TestBalanceScheduler_UpdateCron(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(nil, cfg)
 
 	t.Run("invalid cron", func(t *testing.T) {
 		err := s.UpdateCron("not-a-cron")
@@ -709,7 +709,7 @@ func TestBalanceScheduler_UpdateCron(t *testing.T) {
 func TestBalanceScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -729,7 +729,7 @@ func TestBalanceScheduler_Stop(t *testing.T) {
 
 func TestNewChannelRecoveryScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewChannelRecoveryScheduler(cfg)
+	s := NewChannelRecoveryScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewChannelRecoveryScheduler returned nil")
 	}
@@ -745,7 +745,7 @@ func TestNewChannelRecoveryScheduler(t *testing.T) {
 }
 
 func TestChannelRecovery_FilterDue(t *testing.T) {
-	s := NewChannelRecoveryScheduler(testConfig())
+	s := NewChannelRecoveryScheduler(nil, testConfig())
 	nowMs := time.Now().UnixMilli()
 
 	t.Run("empty candidates", func(t *testing.T) {
@@ -822,7 +822,7 @@ func TestChannelRecovery_FilterDue(t *testing.T) {
 }
 
 func TestChannelRecovery_Prioritize(t *testing.T) {
-	s := NewChannelRecoveryScheduler(testConfig())
+	s := NewChannelRecoveryScheduler(nil, testConfig())
 
 	t.Run("never-probed first", func(t *testing.T) {
 		s.mu.Lock()
@@ -912,7 +912,7 @@ func TestChannelRecovery_Prioritize(t *testing.T) {
 
 func TestNewModelProbeScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewModelProbeScheduler returned nil")
 	}
@@ -926,7 +926,7 @@ func TestNewModelProbeScheduler(t *testing.T) {
 
 func TestModelProbeScheduler_AccountLease(t *testing.T) {
 	cfg := testConfig()
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 
 	if !s.TryAcquireAccountLease(1) {
 		t.Error("first acquire should succeed")
@@ -949,7 +949,7 @@ func TestModelProbeScheduler_AccountLease(t *testing.T) {
 
 func TestModelProbeScheduler_ResetLeases(t *testing.T) {
 	cfg := testConfig()
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	s.TryAcquireAccountLease(1)
 	s.TryAcquireAccountLease(2)
 	s.TryAcquireAccountLease(3)
@@ -971,7 +971,7 @@ func TestModelProbeScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = true })
 	cfg.ModelAvailabilityProbeIntervalMs = 60_000
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -992,7 +992,7 @@ func TestModelProbeScheduler_Stop(t *testing.T) {
 func TestNewLogCleanupScheduler(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = "0 0 6 * * *" })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewLogCleanupScheduler returned nil")
 	}
@@ -1004,7 +1004,7 @@ func TestNewLogCleanupScheduler(t *testing.T) {
 func TestLogCleanupScheduler_UpdateSettings(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = "0 0 6 * * *" })
-	s := NewLogCleanupScheduler(cfg)
+	s := NewLogCleanupScheduler(nil, cfg)
 
 	t.Run("invalid cron", func(t *testing.T) {
 		err := s.UpdateSettings("not-a-cron", true, true, 30)
@@ -1053,7 +1053,7 @@ func TestLogCleanupScheduler_UpdateSettings(t *testing.T) {
 
 func TestNewDailySummaryScheduler(t *testing.T) {
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(nil)
 	if s == nil {
 		t.Fatal("NewDailySummaryScheduler returned nil")
 	}
@@ -1064,7 +1064,7 @@ func TestNewDailySummaryScheduler(t *testing.T) {
 
 func TestDailySummaryScheduler_Stop(t *testing.T) {
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(nil)
 	err := s.Stop()
 	if err != nil {
 		t.Errorf("Stop on empty cronRunner returned error: %v", err)
@@ -1077,7 +1077,7 @@ func TestDailySummaryScheduler_Stop(t *testing.T) {
 
 func TestNewUsageAggregationScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewUsageAggregationScheduler(cfg)
+	s := NewUsageAggregationScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewUsageAggregationScheduler returned nil")
 	}
@@ -1088,7 +1088,7 @@ func TestNewUsageAggregationScheduler(t *testing.T) {
 
 func TestUsageAggregationScheduler_BuildLeaseOwner(t *testing.T) {
 	cfg := testConfig()
-	s := NewUsageAggregationScheduler(cfg)
+	s := NewUsageAggregationScheduler(nil, cfg)
 	owner := s.buildLeaseOwner()
 	if owner == "" {
 		t.Error("expected non-empty lease owner")
@@ -1102,7 +1102,7 @@ func TestUsageAggregationScheduler_BuildLeaseOwner(t *testing.T) {
 
 func TestUsageAggregationScheduler_GenerateLeaseToken(t *testing.T) {
 	cfg := testConfig()
-	s := NewUsageAggregationScheduler(cfg)
+	s := NewUsageAggregationScheduler(nil, cfg)
 
 	t1 := s.generateLeaseToken()
 	t2 := s.generateLeaseToken()
@@ -1120,7 +1120,7 @@ func TestUsageAggregationScheduler_GenerateLeaseToken(t *testing.T) {
 
 func TestUsageAggregationScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	s := NewUsageAggregationScheduler(cfg)
+	s := NewUsageAggregationScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -1221,10 +1221,6 @@ func TestBackupWebdavSchedulerRunExportUploadsRestorableBackupPayload(t *testing
 		t.Fatalf("insert setting: %v", err)
 	}
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
 	var observedMethod string
 	var observedBody string
 	var observedPayload map[string]any
@@ -1242,7 +1238,7 @@ func TestBackupWebdavSchedulerRunExportUploadsRestorableBackupPayload(t *testing
 	}))
 	t.Cleanup(webdav.Close)
 
-	s := NewBackupWebdavScheduler(testConfig())
+	s := NewBackupWebdavScheduler(db, testConfig())
 	s.runExport(&BackupWebdavConfig{
 		Enabled:    true,
 		FileURL:    webdav.URL + "/backup.json",
@@ -1292,10 +1288,6 @@ func TestBackupWebdavSchedulerDoesNotUploadOversizedPayload(t *testing.T) {
 		t.Fatalf("migrate db: %v", err)
 	}
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
 	called := false
 	webdav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -1303,7 +1295,7 @@ func TestBackupWebdavSchedulerDoesNotUploadOversizedPayload(t *testing.T) {
 	}))
 	t.Cleanup(webdav.Close)
 
-	s := NewBackupWebdavScheduler(testConfig())
+	s := NewBackupWebdavScheduler(db, testConfig())
 	s.runExport(&BackupWebdavConfig{
 		Enabled:    true,
 		FileURL:    webdav.URL + "/backup.json",
@@ -1382,17 +1374,13 @@ func TestBackupWebdavSchedulerFailurePreservesLastSuccessfulSync(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
 	webdav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("upload failed"))
 	}))
 	t.Cleanup(webdav.Close)
 
-	s := NewBackupWebdavScheduler(testConfig())
+	s := NewBackupWebdavScheduler(db, testConfig())
 	s.runExport(&BackupWebdavConfig{
 		Enabled:    true,
 		FileURL:    webdav.URL + "/backup.json",
@@ -1512,7 +1500,7 @@ func TestValidateBackupWebdavConfig(t *testing.T) {
 
 func TestNewBackupWebdavScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewBackupWebdavScheduler(cfg)
+	s := NewBackupWebdavScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewBackupWebdavScheduler returned nil")
 	}
@@ -1527,7 +1515,7 @@ func TestNewBackupWebdavScheduler(t *testing.T) {
 
 func TestNewProxyLogRetentionScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewProxyLogRetentionScheduler returned nil")
 	}
@@ -1540,7 +1528,7 @@ func TestProxyLogRetentionScheduler_DisabledByLogCleanup(t *testing.T) {
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
 	cfg.ProxyLogRetentionDays = 30
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 	ctx := context.Background()
 	err := s.Start(ctx)
 	if err != nil {
@@ -1559,7 +1547,7 @@ func TestProxyLogRetentionScheduler_DisabledByZeroDays(t *testing.T) {
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = false
 	cfg.ProxyLogRetentionDays = 0
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 	ctx := context.Background()
 	_ = s.Start(ctx)
 	s.runner.mu.Lock()
@@ -1575,7 +1563,7 @@ func TestProxyLogRetentionScheduler_Stop(t *testing.T) {
 	cfg.LogCleanupConfigured = false
 	cfg.ProxyLogRetentionDays = 30
 	cfg.ProxyLogRetentionPruneIntervalMinutes = 30
-	s := NewProxyLogRetentionScheduler(cfg)
+	s := NewProxyLogRetentionScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -1595,7 +1583,7 @@ func TestProxyLogRetentionScheduler_Stop(t *testing.T) {
 
 func TestNewSub2APIRefreshScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewSub2APIRefreshScheduler returned nil")
 	}
@@ -1606,7 +1594,7 @@ func TestNewSub2APIRefreshScheduler(t *testing.T) {
 
 func TestSub2APIRefreshScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -1643,7 +1631,7 @@ func TestSub2ApiRefreshResult(t *testing.T) {
 
 func TestNewSiteAnnouncementScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewSiteAnnouncementScheduler(cfg)
+	s := NewSiteAnnouncementScheduler(nil, cfg)
 	if s == nil {
 		t.Fatal("NewSiteAnnouncementScheduler returned nil")
 	}
@@ -1654,7 +1642,7 @@ func TestNewSiteAnnouncementScheduler(t *testing.T) {
 
 func TestSiteAnnouncementScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	s := NewSiteAnnouncementScheduler(cfg)
+	s := NewSiteAnnouncementScheduler(nil, cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -1676,19 +1664,19 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 	cfg := testConfig()
 
 	schedulers := []Scheduler{
-		NewCheckinScheduler(cfg),
-		NewBalanceScheduler(cfg),
-		NewChannelRecoveryScheduler(cfg),
-		NewModelProbeScheduler(cfg),
-		NewLogCleanupScheduler(cfg),
-		NewDailySummaryScheduler(),
-		NewUsageAggregationScheduler(cfg),
-		NewBackupWebdavScheduler(cfg),
-		NewProxyLogRetentionScheduler(cfg),
-		NewSub2APIRefreshScheduler(cfg),
-		NewSiteAnnouncementScheduler(cfg),
-		NewAdminBackgroundTaskRetentionScheduler(cfg),
-		NewModelProbeResultRetentionScheduler(cfg),
+		NewCheckinScheduler(nil, cfg),
+		NewBalanceScheduler(nil, cfg),
+		NewChannelRecoveryScheduler(nil, cfg),
+		NewModelProbeScheduler(nil, cfg),
+		NewLogCleanupScheduler(nil, cfg),
+		NewDailySummaryScheduler(nil),
+		NewUsageAggregationScheduler(nil, cfg),
+		NewBackupWebdavScheduler(nil, cfg),
+		NewProxyLogRetentionScheduler(nil, cfg),
+		NewSub2APIRefreshScheduler(nil, cfg),
+		NewSiteAnnouncementScheduler(nil, cfg),
+		NewAdminBackgroundTaskRetentionScheduler(nil, cfg),
+		NewModelProbeResultRetentionScheduler(nil, cfg),
 	}
 
 	names := make(map[string]bool)

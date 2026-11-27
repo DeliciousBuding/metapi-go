@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/internal/schedulespec"
+
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
@@ -18,7 +20,7 @@ type checkinSchedulePatch struct {
 	// E1: random-window mode bounds (HH:mm, 24h).
 	WindowStart *string
 	WindowEnd   *string
-	Schedule    *scheduler.ScheduleSpec
+	Schedule    *schedulespec.ScheduleSpec
 }
 
 type checkinScheduleState struct {
@@ -50,7 +52,7 @@ func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch
 	}
 	// E1: window mode requires valid HH:mm bounds with start <= end.
 	if patch.WindowStart != nil || patch.WindowEnd != nil || state.Mode == "window" {
-		if _, err := scheduler.RandomCronInWindow(state.WindowStart, state.WindowEnd); err != nil {
+		if _, _, err := schedulespec.WindowBounds(state.WindowStart, state.WindowEnd); err != nil {
 			return checkinScheduleState{}, err
 		}
 	}
@@ -79,18 +81,18 @@ func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch
 			return checkinScheduleState{}, err
 		}
 	}
-	v2 := scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion}
+	v2 := schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion}
 	if patch.Schedule != nil {
 		v2 = *patch.Schedule
-		v2.Version = scheduler.ScheduleSpecVersion
+		v2.Version = schedulespec.ScheduleSpecVersion
 	} else {
 		switch state.Mode {
 		case "window":
-			v2 = scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: state.WindowStart, WindowEnd: state.WindowEnd, Cron: state.Cron}
+			v2 = schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion, Type: "window", WindowStart: state.WindowStart, WindowEnd: state.WindowEnd, Cron: state.Cron}
 		case "interval":
-			v2 = scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: state.IntervalHours, Cron: state.Cron}
+			v2 = schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion, Type: "interval", EveryHours: state.IntervalHours, Cron: state.Cron}
 		default:
-			v2 = scheduler.CronToSchedule(state.Cron)
+			v2 = schedulespec.CronToSchedule(state.Cron)
 		}
 	}
 	v2.Cron = state.Cron
@@ -190,13 +192,13 @@ func upsertSettingTx(db *sqlx.DB, tx *sqlx.Tx, key string, value any) error {
 
 // scheduleSpecForCheckin derives the semantic ScheduleSpec shown by GET
 // /api/settings/runtime for the checkin task, honouring its mode.
-func scheduleSpecForCheckin(rt *config.RuntimeSettings) scheduler.ScheduleSpec {
+func scheduleSpecForCheckin(rt *config.RuntimeSettings) schedulespec.ScheduleSpec {
 	switch rt.CheckinScheduleMode {
 	case "window":
-		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: rt.CheckinWindowStart, WindowEnd: rt.CheckinWindowEnd, Cron: rt.CheckinCron}
+		return schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion, Type: "window", WindowStart: rt.CheckinWindowStart, WindowEnd: rt.CheckinWindowEnd, Cron: rt.CheckinCron}
 	case "interval":
-		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: rt.CheckinIntervalHours, Cron: rt.CheckinCron}
+		return schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion, Type: "interval", EveryHours: rt.CheckinIntervalHours, Cron: rt.CheckinCron}
 	default:
-		return scheduler.CronToSchedule(rt.CheckinCron)
+		return schedulespec.CronToSchedule(rt.CheckinCron)
 	}
 }

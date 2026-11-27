@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ---- Session Store Interface ----
@@ -22,6 +24,7 @@ type OAuthSessionStore interface {
 
 // CreateSessionInput holds the input for creating a new OAuth session.
 type CreateSessionInput struct {
+	db              *store.DB
 	Provider        string
 	RedirectURI     string
 	RebindAccountID int64
@@ -81,6 +84,7 @@ func (s *MemoryOAuthSessionStore) Create(input CreateSessionInput) (*SessionReco
 	expiresAt := now.Add(ttl)
 
 	record := &SessionRecord{
+		db:              input.db,
 		Provider:        input.Provider,
 		State:           state,
 		Status:          SessionPending,

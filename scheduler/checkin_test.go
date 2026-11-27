@@ -30,7 +30,7 @@ func newTestCheckinScheduler(t *testing.T, intervalHours int) *CheckinScheduler 
 		CheckinIntervalHours: intervalHours,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	return NewCheckinScheduler(&config.Config{})
+	return NewCheckinScheduler(nil, &config.Config{})
 }
 
 // equalIDSets reports whether a and b contain the same IDs regardless of order.
@@ -347,7 +347,7 @@ func TestRunIntervalPassLocked_CallsCheckinForDueAccountsOnly(t *testing.T) {
 		CheckinIntervalHours: 6,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 
 	var (
 		calledIDs []int64
@@ -402,7 +402,7 @@ func TestRunIntervalPassLocked_NoDueAccountsDoesNotCallCheckin(t *testing.T) {
 		CheckinIntervalHours: 6,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 
 	var callCount int32
 	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, _ []int64, _ string) []checkin.CheckinAllResult {
@@ -434,7 +434,7 @@ func TestRunIntervalPassLocked_FailedResultsStillUpdateAttemptMap(t *testing.T) 
 		CheckinIntervalHours: 6,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 
 	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
 		results := make([]checkin.CheckinAllResult, 0, len(ids))
@@ -456,17 +456,10 @@ func TestRunIntervalPassLocked_FailedResultsStillUpdateAttemptMap(t *testing.T) 
 	}
 }
 
-// ---- runIntervalPass via store.OverrideDB + mock ----
-//
-// Exercises the public runIntervalPass entry point, which acquires the
-// scheduler lease and then delegates to runIntervalPassLocked. With
-// store.OverrideDB pointing at an in-memory SQLite DB and the lease using
-// local (non-Postgres) semantics, this path is fully testable.
+// Exercise runIntervalPass with an in-memory SQLite DB and a local scheduler lease.
 
-func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
+func TestRunIntervalPass_UsesInjectedDBAndCallsCheckin(t *testing.T) {
 	db := setupIntervalTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	activeSite := insertIntervalTestSite(t, db, "override-site", "active")
 	dueID := insertIntervalTestAccount(t, db, activeSite, "override-due", "active", "", true)
@@ -476,7 +469,7 @@ func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
 		CheckinIntervalHours: 6,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 
 	var calledIDs []int64
 	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
@@ -501,8 +494,6 @@ func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
 // assertion on the outside would pass for the wrong reason).
 func TestRunIntervalPass_RoundContextDiesWithTheSchedulerLifecycle(t *testing.T) {
 	db := setupIntervalTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	activeSite := insertIntervalTestSite(t, db, "lifecycle-site", "active")
 	insertIntervalTestAccount(t, db, activeSite, "lifecycle-due", "active", "", true)
@@ -513,7 +504,7 @@ func TestRunIntervalPass_RoundContextDiesWithTheSchedulerLifecycle(t *testing.T)
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 	lifeCtx, lifeCancel := context.WithCancel(context.Background())
 	defer lifeCancel()
 	s.ctx = lifeCtx

@@ -5,14 +5,14 @@ import (
 )
 
 func TestNewOAuthRefreshScheduler(t *testing.T) {
-	s := NewOAuthRefreshScheduler(nil)
+	s := NewOAuthRefreshScheduler(nil, nil)
 	if s.Name() != "oauth-refresh" {
 		t.Fatalf("expected name 'oauth-refresh', got %q", s.Name())
 	}
 }
 
 func TestOAuthRefreshScheduler_Stop_NoPanic(t *testing.T) {
-	s := NewOAuthRefreshScheduler(nil)
+	s := NewOAuthRefreshScheduler(nil, nil)
 	if err := s.Stop(); err != nil {
 		t.Fatalf("expected no error on stop before start, got %v", err)
 	}
@@ -33,7 +33,7 @@ func TestOAuthRefreshResult(t *testing.T) {
 }
 
 func TestOAuthRefreshScheduler_StartStopNoPanic(t *testing.T) {
-	s := NewOAuthRefreshScheduler(nil)
+	s := NewOAuthRefreshScheduler(nil, nil)
 	if err := s.Stop(); err != nil {
 		t.Fatalf("expected no error on stop before start, got %v", err)
 	}

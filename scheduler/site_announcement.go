@@ -52,6 +52,7 @@ func getDefaultSiteAnnouncementSyncFunc() SiteAnnouncementSyncFunc {
 
 // SiteAnnouncementScheduler polls site announcements periodically.
 type SiteAnnouncementScheduler struct {
+	db       *store.DB
 	cfg      *config.Config
 	mu       sync.Mutex
 	inFlight bool
@@ -61,8 +62,9 @@ type SiteAnnouncementScheduler struct {
 
 // NewSiteAnnouncementScheduler creates a new site announcement poller.
 // Picks up any process-wide SyncFunc installed via SetDefaultSiteAnnouncementSyncFunc.
-func NewSiteAnnouncementScheduler(cfg *config.Config) *SiteAnnouncementScheduler {
+func NewSiteAnnouncementScheduler(db *store.DB, cfg *config.Config) *SiteAnnouncementScheduler {
 	return &SiteAnnouncementScheduler{
+		db:       db,
 		cfg:      cfg,
 		syncFunc: getDefaultSiteAnnouncementSyncFunc(),
 		runner:   &intervalRunner{},
@@ -104,7 +106,7 @@ func (s *SiteAnnouncementScheduler) runSync() {
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

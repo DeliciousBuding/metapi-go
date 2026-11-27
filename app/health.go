@@ -64,28 +64,29 @@ func Health(w http.ResponseWriter, r *http.Request) {
 
 // Ready handles GET /ready as a readiness endpoint. It returns 503 when the
 // database is not initialized or cannot be pinged.
-func Ready(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func Ready(db *store.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-	db := store.GetDB()
-	if db == nil {
-		slog.Warn("readiness: database not initialized")
-		writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "degraded", Database: "error"})
-		return
+		if db == nil {
+			slog.Warn("readiness: database not initialized")
+			writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "degraded", Database: "error"})
+			return
+		}
+
+		if err := readinessDatabaseProbe.probe(db, readinessPingTTL, db.Ping); err != nil {
+			slog.Warn("readiness: database ping failed", "error", err)
+			writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "degraded", Database: "error"})
+			return
+		}
+
+		if readinessDraining.Load() {
+			writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "draining", Database: "ok"})
+			return
+		}
+
+		writeHealthJSON(w, http.StatusOK, HealthStatus{Status: "ok", Database: "ok"})
 	}
-
-	if err := readinessDatabaseProbe.probe(db, readinessPingTTL, db.Ping); err != nil {
-		slog.Warn("readiness: database ping failed", "error", err)
-		writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "degraded", Database: "error"})
-		return
-	}
-
-	if readinessDraining.Load() {
-		writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "draining", Database: "ok"})
-		return
-	}
-
-	writeHealthJSON(w, http.StatusOK, HealthStatus{Status: "ok", Database: "ok"})
 }
 
 func markReadinessDraining(draining bool) {

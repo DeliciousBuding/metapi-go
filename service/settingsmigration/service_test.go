@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -237,7 +238,7 @@ func TestPreviewNormalizesInvalidLegacyCheckinSchedule(t *testing.T) {
 	if plan.Items[0].Schedule.EveryHours != 6 {
 		t.Fatalf("everyHours = %d, want default 6", plan.Items[0].Schedule.EveryHours)
 	}
-	if err := plan.Items[0].Schedule.Validate(); err != nil {
+	if err := plan.Items[0].Schedule.Validate(config.ValidateCronExpr); err != nil {
 		t.Fatalf("normalized schedule invalid: %v", err)
 	}
 }
@@ -260,7 +261,7 @@ func TestPreviewNormalizesInvalidLegacyCheckinWindow(t *testing.T) {
 	if spec.WindowStart != "00:00" || spec.WindowEnd != "23:59" {
 		t.Fatalf("window = %s-%s, want normalized full day", spec.WindowStart, spec.WindowEnd)
 	}
-	if err := spec.Validate(); err != nil {
+	if err := spec.Validate(config.ValidateCronExpr); err != nil {
 		t.Fatalf("normalized schedule invalid: %v", err)
 	}
 }

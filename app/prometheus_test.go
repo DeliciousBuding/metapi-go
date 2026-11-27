@@ -23,7 +23,7 @@ func TestPrometheusHandler_FormatSmoke(t *testing.T) {
 	})
 
 	rec := httptest.NewRecorder()
-	PrometheusHandler(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	PrometheusHandler(nil)(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}

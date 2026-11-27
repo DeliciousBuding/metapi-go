@@ -23,6 +23,7 @@ const (
 // never supplied active lease IDs, so recovery must not start scanning healthy
 // channels when the unused lease plumbing is removed.
 type ChannelRecoveryScheduler struct {
+	db                 *store.DB
 	cfg                *config.Config
 	mu                 sync.Mutex
 	inFlightKeys       map[string]bool  // "channelId:modelName" -> in flight
@@ -32,8 +33,9 @@ type ChannelRecoveryScheduler struct {
 }
 
 // NewChannelRecoveryScheduler creates a new channel recovery probe scheduler.
-func NewChannelRecoveryScheduler(cfg *config.Config) *ChannelRecoveryScheduler {
+func NewChannelRecoveryScheduler(db *store.DB, cfg *config.Config) *ChannelRecoveryScheduler {
 	return &ChannelRecoveryScheduler{
+		db:                 db,
 		cfg:                cfg,
 		inFlightKeys:       make(map[string]bool),
 		lastStartedAtByKey: make(map[string]int64),
@@ -75,7 +77,7 @@ func (s *ChannelRecoveryScheduler) runSweep() {
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

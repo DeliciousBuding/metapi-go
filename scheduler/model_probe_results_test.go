@@ -37,7 +37,7 @@ func TestProbeOnePersistsModelProbeResults(t *testing.T) {
 	site2, account4 := seedProbeAccount(t, db, "s2", "u4")
 
 	rec := &fakeRecorder{}
-	s := NewModelProbeScheduler(&config.Config{})
+	s := NewModelProbeScheduler(db, &config.Config{})
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{
 		7: {Status: "failure", HTTPStatus: 502, ErrorText: "bad gateway"},
 		8: {Status: "success", LatencyMs: 31},
@@ -82,7 +82,7 @@ func TestProbeOnePersistsModelProbeResults(t *testing.T) {
 
 func TestProbeOneWithoutDBDoesNotPersist(t *testing.T) {
 	rec := &fakeRecorder{}
-	s := NewModelProbeScheduler(&config.Config{})
+	s := NewModelProbeScheduler(nil, &config.Config{})
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{
 		9: {Status: "success", LatencyMs: 5},
 	}})

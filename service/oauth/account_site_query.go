@@ -53,8 +53,8 @@ type OAuthRefreshCandidate struct {
 
 // ListOAuthRefreshCandidates returns all OAuth accounts and their parent-site
 // status using the same explicit projection as the admin connection list.
-func ListOAuthRefreshCandidates() ([]OAuthRefreshCandidate, error) {
-	rows, err := selectOAuthAccountSiteRows(store.GetDB(), "")
+func ListOAuthRefreshCandidates(db *store.DB) ([]OAuthRefreshCandidate, error) {
+	rows, err := selectOAuthAccountSiteRows(db, "")
 	if err != nil {
 		return nil, err
 	}

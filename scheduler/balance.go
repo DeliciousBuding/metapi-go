@@ -12,13 +12,14 @@ import (
 
 // BalanceScheduler periodically refreshes account balances.
 type BalanceScheduler struct {
+	db         *store.DB
 	cfg        *config.Config
 	cronRunner *cronRunner
 }
 
 // NewBalanceScheduler creates a new balance refresh scheduler.
-func NewBalanceScheduler(cfg *config.Config) *BalanceScheduler {
-	return &BalanceScheduler{cfg: cfg}
+func NewBalanceScheduler(db *store.DB, cfg *config.Config) *BalanceScheduler {
+	return &BalanceScheduler{db: db, cfg: cfg}
 }
 
 // Name returns "balance-refresh".
@@ -30,14 +31,14 @@ func (s *BalanceScheduler) Name() string { return "balance-refresh" }
 // issue #1027): when disabled, no cron job is scheduled at all.
 func (s *BalanceScheduler) Start(ctx context.Context) error {
 	rt := config.Runtime()
-	enabled := resolveBooleanSetting("balance_refresh_enabled", !rt.BalanceRefreshDisabled)
+	enabled := resolveBooleanSetting(s.db, "balance_refresh_enabled", !rt.BalanceRefreshDisabled)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshDisabled = !enabled })
 	if !enabled {
 		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
 		return nil
 	}
 
-	activeCron := resolveCronSetting("balance_refresh_cron", rt.BalanceRefreshCron)
+	activeCron := resolveCronSetting(s.db, "balance_refresh_cron", rt.BalanceRefreshCron)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = activeCron })
 
 	s.cronRunner = newCronRunner()
@@ -94,7 +95,7 @@ func (s *BalanceScheduler) SetEnabled(enabled bool) error {
 		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
 		return nil
 	}
-	activeCron := resolveCronSetting("balance_refresh_cron", config.Runtime().BalanceRefreshCron)
+	activeCron := resolveCronSetting(s.db, "balance_refresh_cron", config.Runtime().BalanceRefreshCron)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = activeCron })
 	if s.cronRunner != nil {
 		s.cronRunner.stop()
@@ -110,7 +111,7 @@ func (s *BalanceScheduler) SetEnabled(enabled bool) error {
 
 func (s *BalanceScheduler) runJob() {
 	slog.Info("balance: refreshing all balances")
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		slog.Error("balance: database not available")
 		return

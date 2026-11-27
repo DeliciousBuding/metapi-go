@@ -11,14 +11,14 @@ import (
 // embedders) or pass nil fall back to the package default instead of spinning at
 // a zero interval.
 func TestUsageAggregationProjectionInterval(t *testing.T) {
-	if got := NewUsageAggregationScheduler(&config.Config{}).projectionIntervalMs(); got != defaultUsageProjectionIntervalMs {
+	if got := NewUsageAggregationScheduler(nil, &config.Config{}).projectionIntervalMs(); got != defaultUsageProjectionIntervalMs {
 		t.Fatalf("zero-value config interval = %d, want default %d", got, defaultUsageProjectionIntervalMs)
 	}
-	if got := NewUsageAggregationScheduler(nil).projectionIntervalMs(); got != defaultUsageProjectionIntervalMs {
+	if got := NewUsageAggregationScheduler(nil, nil).projectionIntervalMs(); got != defaultUsageProjectionIntervalMs {
 		t.Fatalf("nil config interval = %d, want default %d", got, defaultUsageProjectionIntervalMs)
 	}
 	cfg, _ := config.Load(map[string]string{"USAGE_PROJECTION_INTERVAL_MS": "30000"})
-	if got := NewUsageAggregationScheduler(cfg).projectionIntervalMs(); got != 30000 {
+	if got := NewUsageAggregationScheduler(nil, cfg).projectionIntervalMs(); got != 30000 {
 		t.Fatalf("configured interval = %d, want 30000", got)
 	}
 }

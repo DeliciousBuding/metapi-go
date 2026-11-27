@@ -73,7 +73,7 @@ func TestChannelRecoveryLoadCoolingCandidatesLogsQueryError(t *testing.T) {
 
 	h := installCaptureLog(t)
 
-	s := NewChannelRecoveryScheduler(testConfig())
+	s := NewChannelRecoveryScheduler(db, testConfig())
 	if got := s.loadCoolingCandidates(db); got != nil {
 		t.Fatalf("expected nil candidates from a closed DB, got %v", got)
 	}
@@ -131,7 +131,7 @@ func TestBackupWebdavUpdateStateLogsPersistFailure(t *testing.T) {
 
 	h := installCaptureLog(t)
 
-	s := NewBackupWebdavScheduler(testConfig())
+	s := NewBackupWebdavScheduler(db, testConfig())
 	s.updateState(ss, nil)
 
 	if !h.contains("failed to persist state") {
@@ -153,7 +153,7 @@ func TestModelProbePersistResultLogsWriteFailure(t *testing.T) {
 
 	h := installCaptureLog(t)
 
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(db, testConfig())
 	s.persistProbeResult(db, ProbeTarget{ChannelID: 1, ModelName: "test-model"}, "success", ProbeOutcome{Status: "success"})
 
 	if !h.contains("failed to persist probe result") {

@@ -22,6 +22,7 @@ const (
 // Sub2APIRefreshScheduler periodically refreshes Sub2API managed authentication
 // tokens for eligible accounts via balance.RefreshBalance.
 type Sub2APIRefreshScheduler struct {
+	db           *store.DB
 	cfg          *config.Config
 	mu           sync.Mutex
 	passInFlight bool
@@ -29,8 +30,8 @@ type Sub2APIRefreshScheduler struct {
 }
 
 // NewSub2APIRefreshScheduler creates a new Sub2API refresh scheduler.
-func NewSub2APIRefreshScheduler(cfg *config.Config) *Sub2APIRefreshScheduler {
-	return &Sub2APIRefreshScheduler{cfg: cfg, runner: &intervalRunner{}}
+func NewSub2APIRefreshScheduler(db *store.DB, cfg *config.Config) *Sub2APIRefreshScheduler {
+	return &Sub2APIRefreshScheduler{db: db, cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *Sub2APIRefreshScheduler) Name() string { return "sub2api-refresh" }
@@ -73,7 +74,7 @@ func (s *Sub2APIRefreshScheduler) runPass() {
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

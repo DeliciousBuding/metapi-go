@@ -47,15 +47,13 @@ func TestModelProbeScheduler_RecentRunSummaries(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	okChannel := seedRouteChannel(t, db, "ok", "gpt-ok", true)
 	failChannel := seedRouteChannel(t, db, "fail", "gpt-fail", true)
 
 	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: true})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelProbeScheduler(&config.Config{})
+	s := NewModelProbeScheduler(db, &config.Config{})
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{
 		okChannel:   {Status: "success", LatencyMs: 21},
 		failChannel: {Status: "failure", HTTPStatus: 502, ErrorText: "bad gateway"},

@@ -36,7 +36,7 @@ func TestOAuthAccountSiteQueriesUseExplicitProjection(t *testing.T) {
 		t.Fatalf("unexpected joined rows: %+v", rows)
 	}
 
-	candidates, err := ListOAuthRefreshCandidates()
+	candidates, err := ListOAuthRefreshCandidates(db)
 	if err != nil {
 		t.Fatalf("list refresh candidates: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestOAuthAccountSiteQueriesUseExplicitProjection(t *testing.T) {
 		t.Fatalf("unexpected refresh candidates: %+v", candidates)
 	}
 
-	connections, err := ListOauthConnections(ListConnectionsInput{Limit: 10})
+	connections, err := ListOauthConnections(db, ListConnectionsInput{Limit: 10})
 	if err != nil {
 		t.Fatalf("list OAuth connections: %v", err)
 	}

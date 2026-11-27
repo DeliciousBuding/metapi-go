@@ -71,10 +71,10 @@ is right and this page is stale.
 Approved exceptions are enumerated in [`docs/package_boundary_test.go`](package_boundary_test.go)
 (for example `handler/admin → scheduler` for cron validation, `app → handler/proxy`
 for the upstream composition helper, `platform → proxy/profiles` for client
-detection, `handler/proxy → transform/*` for one-way protocol wiring, plus the
-file-scoped `legacyBoundaryExceptions` and `storeAllowedInternalImports` ratchets).
+detection, `handler/proxy → transform/*` for one-way protocol wiring, and the
+`storeAllowedInternalImports` allowlist).
 Both `docs/package_boundary_test.go` and [`docs/coupling_ratchet_test.go`](coupling_ratchet_test.go)
-enforce stale-exemption failure: once a legacy edge, direct `sqlx` admin handler,
+enforce stale-exemption failure: once an allowed store import, direct `sqlx` admin handler,
 or global `store.GetDB()` lookup is removed, the gate fails until its baseline
 entry is deleted. Production files must not import `testing` or `net/http/httptest`.
 The rule for adding an exception is: move the import to an allowed edge first;
@@ -135,7 +135,7 @@ consumes the per-IP bucket instead of bypassing it, so credential brute force
 is capped like any other admin traffic.
 
 Registrars that need a database are mounted inside
-`if db := store.GetDB(); db != nil`. When the database is unavailable those
+`if db != nil` using the database captured when the router is constructed. When the database is unavailable those
 routes are simply not registered and the router logs
 `router: database not initialized, P3 routes skipped`; the session manager is
 `nil` and the session handlers fail closed rather than allowing traffic.

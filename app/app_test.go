@@ -29,7 +29,7 @@ func TestHealthAndReadySemantics(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	Ready(store.GetDB())(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("ready without db: got %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
@@ -48,7 +48,7 @@ func TestHealthAndReadySemantics(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	Ready(store.GetDB())(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("ready with db: got %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -126,7 +126,7 @@ func TestShutdownDrainsBeforeCleanupAndRunsCleanupOnce(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	Ready(store.GetDB())(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), `"status":"draining"`) {
 		t.Fatalf("ready during shutdown = %d %s, want 503 draining", rec.Code, rec.Body.String())
 	}

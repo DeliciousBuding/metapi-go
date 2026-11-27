@@ -5,17 +5,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/store"
+
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterOauthRoutes registers all /api/oauth routes.
 // Start/rebind issue cryptographically random server-stored state tokens (TTL 10m);
 // session lookup and manual callback validate that state.
-func RegisterOauthRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterOauthRoutes(r chi.Router, db *store.DB) {
 	handler := &oauthHandler{db: db}
 
 	r.Get("/api/oauth/providers", handler.listProviders)
@@ -37,7 +38,7 @@ func RegisterOauthRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type oauthHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 func (h *oauthHandler) clearMemberCooldown(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +127,7 @@ func (h *oauthHandler) startProviderFlow(w http.ResponseWriter, r *http.Request)
 		input.UseSystemProxy = *body.UseSystemProxy
 	}
 
-	result, err := oauth.StartFlow(input)
+	result, err := oauth.StartFlow(h.db, input)
 	if err != nil {
 		status := http.StatusBadRequest
 		msg := err.Error()
@@ -222,37 +223,20 @@ func (h *oauthHandler) listConnections(w http.ResponseWriter, r *http.Request) {
 		offset = o
 	}
 
-	// Prefer service implementation when the global DB is available; fall back to
-	// the handler's injected *sqlx.DB for tests that only wire the chi handler.
-	if result, err := oauth.ListOauthConnections(oauth.ListConnectionsInput{
+	result, err := oauth.ListOauthConnections(h.db, oauth.ListConnectionsInput{
 		Limit:  limit,
 		Offset: offset,
-	}); err == nil && result != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"connections": result.Items,
-			"items":       result.Items,
-			"total":       result.Total,
-			"limit":       result.Limit,
-			"offset":      result.Offset,
-		})
-		return
-	}
-
-	rows, err := queryRowsErr(h.db,
-		`SELECT a.*, s.name as site_name, s.platform as site_platform
-		 FROM accounts a
-		 INNER JOIN sites s ON a.site_id = s.id
-		 WHERE a.oauth_provider IS NOT NULL
-		 ORDER BY a.id ASC LIMIT ? OFFSET ?`,
-		limit, offset)
+	})
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load oauth connections")
 		return
 	}
-
 	writeJSON(w, http.StatusOK, map[string]any{
-		"connections": normalizeSlice(rows),
-		"total":       len(rows),
+		"connections": result.Items,
+		"items":       result.Items,
+		"total":       result.Total,
+		"limit":       result.Limit,
+		"offset":      result.Offset,
 	})
 }
 
@@ -274,7 +258,7 @@ func (h *oauthHandler) rebindConnection(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := oauth.StartOauthRebindFlow(id, requestOrigin(r), proxyURL, body.UseSystemProxy)
+	result, err := oauth.StartOauthRebindFlow(h.db, id, requestOrigin(r), proxyURL, body.UseSystemProxy)
 	if err != nil {
 		msg := err.Error()
 		status := http.StatusBadRequest
@@ -328,7 +312,7 @@ func (h *oauthHandler) updateProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := oauth.UpdateOauthConnectionProxySettings(id, proxyURL, body.UseSystemProxy)
+	result, err := oauth.UpdateOauthConnectionProxySettings(h.db, id, proxyURL, body.UseSystemProxy)
 	if err != nil {
 		msg := err.Error()
 		status := http.StatusNotFound
@@ -347,7 +331,7 @@ func (h *oauthHandler) deleteConnection(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := oauth.DeleteOauthConnection(id); err != nil {
+	if err := oauth.DeleteOauthConnection(h.db, id); err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"message": err.Error()})
 		return
 	}
@@ -363,7 +347,7 @@ func (h *oauthHandler) refreshQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot, err := oauth.RefreshOauthQuotaSnapshot(id)
+	snapshot, err := oauth.RefreshOauthQuotaSnapshot(h.db, id)
 	if err != nil {
 		msg := err.Error()
 		status := http.StatusInternalServerError
@@ -394,7 +378,7 @@ func (h *oauthHandler) refreshQuotaBatch(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	result := oauth.RefreshOauthConnectionQuotaBatch(body.AccountIDs)
+	result := oauth.RefreshOauthConnectionQuotaBatch(h.db, body.AccountIDs)
 	writeJSON(w, http.StatusOK, result)
 }
 

@@ -1,7 +1,9 @@
-package scheduler
+package schedulespec
 
 import (
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func TestCronToScheduleDefaults(t *testing.T) {
@@ -66,7 +68,7 @@ func TestScheduleToCronUnchangedSemanticsReturnsOriginalBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ScheduleToCron(tt.spec)
+			got, err := ScheduleToCron(tt.spec, config.ValidateCronExpr)
 			if err != nil {
 				t.Fatalf("ScheduleToCron() error = %v", err)
 			}
@@ -90,7 +92,7 @@ func TestScheduleToCronEditedSemanticsGeneratesNormalized(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ScheduleToCron(tt.spec)
+			got, err := ScheduleToCron(tt.spec, config.ValidateCronExpr)
 			if err != nil {
 				t.Fatalf("ScheduleToCron() error = %v", err)
 			}
@@ -109,7 +111,7 @@ func TestScheduleSpecValidate(t *testing.T) {
 		{Version: 1, Type: "custom", Cron: "0 0 * * 1-5"},
 	}
 	for _, s := range ok {
-		if err := s.Validate(); err != nil {
+		if err := s.Validate(config.ValidateCronExpr); err != nil {
 			t.Fatalf("Validate(%+v) = %v, want nil", s, err)
 		}
 	}
@@ -123,14 +125,14 @@ func TestScheduleSpecValidate(t *testing.T) {
 		{Version: 1, Type: "bogus"},
 	}
 	for _, s := range bad {
-		if err := s.Validate(); err == nil {
+		if err := s.Validate(config.ValidateCronExpr); err == nil {
 			t.Fatalf("Validate(%+v) = nil, want error", s)
 		}
 	}
 }
 
 func TestScheduleToCronWindowReturnsPreservedCron(t *testing.T) {
-	got, err := ScheduleToCron(ScheduleSpec{Version: 1, Type: "window", WindowStart: "02:00", WindowEnd: "03:30", Cron: "0 3 * * *"})
+	got, err := ScheduleToCron(ScheduleSpec{Version: 1, Type: "window", WindowStart: "02:00", WindowEnd: "03:30", Cron: "0 3 * * *"}, config.ValidateCronExpr)
 	if err != nil {
 		t.Fatalf("ScheduleToCron(window) error = %v", err)
 	}

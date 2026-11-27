@@ -39,7 +39,7 @@ func TestAdminBackgroundTaskRetentionDeletesOldTerminalRowsKeepsRest(t *testing.
 		}
 	}
 
-	s := NewAdminBackgroundTaskRetentionScheduler(&config.Config{})
+	s := NewAdminBackgroundTaskRetentionScheduler(db, &config.Config{})
 	s.runCleanupLocked(db, adminBackgroundTaskRetentionDays)
 
 	if got := countRows(t, db, `SELECT COUNT(*) FROM admin_background_tasks`); got != 4 {

@@ -3,17 +3,12 @@ package oauth
 import (
 	"strings"
 	"testing"
-
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ---- ListOauthConnections ----
 
 func TestListOauthConnections_NoDatabase(t *testing.T) {
-	store.CloseDatabase()
-	t.Cleanup(func() { _ = store.CloseDatabase() })
-
-	_, err := ListOauthConnections(ListConnectionsInput{Limit: 10})
+	_, err := ListOauthConnections(nil, ListConnectionsInput{Limit: 10})
 	if err == nil {
 		t.Fatal("expected error when database is not initialized")
 	}
@@ -23,10 +18,10 @@ func TestListOauthConnections_NoDatabase(t *testing.T) {
 }
 
 func TestListOauthConnections_EmptyDB(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 10})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 10})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -65,7 +60,7 @@ func TestListOauthConnections_EmptyProviderCountedNowhere(t *testing.T) {
 		t.Fatalf("insert account: %v", err)
 	}
 
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 50})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 50})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -101,7 +96,7 @@ func TestListOauthConnections_ReturnsInsertedAccount(t *testing.T) {
 		t.Fatalf("insert account: %v", err)
 	}
 
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 50})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 50})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,11 +113,11 @@ func TestListOauthConnections_ReturnsInsertedAccount(t *testing.T) {
 }
 
 func TestListOauthConnections_LimitClampedToMax(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	// Limit > 200 should be clamped; no error expected.
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 999})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 999})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -132,11 +127,11 @@ func TestListOauthConnections_LimitClampedToMax(t *testing.T) {
 }
 
 func TestListOauthConnections_DefaultLimitWhenZero(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	// Limit = 0 should default to 50.
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 0})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 0})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -173,7 +168,7 @@ func TestListOauthConnections_WithOffset(t *testing.T) {
 	}
 
 	// Offset=1 should skip the first account (ordered by id DESC).
-	result, err := ListOauthConnections(ListConnectionsInput{Limit: 50, Offset: 1})
+	result, err := ListOauthConnections(db, ListConnectionsInput{Limit: 50, Offset: 1})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,10 +183,7 @@ func TestListOauthConnections_WithOffset(t *testing.T) {
 // ---- ListOAuthRefreshCandidates ----
 
 func TestListOAuthRefreshCandidates_NoDatabase(t *testing.T) {
-	store.CloseDatabase()
-	t.Cleanup(func() { _ = store.CloseDatabase() })
-
-	_, err := ListOAuthRefreshCandidates()
+	_, err := ListOAuthRefreshCandidates(nil)
 	if err == nil {
 		t.Fatal("expected error when database is not initialized")
 	}
@@ -220,7 +212,7 @@ func TestListOAuthRefreshCandidates_ReturnsAccounts(t *testing.T) {
 		t.Fatalf("insert account: %v", err)
 	}
 
-	candidates, err := ListOAuthRefreshCandidates()
+	candidates, err := ListOAuthRefreshCandidates(db)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

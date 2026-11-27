@@ -15,13 +15,14 @@ import (
 // model_sync_cron overrides the env default; UpdateCron hot-reloads the
 // running runner; the job runs under the cluster-wide scheduler lease.
 type ModelSyncScheduler struct {
+	db         *store.DB
 	cronRunner *cronRunner
 }
 
 // NewModelSyncScheduler creates a new model sync scheduler. The cron state
 // lives in the runtime-settings snapshot (hot-updated by settings apply).
-func NewModelSyncScheduler() *ModelSyncScheduler {
-	return &ModelSyncScheduler{}
+func NewModelSyncScheduler(db *store.DB) *ModelSyncScheduler {
+	return &ModelSyncScheduler{db: db}
 }
 
 // Name returns "model-sync".
@@ -30,7 +31,7 @@ func (s *ModelSyncScheduler) Name() string { return "model-sync" }
 // Start begins periodic model sync. Loads the cron expression from DB
 // settings or falls back to config default.
 func (s *ModelSyncScheduler) Start(ctx context.Context) error {
-	activeCron := resolveCronSetting("model_sync_cron", config.Runtime().ModelSyncCron)
+	activeCron := resolveCronSetting(s.db, "model_sync_cron", config.Runtime().ModelSyncCron)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = activeCron })
 
 	s.cronRunner = newCronRunner()
@@ -75,7 +76,7 @@ func (s *ModelSyncScheduler) UpdateCron(cronExpr string) error {
 
 func (s *ModelSyncScheduler) runJob() {
 	slog.Info("model-sync: refreshing upstream model lists")
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		slog.Error("model-sync: database not available")
 		return

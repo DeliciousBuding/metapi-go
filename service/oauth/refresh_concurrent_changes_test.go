@@ -51,7 +51,7 @@ func TestAccountRefreshDoesNotOverwriteConcurrentChanges(t *testing.T) {
 				})
 				defer server.Close()
 				withCodexTokenURLSwap(t, server.URL)
-				result := doRefreshAccessToken(id)
+				result := doRefreshAccessToken(db, id)
 				if result.Err == nil || result.AccessToken != "" {
 					t.Fatal("refresh overwrote a concurrent change or published an unverified token")
 				}
@@ -86,7 +86,7 @@ func TestAccountRefreshDoesNotPublishConfigurationChangedAtCommit(t *testing.T) 
 	})
 	defer server.Close()
 	withCodexTokenURLSwap(t, server.URL)
-	result := doRefreshAccessToken(id)
+	result := doRefreshAccessToken(db, id)
 	if result.Err == nil || result.ExtraConfig != nil || result.AccessToken != "" {
 		t.Fatal("refresh published a configuration no longer present in storage")
 	}

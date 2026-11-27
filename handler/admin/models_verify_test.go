@@ -68,7 +68,7 @@ func setupVerifyHarness(t *testing.T) (chi.Router, *store.DB, int64) {
 		}
 	}
 
-	sched := scheduler.NewModelProbeScheduler(&config.Config{})
+	sched := scheduler.NewModelProbeScheduler(db, &config.Config{})
 	sched.SetProbeExecutor(&fakeVerifyProbe{})
 	scheduler.SetGlobalModelProbeScheduler(sched)
 	t.Cleanup(func() { scheduler.SetGlobalModelProbeScheduler(nil) })

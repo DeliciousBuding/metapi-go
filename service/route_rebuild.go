@@ -8,7 +8,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
-	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -45,26 +44,12 @@ type ProbeFilterConfig struct {
 	ExcludeModels []string
 }
 
-var (
-	routeRebuildMu sync.Mutex
-	// optional override for tests / injected SQL handles without store.GetDB
-	routeRebuildDBMu sync.RWMutex
-	routeRebuildDB   *sqlx.DB
-)
-
-// SetRouteRebuildDB sets the SQL handle used by RebuildRoutesBestEffort when
-// store.GetDB() is not initialized (tests). Pass nil to clear.
-func SetRouteRebuildDB(db *sqlx.DB) {
-	routeRebuildDBMu.Lock()
-	defer routeRebuildDBMu.Unlock()
-	routeRebuildDB = db
-}
+var routeRebuildMu sync.Mutex
 
 // RebuildRoutesBestEffort rebuilds pattern-route channels from current model
 // availability and invalidates the token-router cache. Failures are logged and
 // swallowed so account/site mutation paths stay best-effort.
-func RebuildRoutesBestEffort() {
-	db := resolveRebuildDB()
+func RebuildRoutesBestEffort(db *sqlx.DB) {
 	if db == nil {
 		slog.Debug("route rebuild skipped: database not available")
 		return
@@ -477,19 +462,6 @@ func insertAutoChannel(ctx context.Context, db *sqlx.DB, routeID int64, cand des
 	)
 	if err != nil {
 		return fmt.Errorf("insert auto channel route=%d account=%d: %w", routeID, cand.AccountID, err)
-	}
-	return nil
-}
-
-func resolveRebuildDB() *sqlx.DB {
-	routeRebuildDBMu.RLock()
-	override := routeRebuildDB
-	routeRebuildDBMu.RUnlock()
-	if override != nil {
-		return override
-	}
-	if dbw := store.GetDB(); dbw != nil {
-		return dbw.DB
 	}
 	return nil
 }

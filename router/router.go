@@ -13,7 +13,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
-	"github.com/deliciousbuding/metapi-go/handler/proxy"
+	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	userhandler "github.com/deliciousbuding/metapi-go/handler/user"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
@@ -51,11 +51,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 
 	// ---- /health and /ready (design addition, not in TS) ----
 	// Registered before route groups so it bypasses auth middleware.
+	db := store.GetDB()
 	r.With(CORS()).Get("/health", app.Health)
-	r.With(CORS()).Get("/ready", app.Ready)
+	r.With(CORS()).Get("/ready", app.Ready(db))
 
 	// ---- /metrics (Prometheus text format, bypasses auth) ----
-	r.With(CORS()).Get("/metrics", app.PrometheusHandler)
+	r.With(CORS()).Get("/metrics", app.PrometheusHandler(db))
 
 	// ---- /api/* routes (excluding public routes) → admin auth middleware ----
 
@@ -65,10 +66,10 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// Server-side admin sessions (#1034): the UI authenticates with an
 	// HttpOnly cookie minted at POST /api/auth/login; the master token stays
 	// server-side. nil when the database is unavailable (handlers fail closed).
-	sessions := auth.NewSessionManager(store.GetDB(),
+	sessions := auth.NewSessionManager(db,
 		time.Duration(cfg.AdminSessionTTLMinutes)*time.Minute)
-	userSessions := auth.NewUserSessionManager(store.GetDB())
-	userhandler.RegisterRoutes(r, store.GetDB(), userSessions, cfg.AdminSessionCookieSecure, func() userhandler.ModelCatalog {
+	userSessions := auth.NewUserSessionManager(db)
+	userhandler.RegisterRoutes(r, db, userSessions, cfg.AdminSessionCookieSecure, func() userhandler.ModelCatalog {
 		catalog, _ := app.TokenRouteDecisionRuntime()
 		if catalog == nil {
 			return nil
@@ -125,7 +126,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// master token re-presented in X-Admin-Confirm-Token (#1034).
 		r.Use(auth.RequireReauth())
 		// B1: audit admin write operations.
-		if db := store.GetDB(); db != nil {
+		if db != nil {
 			r.Use(admin.AuditMiddleware(db.DB))
 		}
 
@@ -144,7 +145,6 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		admin.RegisterSessionRoutes(r, cfg, sessions)
 
 		// Sites + Accounts + AccountTokens CRUD API
-		db := store.GetDB()
 		if db != nil {
 			// Load the in-process redirect registry so routing eligibility
 			// and forward rewriting see canonical→actual mappings from boot.
@@ -189,7 +189,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
 			admin.RegisterImportedUpstreamRoutes(r, db.DB)
 			admin.RegisterUpdateCenterRoutes(r)
-			admin.RegisterOauthRoutes(r, db.DB)
+			admin.RegisterOauthRoutes(r, db)
 			// Resin (#678): observability status endpoint for the
 			// sticky-proxy-pool integration. Read-only surface.
 			admin.RegisterResinRoutes(r, db, cfg)
@@ -200,7 +200,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// Monitor configuration routes (/api/monitor/*) stay inside this
 		// Bearer-gated group. The cookie-authenticated LDOH iframe proxy
 		// (/monitor-proxy/*) is registered outside the group below.
-		if db := store.GetDB(); db != nil {
+		if db != nil {
 			admin.RegisterMonitorRoutes(r, db.DB, cfg)
 		}
 	})
@@ -211,7 +211,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// Bearer AdminAuth group above (which answered 401 "Missing Authorization
 	// header" and broke the iframe). The handler enforces its own cookie auth
 	// (ensureMonitorAuth) and rejects ".." traversal paths.
-	if db := store.GetDB(); db != nil {
+	if db != nil {
 		admin.RegisterMonitorProxyRoutes(r, db.DB, cfg)
 	}
 
@@ -229,7 +229,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// Downstream-key-visible cross-site price catalog (not admin auth).
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
 		// modelPriceCompare data surface (no separate catalog to drift).
-		if db := store.GetDB(); db != nil {
+		if db != nil {
 			admin.RegisterDownstreamPricingRoutes(r, db.DB)
 		}
 	})
