@@ -38,6 +38,7 @@ type nativeTerminalBody struct {
 	normalizer    transformshared.NativeTerminalStream
 	responseModel string
 	original      *incrementalSseAnalyzer
+	timing        *attemptStreamTiming
 	analysis      *incrementalSseAnalyzer
 	frameLimit    int64
 	boundaryScan  int
@@ -157,6 +158,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	event := parseSseBlock(string(block))
 	if event != nil {
+		if b.timing != nil {
+			b.timing.observe(*event)
+		}
 		if b.original != nil {
 			b.original.recordEvent(*event)
 		}

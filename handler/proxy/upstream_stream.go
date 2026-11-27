@@ -239,16 +239,13 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		}
 	}
 	if timing != nil && bodyReadable {
-		original := analyzer
 		if messageBridge != nil {
-			original = messageBridge.original
+			messageBridge.original.timing = timing
 		} else if native, ok := resp.Body.(*nativeTerminalBody); ok {
-			if native.original == nil {
-				native.original = newIncrementalSseAnalyzer()
-			}
-			original = native.original
+			native.timing = timing
+		} else {
+			analyzer.timing = timing
 		}
-		original.timing = timing
 	}
 	sawStreamBytes := false
 	var streamedBytes int64
