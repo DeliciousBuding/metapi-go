@@ -37,7 +37,7 @@ func setupMaintenanceTest(t *testing.T) (*store.DB, chi.Router, *routing.RouteCa
 	t.Cleanup(func() { routing.SetGlobalCache(nil) })
 
 	r := chi.NewRouter()
-	RegisterMaintenanceRoutes(r, db.DB)
+	RegisterMaintenanceRoutes(r, db)
 	RegisterTasksRoutes(r, db.DB)
 	return db, r, rc
 }

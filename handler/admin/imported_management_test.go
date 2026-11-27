@@ -52,7 +52,7 @@ func TestImportedManagementContract(t *testing.T) {
 				t.Fatal(err)
 			}
 			mux := chi.NewRouter()
-			RegisterImportedUpstreamRoutes(mux, db.DB)
+			RegisterImportedUpstreamRoutes(mux, db)
 			request := func(method, path, body string) *httptest.ResponseRecorder {
 				out := httptest.NewRecorder()
 				mux.ServeHTTP(out, httptest.NewRequest(method, path, strings.NewReader(body)))
@@ -281,7 +281,7 @@ func TestImportedManagementContract(t *testing.T) {
 func TestImportedManagementStorageFailureIsNotNotFound(t *testing.T) {
 	db := setupBackupTestDB(t)
 	mux := chi.NewRouter()
-	RegisterImportedUpstreamRoutes(mux, db.DB)
+	RegisterImportedUpstreamRoutes(mux, db)
 	db.Close()
 	for _, tc := range []struct{ method, path, body string }{{"GET", "/api/imported-upstreams/1/credentials", ""}, {"PATCH", "/api/imported-upstreams/credentials/1", `{"name":"example"}`}, {"GET", "/api/imported-upstreams/1", ""}} {
 		out := httptest.NewRecorder()

@@ -17,7 +17,7 @@ func TestAuditMiddleware_RecordsWritesSkipsReads(t *testing.T) {
 	db, _ := setupStatsSQLiteTest(t)
 
 	r := chi.NewRouter()
-	r.Use(AuditMiddleware(db.DB))
+	r.Use(AuditMiddleware(db))
 	r.Get("/api/test/read", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 	})
@@ -122,7 +122,7 @@ func TestAuditLogs_ListWithFilters(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	RegisterAuditLogsRoutes(r, db.DB)
+	RegisterAuditLogsRoutes(r, db)
 
 	// All rows, newest first.
 	resp := doGet(t, r, "/api/admin/audit-logs")
@@ -211,7 +211,7 @@ func TestAuditMiddleware_RecordsPanicsAs500(t *testing.T) {
 			next.ServeHTTP(w, req)
 		})
 	})
-	r.Use(AuditMiddleware(db.DB))
+	r.Use(AuditMiddleware(db))
 	r.Post("/api/test/boom", func(_ http.ResponseWriter, _ *http.Request) {
 		panic("boom")
 	})

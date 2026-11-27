@@ -31,7 +31,7 @@ func TestImportedAntigravityCredentialProjectIsWriteOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := chi.NewRouter()
-	RegisterImportedUpstreamRoutes(mux, db.DB)
+	RegisterImportedUpstreamRoutes(mux, db)
 	out := httptest.NewRecorder()
 	mux.ServeHTTP(out, httptest.NewRequest(http.MethodPatch,
 		fmt.Sprintf("/api/imported-upstreams/credentials/%d", id),

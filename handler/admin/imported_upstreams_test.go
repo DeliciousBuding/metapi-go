@@ -43,7 +43,7 @@ func TestImportedUpstreamsAvailabilityAndSecretBoundary(t *testing.T) {
 				t.Fatal(err)
 			}
 			mux := chi.NewRouter()
-			RegisterImportedUpstreamRoutes(mux, db.DB)
+			RegisterImportedUpstreamRoutes(mux, db)
 			rec := doGet(t, mux, "/api/imported-upstreams")
 			if rec.Code != 200 || strings.Contains(rec.Body.String(), "fixture-key-octopus") || strings.Contains(rec.Body.String(), "customHeader") {
 				t.Fatalf("unsafe inventory: %s", rec.Body.String())

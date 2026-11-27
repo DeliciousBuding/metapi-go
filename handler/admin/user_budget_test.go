@@ -26,7 +26,7 @@ func TestUserBudgetAdministratorAPI(t *testing.T) {
 	config.SetRuntime(&config.RuntimeSettings{AuthToken: "budget-admin-confirm"})
 	defer config.SetRuntime(runtime)
 	r := chi.NewRouter()
-	r.Use(AuditMiddleware(db.DB))
+	r.Use(AuditMiddleware(db))
 	RegisterUserBudgetRoutes(r, db)
 	path := fmt.Sprintf("/api/admin/users/%d/budget", u.ID)
 	pricing := fmt.Sprintf("/api/admin/user-groups/%d/pricing", u.GroupID)

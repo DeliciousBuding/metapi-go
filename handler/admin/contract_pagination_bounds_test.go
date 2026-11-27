@@ -259,7 +259,7 @@ func TestPaginationBounds_AuditLogs_LimitOffsetClamped(t *testing.T) {
 		}
 	}
 	r := chi.NewRouter()
-	RegisterAuditLogsRoutes(r, db.DB)
+	RegisterAuditLogsRoutes(r, db)
 
 	var envelope struct {
 		Items  []map[string]any `json:"items"`

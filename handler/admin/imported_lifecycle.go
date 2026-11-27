@@ -6,11 +6,11 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
-func RegisterUpstreamLifecycleRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterUpstreamLifecycleRoutes(r chi.Router, db *store.DB) {
 	r.Get("/api/imported-upstreams/{id}/deletion-preview", lifecyclePreviewHandler(db, upstream.KindChannel))
 	r.Delete("/api/imported-upstreams/{id}", func(w http.ResponseWriter, r *http.Request) {
 		deleteLifecycleEntity(w, r, db, upstream.KindChannel, false)
@@ -38,13 +38,13 @@ func RegisterUpstreamLifecycleRoutes(r chi.Router, db *sqlx.DB) {
 	r.Get("/api/routes/{id}/deletion-preview", lifecyclePreviewHandler(db, upstream.KindRoute))
 }
 
-func lifecyclePreviewHandler(db *sqlx.DB, kind upstream.Kind) http.HandlerFunc {
+func lifecyclePreviewHandler(db *store.DB, kind upstream.Kind) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := pathID(w, r)
 		if !ok {
 			return
 		}
-		preview, err := upstream.PreviewDeletion(r.Context(), db, kind, id)
+		preview, err := upstream.PreviewDeletion(r.Context(), db.DB, kind, id)
 		if err != nil {
 			writeLifecycleError(w, r, err, nil)
 			return
@@ -68,7 +68,7 @@ func writeLifecycleError(w http.ResponseWriter, r *http.Request, err error, prev
 
 // Native route deletion preserves its existing contract. A route paired with a
 // direct group uses the same closure confirmation as deleting that group.
-func deleteLifecycleEntity(w http.ResponseWriter, r *http.Request, db *sqlx.DB, kind upstream.Kind, nativeRouteCompatibility bool) {
+func deleteLifecycleEntity(w http.ResponseWriter, r *http.Request, db *store.DB, kind upstream.Kind, nativeRouteCompatibility bool) {
 	id, ok := pathID(w, r)
 	if !ok {
 		return
@@ -79,38 +79,15 @@ func deleteLifecycleEntity(w http.ResponseWriter, r *http.Request, db *sqlx.DB, 
 		return
 	}
 	revision := r.URL.Query().Get("expectedRevision")
-	tx, err := db.BeginTxx(r.Context(), nil)
+	result, err := upstream.Delete(r.Context(), db.DB, kind, id, upstream.DeleteOptions{
+		Cascade: cascade == "true", ExpectedRevision: revision, AllowUnpairedRoute: nativeRouteCompatibility,
+	})
 	if err != nil {
-		writeLifecycleError(w, r, err, nil)
-		return
-	}
-	defer tx.Rollback()
-	if err = upstream.LockLifecycleTx(r.Context(), tx); err != nil {
-		writeLifecycleError(w, r, err, nil)
-		return
-	}
-	plan, err := upstream.PlanDeletionTx(r.Context(), tx, []upstream.Reference{{Kind: kind, ID: id}})
-	if err != nil {
-		writeLifecycleError(w, r, err, nil)
-		return
-	}
-	preview := plan.Preview
-	requireConfirmation := preview.RequiresCascade && !(nativeRouteCompatibility && preview.Counts["groups"] == 0)
-	if requireConfirmation && (cascade != "true" || revision == "") {
-		writeLifecycleError(w, r, upstream.ErrConfirmationRequired, &preview)
-		return
-	}
-	if revision != "" && revision != preview.Revision {
-		writeLifecycleError(w, r, upstream.ErrRevisionMismatch, &preview)
-		return
-	}
-	onlyDeleted, err := upstream.ApplyDeletionTx(r.Context(), tx, plan)
-	if err != nil {
-		writeLifecycleError(w, r, err, nil)
-		return
-	}
-	if err = tx.Commit(); err != nil {
-		writeLifecycleError(w, r, err, nil)
+		var preview *upstream.DeletionPreview
+		if result != nil {
+			preview = &result.DeletionPreview
+		}
+		writeLifecycleError(w, r, err, preview)
 		return
 	}
 	routing.InvalidateCache()
@@ -118,5 +95,5 @@ func deleteLifecycleEntity(w http.ResponseWriter, r *http.Request, db *sqlx.DB, 
 	writeJSON(w, http.StatusOK, struct {
 		Success bool `json:"success"`
 		upstream.DeletionResult
-	}{true, upstream.DeletionResult{DeletionPreview: preview, OnlyDeletedRouteKeys: onlyDeleted}})
+	}{true, *result})
 }

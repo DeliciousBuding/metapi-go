@@ -89,7 +89,7 @@ func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "Provider protocols must have selected channel endpoints")
 		return
 	}
-	if err := channelplugins.FillDefaults(r.Context(), h.db, base, &channel.Endpoints, &channel.RequestConfig); err != nil {
+	if err := channelplugins.FillDefaults(r.Context(), h.db.DB, base, &channel.Endpoints, &channel.RequestConfig); err != nil {
 		catalogError(w, err)
 		return
 	}
@@ -119,7 +119,7 @@ func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request)
 	if gcpMaterial != "" {
 		connect.GCPServiceAccount = &gcpMaterial
 	}
-	out, err := upstream.Connect(r.Context(), h.db, connect)
+	out, err := upstream.Connect(r.Context(), h.db.DB, connect)
 	if err != nil {
 		catalogError(w, err)
 		return

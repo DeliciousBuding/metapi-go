@@ -49,7 +49,7 @@ func TestImportedConditionManagementPreservesPredicates(t *testing.T) {
 				t.Fatal(err)
 			}
 			mux := chi.NewRouter()
-			RegisterImportedUpstreamRoutes(mux, db.DB)
+			RegisterImportedUpstreamRoutes(mux, db)
 			request := func(method, path, body string) *httptest.ResponseRecorder {
 				r := httptest.NewRecorder()
 				mux.ServeHTTP(r, httptest.NewRequest(method, path, strings.NewReader(body)))

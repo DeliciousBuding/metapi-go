@@ -28,11 +28,11 @@ func setupOpsAdminStubsTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 
 	r := chi.NewRouter()
 	RegisterNotifyRoutes(r)
-	RegisterMonitorRoutes(r, db.DB, cfg)
+	RegisterMonitorRoutes(r, db, cfg)
 	// The LDOH iframe proxy surface is a separate registrar
 	// (it must stay outside the Bearer admin auth group in production); the
 	// stub harness mounts both so handler-level tests keep their routes.
-	RegisterMonitorProxyRoutes(r, db.DB, cfg)
+	RegisterMonitorProxyRoutes(r, db, cfg)
 	RegisterTasksRoutes(r, db.DB)
 	RegisterSiteAnnouncementsRoutes(r, db.DB)
 	return db, r, cfg
@@ -96,7 +96,7 @@ func TestMonitorConfig_SaveAndGetRoundTrip(t *testing.T) {
 	}
 
 	// Ensure value persisted in settings table.
-	stored := getSettingValue(db.DB, ldohCookieSettingKey)
+	stored := getSettingValue(db, ldohCookieSettingKey)
 	if stored != cookie {
 		t.Fatalf("stored cookie = %q, want %q", stored, cookie)
 	}

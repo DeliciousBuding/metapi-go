@@ -180,7 +180,7 @@ func TestFilters_AuditLogs_NegativeFiltersReturnEmpty(t *testing.T) {
 		}
 	}
 	r := chi.NewRouter()
-	RegisterAuditLogsRoutes(r, db.DB)
+	RegisterAuditLogsRoutes(r, db)
 
 	decode := func(resp *httptest.ResponseRecorder) (int, []any) {
 		t.Helper()

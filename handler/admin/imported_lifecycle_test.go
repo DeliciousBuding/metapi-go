@@ -89,7 +89,7 @@ func TestUpstreamLifecycleDeleteAndReimport(t *testing.T) {
 					ids := lifecycleIDs(t, db)
 					id := ids[kind]
 					mux := chi.NewRouter()
-					RegisterUpstreamLifecycleRoutes(mux, db.DB)
+					RegisterUpstreamLifecycleRoutes(mux, db)
 					RegisterTokenRoutesWithDeps(mux, db.DB, TokenRoutesDeps{})
 					path := fmt.Sprintf("/api/imported-upstreams/%ss/%d", kind, id)
 					if kind == upstream.KindChannel {
@@ -170,7 +170,7 @@ func TestUpstreamLifecycleConfirmationGrowthAndRollback(t *testing.T) {
 			}
 			ids := lifecycleIDs(t, db)
 			mux := chi.NewRouter()
-			RegisterUpstreamLifecycleRoutes(mux, db.DB)
+			RegisterUpstreamLifecycleRoutes(mux, db)
 			path := fmt.Sprintf("/api/imported-upstreams/%d", ids[upstream.KindChannel])
 			before := lifecyclePreview(t, mux, path)
 			var nativeModel int64
@@ -238,7 +238,7 @@ func TestUpstreamLifecycleRouteKeysRemainClosed(t *testing.T) {
 				t.Fatal(err)
 			}
 			mux := chi.NewRouter()
-			RegisterUpstreamLifecycleRoutes(mux, db.DB)
+			RegisterUpstreamLifecycleRoutes(mux, db)
 			path := fmt.Sprintf("/api/imported-upstreams/groups/%d", ids[upstream.KindGroup])
 			preview := lifecyclePreview(t, mux, path)
 			if preview.Counts["downstreamKeys"] != 2 {

@@ -127,7 +127,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(auth.RequireReauth())
 		// B1: audit admin write operations.
 		if db != nil {
-			r.Use(admin.AuditMiddleware(db.DB))
+			r.Use(admin.AuditMiddleware(db))
 		}
 
 		// /debug/vars moved behind admin auth
@@ -159,10 +159,10 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			// Admin API routes
 			admin.RegisterStatsRoutes(r, db.DB)
 			admin.RegisterSettingsRoutes(r, db.DB, cfg)
-			admin.RegisterDatabaseRoutes(r, db.DB, cfg)
+			admin.RegisterDatabaseRoutes(r, db, cfg)
 			admin.RegisterBackupRoutes(r, db.DB)
 			admin.RegisterNotifyRoutes(r)
-			admin.RegisterMaintenanceRoutes(r, db.DB)
+			admin.RegisterMaintenanceRoutes(r, db)
 			admin.RegisterDownstreamKeysRoutes(r, db.DB)
 			admin.RegisterEventsRoutes(r, db)
 			admin.RegisterSearchRoutes(r, db.DB)
@@ -178,16 +178,16 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			// Model-catalog data source registry + manual/auto sync control.
 			admin.RegisterCatalogSourceRoutes(r, catalogsync.NewStore(db.DB))
 			// B1: admin write-operation audit log.
-			admin.RegisterAuditLogsRoutes(r, db.DB)
+			admin.RegisterAuditLogsRoutes(r, db)
 			// C1: unified recurring-scheduler run history.
 			admin.RegisterSchedulerStatusRoutes(r, db)
 			admin.RegisterTestRoutes(r, db.DB, cfg)
 			admin.RegisterSiteAnnouncementsRoutes(r, db.DB)
-			admin.RegisterAuthSettingsRoutes(r, db.DB, sessions)
-			admin.RegisterCheckinRoutes(r, db.DB, cfg)
+			admin.RegisterAuthSettingsRoutes(r, db, sessions)
+			admin.RegisterCheckinRoutes(r, db, cfg)
 			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
-			admin.RegisterImportedUpstreamRoutes(r, db.DB)
+			admin.RegisterImportedUpstreamRoutes(r, db)
 			admin.RegisterUpdateCenterRoutes(r)
 			admin.RegisterOauthRoutes(r, db)
 			// Resin (#678): observability status endpoint for the
@@ -201,7 +201,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// Bearer-gated group. The cookie-authenticated LDOH iframe proxy
 		// (/monitor-proxy/*) is registered outside the group below.
 		if db != nil {
-			admin.RegisterMonitorRoutes(r, db.DB, cfg)
+			admin.RegisterMonitorRoutes(r, db, cfg)
 		}
 	})
 
@@ -212,7 +212,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// header" and broke the iframe). The handler enforces its own cookie auth
 	// (ensureMonitorAuth) and rejects ".." traversal paths.
 	if db != nil {
-		admin.RegisterMonitorProxyRoutes(r, db.DB, cfg)
+		admin.RegisterMonitorProxyRoutes(r, db, cfg)
 	}
 
 	// /v1/* proxy routes → proxy rate limiting + proxy auth middleware.

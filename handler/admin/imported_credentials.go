@@ -13,7 +13,7 @@ func (h *importedUpstreamHandler) credentials(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	items, err := oauth.ListDirectCredentials(r.Context(), h.db, id)
+	items, err := oauth.ListDirectCredentials(r.Context(), h.db.DB, id)
 	if err != nil {
 		if errors.Is(err, oauth.ErrDirectCredentialNotFound) {
 			writeError(w, 404, "Imported upstream not found")
@@ -35,7 +35,7 @@ func (h *importedUpstreamHandler) updateCredential(w http.ResponseWriter, r *htt
 		writeError(w, 400, "Invalid credential replacement")
 		return
 	}
-	if err := oauth.UpdateDirectCredential(r.Context(), h.db, id, input); err != nil {
+	if err := oauth.UpdateDirectCredential(r.Context(), h.db.DB, id, input); err != nil {
 		if errors.Is(err, oauth.ErrInvalidDirectCredential) {
 			writeError(w, 400, err.Error())
 		} else if errors.Is(err, oauth.ErrDirectCredentialNotFound) {

@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,7 +9,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/service/settingsmigration"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 type checkinSchedulePatch struct {
@@ -32,7 +32,7 @@ type checkinScheduleState struct {
 	WindowEnd   string
 }
 
-func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch checkinSchedulePatch) (checkinScheduleState, error) {
+func applyCheckinScheduleSettings(db *store.DB, rt *config.RuntimeSettings, patch checkinSchedulePatch) (checkinScheduleState, error) {
 	state := resolveCheckinScheduleState(rt, patch)
 	if state.Mode == "" {
 		return checkinScheduleState{}, fmt.Errorf("mode must be cron, interval or window")
@@ -57,30 +57,6 @@ func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch
 		}
 	}
 
-	tx, err := db.Beginx()
-	if err != nil {
-		return checkinScheduleState{}, fmt.Errorf("settings: begin checkin schedule update: %w", err)
-	}
-	defer tx.Rollback()
-
-	if err := upsertSettingTx(db, tx, "checkin_schedule_mode", state.Mode); err != nil {
-		return checkinScheduleState{}, err
-	}
-	if err := upsertSettingTx(db, tx, "checkin_cron", state.Cron); err != nil {
-		return checkinScheduleState{}, err
-	}
-	if err := upsertSettingTx(db, tx, "checkin_interval_hours", state.IntervalHours); err != nil {
-		return checkinScheduleState{}, err
-	}
-	// E1: persist window bounds whenever window mode is involved.
-	if state.Mode == "window" {
-		if err := upsertSettingTx(db, tx, "checkin_window_start", state.WindowStart); err != nil {
-			return checkinScheduleState{}, err
-		}
-		if err := upsertSettingTx(db, tx, "checkin_window_end", state.WindowEnd); err != nil {
-			return checkinScheduleState{}, err
-		}
-	}
 	v2 := schedulespec.ScheduleSpec{Version: schedulespec.ScheduleSpecVersion}
 	if patch.Schedule != nil {
 		v2 = *patch.Schedule
@@ -96,12 +72,8 @@ func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch
 		}
 	}
 	v2.Cron = state.Cron
-	if err := upsertSettingTx(db, tx, "checkin_schedule_v2", v2); err != nil {
+	if err := settingsmigration.SaveCheckinSchedule(db.DB, v2, state.Mode, state.Cron, state.IntervalHours, state.WindowStart, state.WindowEnd); err != nil {
 		return checkinScheduleState{}, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return checkinScheduleState{}, fmt.Errorf("settings: commit checkin schedule update: %w", err)
 	}
 
 	config.UpdateRuntime(func(r *config.RuntimeSettings) {
@@ -175,19 +147,6 @@ func normalizeCheckinScheduleMode(mode string) string {
 	default:
 		return ""
 	}
-}
-
-func upsertSettingTx(db *sqlx.DB, tx *sqlx.Tx, key string, value any) error {
-	jsonValue, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("settings: marshal %q: %w", key, err)
-	}
-	query := db.Rebind(`INSERT INTO settings (key, value) VALUES (?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
-	if _, err := tx.Exec(query, key, string(jsonValue)); err != nil {
-		return fmt.Errorf("settings: upsert %q: %w", key, err)
-	}
-	return nil
 }
 
 // scheduleSpecForCheckin derives the semantic ScheduleSpec shown by GET

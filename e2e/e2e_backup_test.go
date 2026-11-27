@@ -42,7 +42,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	r := chi.NewRouter()
 	admin.RegisterBackupRoutes(r, db.DB)
-	admin.RegisterMaintenanceRoutes(r, db.DB)
+	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	future := time.Now().UTC().Add(30 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")
@@ -468,7 +468,7 @@ func TestBackupExportImportAccountsOnly(t *testing.T) {
 
 	r := chi.NewRouter()
 	admin.RegisterBackupRoutes(r, db.DB)
-	admin.RegisterMaintenanceRoutes(r, db.DB)
+	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 
@@ -609,7 +609,7 @@ func TestBackupEmptyDatabaseRoundtrip(t *testing.T) {
 
 	r := chi.NewRouter()
 	admin.RegisterBackupRoutes(r, db.DB)
-	admin.RegisterMaintenanceRoutes(r, db.DB)
+	admin.RegisterMaintenanceRoutes(r, db)
 
 	// Export empty database.
 	exportRec := doGet(t, r, "/api/settings/backup/export?type=all")
@@ -703,7 +703,7 @@ func TestBackupSettingsJSONFidelity(t *testing.T) {
 
 	r := chi.NewRouter()
 	admin.RegisterBackupRoutes(r, db.DB)
-	admin.RegisterMaintenanceRoutes(r, db.DB)
+	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 
@@ -769,7 +769,7 @@ func TestBackupRouteChannelTokenNullFK(t *testing.T) {
 
 	r := chi.NewRouter()
 	admin.RegisterBackupRoutes(r, db.DB)
-	admin.RegisterMaintenanceRoutes(r, db.DB)
+	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 

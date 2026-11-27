@@ -27,7 +27,7 @@ func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router) {
 	config.SetRuntime(&config.RuntimeSettings{AuthToken: "admin-auth-settings-token"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
-	RegisterAuthSettingsRoutes(r, db.DB, nil)
+	RegisterAuthSettingsRoutes(r, db, nil)
 	return db, r
 }
 

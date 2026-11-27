@@ -729,7 +729,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 // ---- Delete Route ----
 // DELETE /api/routes/:id
 func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request) {
-	deleteLifecycleEntity(w, r, h.db, upstream.KindRoute, true)
+	deleteLifecycleEntity(w, r, wrapStoreDB(h.db), upstream.KindRoute, true)
 }
 
 // ---- Batch Routes ----

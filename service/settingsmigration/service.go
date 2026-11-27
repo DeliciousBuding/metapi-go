@@ -106,8 +106,8 @@ func Apply(db *sqlx.DB) (MigrationResult, error) {
 		if failAfterWrites >= 0 && writes >= failAfterWrites {
 			return MigrationResult{}, fmt.Errorf("settings migration: injected failure after %d writes", writes)
 		}
-		if err := upsertTx(db, tx, it.V2Key, it.Schedule); err != nil {
-			return MigrationResult{}, err
+		if err := upsertScheduleTx(tx, it.V2Key, it.Schedule); err != nil {
+			return MigrationResult{}, fmt.Errorf("settings migration: %w", err)
 		}
 		writes++
 		applied++
@@ -116,8 +116,8 @@ func Apply(db *sqlx.DB) (MigrationResult, error) {
 		if failAfterWrites >= 0 && writes >= failAfterWrites {
 			return MigrationResult{}, fmt.Errorf("settings migration: injected failure after %d writes", writes)
 		}
-		if err := upsertTx(db, tx, SchemaVersionKey, CurrentSchemaVersion); err != nil {
-			return MigrationResult{}, err
+		if err := upsertScheduleTx(tx, SchemaVersionKey, CurrentSchemaVersion); err != nil {
+			return MigrationResult{}, fmt.Errorf("settings migration: %w", err)
 		}
 		applied++
 	}
@@ -259,15 +259,15 @@ func buildCronItem(task, v2Key, legacyKey string, settings map[string]string) (M
 	}, true
 }
 
-func upsertTx(db *sqlx.DB, tx *sqlx.Tx, key string, value any) error {
+func upsertScheduleTx(tx *sqlx.Tx, key string, value any) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		return fmt.Errorf("settings migration: marshal %q: %w", key, err)
+		return fmt.Errorf("marshal %q: %w", key, err)
 	}
-	query := db.Rebind(`INSERT INTO settings (key, value) VALUES (?, ?)
+	query := tx.Rebind(`INSERT INTO settings (key, value) VALUES (?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
 	if _, err := tx.Exec(query, key, string(jsonValue)); err != nil {
-		return fmt.Errorf("settings migration: upsert %q: %w", key, err)
+		return fmt.Errorf("upsert %q: %w", key, err)
 	}
 	return nil
 }

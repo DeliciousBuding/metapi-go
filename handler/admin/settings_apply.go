@@ -13,6 +13,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/settingsmigration"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -101,7 +102,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 			intervalHours := int(hours)
 			patch.IntervalHours = &intervalHours
 		}
-		if _, err := applyCheckinScheduleSettings(h.db, config.Runtime(), patch); err != nil {
+		if _, err := applyCheckinScheduleSettings(wrapStoreDB(h.db), config.Runtime(), patch); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 	}
@@ -136,7 +137,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 			patch.WindowStart = &spec.WindowStart
 			patch.WindowEnd = &spec.WindowEnd
 		}
-		if _, err := applyCheckinScheduleSettings(h.db, config.Runtime(), patch); err != nil {
+		if _, err := applyCheckinScheduleSettings(wrapStoreDB(h.db), config.Runtime(), patch); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 	}
@@ -167,7 +168,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 		if !scheduler.ValidateCronExpr(cron) {
 			return failSettings(http.StatusBadRequest, "balanceRefreshCron is not a valid cron expression")
 		}
-		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", schedulespec.CronToSchedule(cron)); err != nil {
+		if err := settingsmigration.SaveDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", schedulespec.CronToSchedule(cron)); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cron })
@@ -190,7 +191,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 		if cron == "" {
 			return failSettings(http.StatusBadRequest, "balanceRefreshSchedule cannot be converted to a cron expression")
 		}
-		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
+		if err := settingsmigration.SaveDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cron })
@@ -268,7 +269,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if !scheduler.ValidateCronExpr(cron) {
 			return failSettings(http.StatusBadRequest, "logCleanupCron is not a valid cron expression")
 		}
-		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", schedulespec.CronToSchedule(cron)); err != nil {
+		if err := settingsmigration.SaveDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", schedulespec.CronToSchedule(cron)); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = cron })
@@ -317,7 +318,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if cron == "" {
 			return failSettings(http.StatusBadRequest, "logCleanupSchedule cannot be converted to a cron expression")
 		}
-		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
+		if err := settingsmigration.SaveDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = cron })

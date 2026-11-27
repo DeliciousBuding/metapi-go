@@ -3,14 +3,15 @@ package admin
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/proxy"
@@ -29,7 +30,7 @@ import (
 // It must be mounted after AdminAuth so only authenticated requests pass.
 // Panics inside the handler are recorded as status 500 before re-panicking,
 // so chi's outer Recoverer still renders the standard error page.
-func AuditMiddleware(db *sqlx.DB) func(http.Handler) http.Handler {
+func AuditMiddleware(db *store.DB) func(http.Handler) http.Handler {
 	if db == nil {
 		return func(next http.Handler) http.Handler { return next }
 	}
@@ -102,7 +103,7 @@ func remoteIPFrom(r *http.Request) string {
 }
 
 // recordAuditLog writes one row; failures are logged, never propagated.
-func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
+func recordAuditLog(db *store.DB, r *http.Request, status int) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	path := r.URL.Path
 	if path == "" {
@@ -114,12 +115,8 @@ func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
 	if actor == "" {
 		actor = actorFromToken(r)
 	}
-	_, err := db.Exec(
-		db.Rebind(`INSERT INTO admin_audit_logs (actor, method, path, status, request_id, remote_ip, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`),
-		actor, r.Method, path, status,
-		proxy.RequestIDFromContext(r.Context()), remoteIPFrom(r), now,
-	)
+	err := db.AppendAuditLog(store.AdminAuditLog{Actor: actor, Method: r.Method, Path: path, Status: status,
+		RequestID: proxy.RequestIDFromContext(r.Context()), RemoteIP: remoteIPFrom(r), CreatedAt: now})
 	if err != nil {
 		slog.Warn("admin audit: insert failed", "method", r.Method, "path", path, "error", err)
 	}
@@ -128,13 +125,13 @@ func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
 // GET /api/admin/audit-logs?limit=&offset=&method=&path=
 // Lists recent admin write operations newest-first. method filters exact
 // methods (POST/PUT/PATCH/DELETE); path filters by substring.
-func RegisterAuditLogsRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterAuditLogsRoutes(r chi.Router, db *store.DB) {
 	h := &auditLogsHandler{db: db}
 	r.Get("/api/admin/audit-logs", h.list)
 }
 
 type auditLogsHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
@@ -145,46 +142,14 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 	method := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("method")))
 	pathFilter := strings.TrimSpace(r.URL.Query().Get("path"))
 
-	where := []string{"1 = 1"}
-	args := []any{}
-	if method != "" {
-		where = append(where, "method = ?")
-		args = append(args, method)
-	}
-	if pathFilter != "" {
-		// LOWER() on both sides: SQLite LIKE is ASCII case-insensitive but
-		// Postgres LIKE is not — keep the filter parity across dialects.
-		where = append(where, "LOWER(path) LIKE ?")
-		args = append(args, "%"+strings.ToLower(pathFilter)+"%")
-	}
-
-	var total int
-	if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM admin_audit_logs WHERE "+strings.Join(where, " AND ")), args...); err != nil {
+	items, total, err := h.db.ListAuditLogs(method, pathFilter, limit, offset)
+	if errors.Is(err, store.ErrAuditCount) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to count audit logs"})
 		return
 	}
-
-	rows, err := queryRowsErr(h.db,
-		"SELECT id, actor, method, path, status, request_id, remote_ip, created_at FROM admin_audit_logs WHERE "+
-			strings.Join(where, " AND ")+" ORDER BY id DESC LIMIT ? OFFSET ?",
-		append(args, limit, offset)...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list audit logs")
 		return
-	}
-
-	items := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, map[string]any{
-			"id":        coerceInt64(row["id"]),
-			"actor":     coerceString(row["actor"]),
-			"method":    coerceString(row["method"]),
-			"path":      coerceString(row["path"]),
-			"status":    coerceInt(row["status"]),
-			"requestId": coerceString(row["requestId"]),
-			"remoteIp":  coerceString(row["remoteIp"]),
-			"createdAt": coerceString(row["createdAt"]),
-		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items":  items,

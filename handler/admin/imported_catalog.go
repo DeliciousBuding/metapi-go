@@ -9,13 +9,13 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterUpstreamCatalogRoutes adds explicit native catalog creation without
 // taking over the imported connection/member maintenance endpoints.
-func RegisterUpstreamCatalogRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterUpstreamCatalogRoutes(r chi.Router, db *store.DB) {
 	h := &upstreamCatalogHandler{db: db}
 	r.Post("/api/imported-upstreams", h.createChannel)
 	r.Post("/api/imported-upstreams/connect", h.connect)
@@ -33,7 +33,7 @@ func RegisterUpstreamCatalogRoutes(r chi.Router, db *sqlx.DB) {
 	r.Post("/api/imported-upstreams/groups/{id}/members", h.createMember)
 }
 
-type upstreamCatalogHandler struct{ db *sqlx.DB }
+type upstreamCatalogHandler struct{ db *store.DB }
 
 func catalogError(w http.ResponseWriter, err error) {
 	if errors.Is(err, channelplugins.ErrUnavailable) || errors.Is(err, channelplugins.ErrBinding) {
@@ -73,7 +73,7 @@ func (h *upstreamCatalogHandler) createChannel(w http.ResponseWriter, r *http.Re
 	if in.Dialect == "" {
 		in.Dialect = "generic"
 	}
-	if err := channelplugins.FillDefaults(r.Context(), h.db, in.BaseURL, &in.Endpoints, &in.RequestConfig); err != nil {
+	if err := channelplugins.FillDefaults(r.Context(), h.db.DB, in.BaseURL, &in.Endpoints, &in.RequestConfig); err != nil {
 		catalogError(w, err)
 		return
 	}
@@ -86,7 +86,7 @@ func (h *upstreamCatalogHandler) createChannel(w http.ResponseWriter, r *http.Re
 		writeError(w, 400, err.Error())
 		return
 	}
-	id, err := upstream.CreateChannel(r.Context(), h.db, in)
+	id, err := upstream.CreateChannel(r.Context(), h.db.DB, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -102,7 +102,7 @@ func (h *upstreamCatalogHandler) createCredential(w http.ResponseWriter, r *http
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := oauth.CreateDirectCredential(r.Context(), h.db, id, in)
+	out, err := oauth.CreateDirectCredential(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -114,7 +114,7 @@ func (h *upstreamCatalogHandler) models(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	out, err := upstream.ListModels(r.Context(), h.db, id)
+	out, err := upstream.ListModels(r.Context(), h.db.DB, id)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -130,7 +130,7 @@ func (h *upstreamCatalogHandler) createModels(w http.ResponseWriter, r *http.Req
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.CreateModels(r.Context(), h.db, id, in)
+	out, err := upstream.CreateModels(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -141,7 +141,7 @@ func (h *upstreamCatalogHandler) createModels(w http.ResponseWriter, r *http.Req
 // discoveryCredentialResolver resolves OAuth/service-account credentials
 // through the same current-state owner as relay requests.
 func (h *upstreamCatalogHandler) discoveryCredentialResolver(ctx context.Context, credentialID int64, proxyURL *string) (string, error) {
-	res, err := oauth.ResolveDirectCredential(ctx, h.db, credentialID, proxyURL, false)
+	res, err := oauth.ResolveDirectCredential(ctx, h.db.DB, credentialID, proxyURL, false)
 	if err != nil {
 		return "", err
 	}
@@ -157,7 +157,7 @@ func (h *upstreamCatalogHandler) refreshModelsPreview(w http.ResponseWriter, r *
 	if !ok {
 		return
 	}
-	out, err := upstream.PreviewCatalogRefresh(r.Context(), h.db, id, h.discoveryCredentialResolver)
+	out, err := upstream.PreviewCatalogRefresh(r.Context(), h.db.DB, id, h.discoveryCredentialResolver)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -178,7 +178,7 @@ func (h *upstreamCatalogHandler) refreshModelsApply(w http.ResponseWriter, r *ht
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.ApplyCatalogRefresh(r.Context(), h.db, id, in.BasisToken, h.discoveryCredentialResolver)
+	out, err := upstream.ApplyCatalogRefresh(r.Context(), h.db.DB, id, in.BasisToken, h.discoveryCredentialResolver)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -201,7 +201,7 @@ func (h *upstreamCatalogHandler) updateModel(w http.ResponseWriter, r *http.Requ
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.UpdateModel(r.Context(), h.db, id, in)
+	out, err := upstream.UpdateModel(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -213,7 +213,7 @@ func (h *upstreamCatalogHandler) createGrant(w http.ResponseWriter, r *http.Requ
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.CreateGrant(r.Context(), h.db, in)
+	out, err := upstream.CreateGrant(r.Context(), h.db.DB, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -229,7 +229,7 @@ func (h *upstreamCatalogHandler) updateGrant(w http.ResponseWriter, r *http.Requ
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.UpdateGrant(r.Context(), h.db, id, in)
+	out, err := upstream.UpdateGrant(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -237,7 +237,7 @@ func (h *upstreamCatalogHandler) updateGrant(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, 200, out)
 }
 func (h *upstreamCatalogHandler) groups(w http.ResponseWriter, r *http.Request) {
-	out, err := upstream.ListGroups(r.Context(), h.db)
+	out, err := upstream.ListGroups(r.Context(), h.db.DB)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -249,7 +249,7 @@ func (h *upstreamCatalogHandler) createGroup(w http.ResponseWriter, r *http.Requ
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.CreateGroup(r.Context(), h.db, in)
+	out, err := upstream.CreateGroup(r.Context(), h.db.DB, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -265,7 +265,7 @@ func (h *upstreamCatalogHandler) updateGroup(w http.ResponseWriter, r *http.Requ
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.UpdateGroup(r.Context(), h.db, id, in)
+	out, err := upstream.UpdateGroup(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -281,7 +281,7 @@ func (h *upstreamCatalogHandler) createMember(w http.ResponseWriter, r *http.Req
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.CreateMember(r.Context(), h.db, id, in)
+	out, err := upstream.CreateMember(r.Context(), h.db.DB, id, in)
 	if err != nil {
 		catalogError(w, err)
 		return

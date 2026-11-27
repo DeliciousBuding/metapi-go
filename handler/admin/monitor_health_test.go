@@ -36,7 +36,7 @@ func setupMonitorHealthTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterMonitorHealthRoute(r, db.DB)
+	RegisterMonitorHealthRoute(r, db)
 	return db, r
 }
 
@@ -381,7 +381,7 @@ func TestMonitorNamedBreakersAndCooldownReasons(t *testing.T) {
 	config.SetRuntime(&config.RuntimeSettings{TokenRouterFailureCooldownMaxSec: 86400})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
-		RegisterMonitorHealthRoute(r, db.DB)
+		RegisterMonitorHealthRoute(r, db)
 		routing.ResetSiteRuntimeHealthState()
 		t.Cleanup(routing.ResetSiteRuntimeHealthState)
 		mustExec(t, db, `INSERT INTO sites (id,name,url,platform) VALUES (12,'named-site','https://site.example','openai')`)
