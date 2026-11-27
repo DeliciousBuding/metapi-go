@@ -1,7 +1,7 @@
 //go:build ignore
 
 // ci-test-shards assigns the complete `go list ./...` output to deterministic
-// longest-processing-time-first bins. It only selects packages, never tests.
+// longest-processing-time-first bins. The proxy package has three test slices.
 // Usage (from the repository root):
 //
 //	go list ./... > packages.txt
@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -102,11 +103,31 @@ func selectShard(input io.Reader, weights map[string]int64, shard, total int) ([
 			return nil, 0, 0, fmt.Errorf("weights name %s is absent from package input", name)
 		}
 	}
-	weightOf := func(pkg string) int64 {
-		if weight, exists := weights[pkg]; exists {
-			return weight
+	// Most packages are indivisible. The proxy binary dominates both dialects,
+	// so schedule disjoint name slices using the same measured package time.
+	const proxy = modulePath + "/handler/proxy"
+	const proxySlices = 3
+	count := len(packages)
+	if total >= proxySlices && seen[proxy] {
+		pos := slices.Index(packages, proxy)
+		packages = slices.Delete(packages, pos, pos+1)
+		delete(seen, proxy)
+		for i := range proxySlices {
+			name := fmt.Sprintf("%s@%d/%d", proxy, i, proxySlices)
+			seen[name] = true
+			packages = append(packages, name)
 		}
-		return defaultWeightMS
+	}
+	weightOf := func(assignment string) int64 {
+		pkg, _, split := strings.Cut(assignment, "@")
+		weight, exists := weights[pkg]
+		if !exists {
+			weight = defaultWeightMS
+		}
+		if split {
+			return (weight + proxySlices - 1) / proxySlices
+		}
+		return weight
 	}
 	sort.Slice(packages, func(i, j int) bool {
 		if weightOf(packages[i]) != weightOf(packages[j]) {
@@ -145,7 +166,7 @@ func selectShard(input io.Reader, weights map[string]int64, shard, total int) ([
 		return nil, 0, 0, fmt.Errorf("assignment dropped packages")
 	}
 	sort.Strings(bins[shard])
-	return bins[shard], loads[shard], len(packages), nil
+	return bins[shard], loads[shard], count, nil
 }
 
 func run() error {
@@ -164,7 +185,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "shard %d/%d: %d of %d packages, estimated weight %.3fs (not wall time)\n", *shard, *total, len(packages), count, float64(load)/1000)
+	fmt.Fprintf(os.Stderr, "shard %d/%d: %d assignments from %d packages, estimated weight %.3fs (not wall time)\n", *shard, *total, len(packages), count, float64(load)/1000)
 	for _, pkg := range packages {
 		if _, err := fmt.Fprintln(os.Stdout, pkg); err != nil {
 			return err

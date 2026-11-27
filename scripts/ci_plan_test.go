@@ -12,10 +12,10 @@ import (
 
 type verificationPlan struct {
 	Mode         string          `json:"mode"`
-	Full         bool            `json:"full"`
+	Full         bool            `json:"allPackages"`
 	Backend      bool            `json:"backend"`
 	Frontend     bool            `json:"frontend"`
-	Browser      bool            `json:"browser"`
+	Modules      bool            `json:"modules"`
 	Packages     []string        `json:"packages"`
 	LintPackages []string        `json:"lintPackages"`
 	Jobs         map[string]bool `json:"jobs"`
@@ -39,6 +39,7 @@ func TestCIPlanRealCLI(t *testing.T) {
 		{"new Go owner", "new/new.go", "package newpkg\n", false, true, false, false, []string{"new"}},
 		{"frontend", "web/src/page.tsx", "export const value = 2\n", false, true, true, false, []string{"web"}},
 		{"dependency", "go.sum", "changed\n", true, true, true, false, nil},
+		{"frontend version", "web/package.json", `{"version":"0.29.0"}`, true, true, true, false, nil},
 		{"frontend lock", "web/bun.lock", "changed\n", true, true, true, false, nil},
 		{"selector itself", "scripts/ci-plan.go", "package main\n", true, true, true, false, nil},
 		{"docs gate", "docs/contracts_test.go", "package docs_test\n", true, true, true, false, nil},
@@ -98,8 +99,14 @@ func TestCIPlanRealCLI(t *testing.T) {
 				if len(p.Jobs) != 14 || !p.Jobs["docs-hygiene"] || !p.Jobs["secret-scan"] {
 					t.Fatalf("lost rules checks: %s", out)
 				}
-				if tc.backend && !p.Jobs["test-pg"] {
-					t.Fatalf("lost affected PostgreSQL: %s", out)
+				for _, job := range []string{"a11y", "test-sqlite", "test-pg", "runtime-smoke-matrix", "test-e2e"} {
+					if p.Jobs[job] {
+						t.Fatalf("heavy job %s on fast plan: %s", job, out)
+					}
+				}
+				modules := tc.file == "go.mod" || tc.file == "go.sum"
+				if p.Jobs["vulncheck"] != modules || p.Jobs["mod-verify"] != modules {
+					t.Fatalf("dependency checks: %s", out)
 				}
 				if len(p.LintPackages) != len(p.Packages) {
 					t.Fatalf("lint scope differs from test scope: %s", out)
@@ -137,7 +144,7 @@ func TestCIPlanRealCLI(t *testing.T) {
 				if err := json.Unmarshal(out, &p); err != nil {
 					t.Fatal(err)
 				}
-				if !p.Full || !p.Backend || !p.Frontend || !p.Browser {
+				if !p.Full || !p.Backend || !p.Frontend || !p.Modules {
 					t.Fatalf("full scope lost coverage: %s", out)
 				}
 			}
@@ -209,11 +216,11 @@ func TestVerificationWorkflowScopeWiring(t *testing.T) {
 	}
 	text := string(data)
 	for _, want := range []string{
-		"mode=full", "mode=change", "mode=release", "go run scripts/ci-plan.go -mode",
+		"mode=change", "mode=release", "go run scripts/ci-plan.go -mode",
 		"bash scripts/require-main-validation.sh", "run: go run scripts/ci-plan.go -verify-needs",
 		"PLAN_JSON: ${{ needs.scope.outputs.plan }}", "NEEDS_JSON: ${{ toJSON(needs) }}",
-		"if: needs.scope.outputs.full == 'true'", "PR end-to-end elapsed:", "elapsed > 300",
-		"node scripts/test-related.mjs", "FULL: ${{ needs.scope.outputs.full }}",
+		"needs.scope.outputs.modules == 'true'", "PR end-to-end elapsed:", "elapsed > 120",
+		"bunx vitest run src/i18n/__tests__/i18n-keys.test.ts src/styles/__tests__/",
 		"args: --timeout=3m ${{ join(fromJSON(needs.scope.outputs.lintPackages), ' ') }}",
 	} {
 		if !strings.Contains(text, want) {

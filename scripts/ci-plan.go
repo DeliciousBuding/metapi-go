@@ -28,11 +28,10 @@ type plan struct {
 	Reason       []string        `json:"reason"`
 	Packages     []string        `json:"packages"`
 	LintPackages []string        `json:"lintPackages"`
-	WebFiles     []string        `json:"webFiles"`
+	Modules      bool            `json:"modules"`
 	Backend      bool            `json:"backend"`
 	Frontend     bool            `json:"frontend"`
-	Browser      bool            `json:"browser"`
-	Full         bool            `json:"full"`
+	AllPackages  bool            `json:"allPackages"`
 	Jobs         map[string]bool `json:"jobs"`
 }
 
@@ -52,7 +51,7 @@ func names(data []byte) []string {
 }
 
 func makePlan(base, head, mode string, working bool) (plan, error) {
-	p := plan{Mode: mode, Packages: []string{}, WebFiles: []string{}, Reason: []string{}}
+	p := plan{Mode: mode, Packages: []string{}, Modules: mode == "full", Reason: []string{}}
 	if mode != "change" && mode != "full" && mode != "release" {
 		return p, fmt.Errorf("invalid mode %q", mode)
 	}
@@ -125,41 +124,40 @@ func makePlan(base, head, mode string, working bool) (plan, error) {
 		}
 	}
 	selected := map[string]bool{}
-	p.Full = mode == "full" || len(changes) == 0
-	if p.Full {
+	p.AllPackages = mode == "full" || len(changes) == 0
+	if p.AllPackages {
 		p.Reason = append(p.Reason, "full request or no attributable change")
 	}
 	for _, file := range changes {
 		if strings.ContainsAny(file, "\r\n") {
 			return p, fmt.Errorf("unsupported newline in changed path")
 		}
+		if file == "go.mod" || file == "go.sum" {
+			p.Modules = true
+		}
 		switch {
 		case strings.HasPrefix(file, "docs/") && strings.HasSuffix(file, ".go"):
-			p.Full = true
+			p.AllPackages = true
 			p.Reason = append(p.Reason, "contract gate: "+file)
 		case strings.HasPrefix(file, "web/") && !strings.HasSuffix(file, ".go"):
-			p.Frontend, p.Browser = true, true
-			p.WebFiles = append(p.WebFiles, strings.TrimPrefix(file, "web/"))
+			p.Frontend = true
 			selected["web"] = true
 			if !strings.HasPrefix(file, "web/src/") && !strings.HasPrefix(file, "web/public/") && !strings.HasSuffix(file, ".md") {
-				p.Full = true
+				p.AllPackages = true
 				p.Reason = append(p.Reason, "frontend toolchain/config: "+file)
 			}
 		case strings.HasSuffix(file, ".go") && !strings.HasPrefix(file, "scripts/"):
 			dir := path.Dir(file)
 			if imports[dir] == nil {
-				p.Full = true
+				p.AllPackages = true
 				p.Reason = append(p.Reason, "removed/unresolved Go package: "+file)
 			} else {
 				selected[dir] = true
 			}
-			if strings.HasPrefix(file, "store/") || strings.HasPrefix(file, "config/") || strings.HasPrefix(file, "auth/") || strings.HasPrefix(file, "router/") || strings.HasPrefix(file, "app/") || strings.HasPrefix(file, "handler/admin/") || strings.HasPrefix(file, "handler/user/") {
-				p.Browser = true
-			}
 		case strings.HasSuffix(file, ".md") || strings.HasPrefix(file, "docs/") && !strings.HasSuffix(file, ".go"):
 			// Documentation always runs the complete docs contract suite below.
 		default:
-			p.Full = true
+			p.AllPackages = true
 			p.Reason = append(p.Reason, "shared build/config/fixture or unknown path: "+file)
 		}
 	}
@@ -180,7 +178,7 @@ func makePlan(base, head, mode string, working bool) (plan, error) {
 		}
 	}
 	for pkg := range imports {
-		if p.Full || selected[pkg] {
+		if p.AllPackages || selected[pkg] {
 			p.Packages = append(p.Packages, module+"/"+pkg)
 		}
 	}
@@ -189,11 +187,11 @@ func makePlan(base, head, mode string, working bool) (plan, error) {
 	if len(selected) > 0 && !p.Backend {
 		return p, fmt.Errorf("changed code selected no packages")
 	}
-	if !p.Full {
+	if !p.AllPackages {
 		p.Reason = append(p.Reason, "changed owners plus transitive production/test importers; docs contracts always run")
 	}
-	if p.Full {
-		p.Frontend, p.Browser, p.Backend = true, true, true
+	if p.AllPackages {
+		p.Frontend, p.Backend = true, true
 	}
 	p.finish()
 	return p, nil
@@ -207,11 +205,11 @@ func (p *plan) finish() {
 		p.LintPackages = append(p.LintPackages, "./"+strings.TrimPrefix(pkg, module+"/"))
 	}
 	p.Jobs = map[string]bool{
-		"lint": p.Backend, "vet": p.Backend, "vulncheck": p.Full,
-		"mod-verify": p.Full, "secret-scan": p.Mode != "release", "docs-hygiene": p.Mode != "release",
+		"lint": p.Backend, "vet": p.Backend, "vulncheck": p.Modules,
+		"mod-verify": p.Modules, "secret-scan": p.Mode != "release", "docs-hygiene": p.Mode != "release",
 		"frontend": p.Frontend, "web-dist": p.Backend || p.Frontend,
-		"a11y": p.Browser, "test-sqlite": p.Backend, "test-pg": p.Backend,
-		"build": p.Backend, "test-e2e": p.Full, "runtime-smoke-matrix": p.Full,
+		"a11y": false, "test-sqlite": false, "test-pg": false,
+		"build": p.Backend, "test-e2e": false, "runtime-smoke-matrix": false,
 	}
 }
 
@@ -261,7 +259,7 @@ func run() error {
 		if !slices.Contains([]string{"change", "full", "release"}, p.Mode) {
 			return fmt.Errorf("invalid plan mode")
 		}
-		if p.Mode == "full" && !p.Full || p.Full && (!p.Backend || !p.Frontend || !p.Browser) || p.Backend != (len(p.Packages) > 0) || p.Frontend && !p.Backend || p.Browser && !p.Backend || p.Mode == "release" && (p.Full || p.Backend || p.Frontend || p.Browser) {
+		if p.Mode == "full" && !p.AllPackages || p.AllPackages && (!p.Backend || !p.Frontend) || p.Backend != (len(p.Packages) > 0) || p.Frontend && !p.Backend || p.Mode == "release" && (p.AllPackages || p.Backend || p.Frontend || p.Modules) {
 			return fmt.Errorf("inconsistent plan scope")
 		}
 		for _, pkg := range p.Packages {
