@@ -7,8 +7,8 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterResinRoutes mounts the Resin observability endpoints behind admin auth.
@@ -20,13 +20,13 @@ import (
 //
 // All responses are read-only: this surface is observability-only and does
 // not mutate Resin state or the lease tracker.
-func RegisterResinRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterResinRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	h := &resinHandler{db: db, cfg: cfg}
 	r.Get("/api/admin/resin/status", h.status)
 }
 
 type resinHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 }
 
@@ -54,7 +54,7 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeLeases := service.ActiveLeases()
-	perSiteOverrides, err := h.perSiteOverrides()
+	perSiteOverrides, err := h.db.ResinSiteOverrides()
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load resin per-site overrides")
 		return
@@ -68,36 +68,4 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 		"perSiteOverrides": perSiteOverrides,
 		"generatedAt":      time.Now().UTC().Format(time.RFC3339),
 	})
-}
-
-// perSiteOverrides queries sites with a non-NULL resin_enabled column and
-// returns them in admin-list order. NULL-inherit sites are excluded so the
-// snapshot only lists operators' explicit decisions.
-func (h *resinHandler) perSiteOverrides() ([]map[string]any, error) {
-	if h.db == nil {
-		return []map[string]any{}, nil
-	}
-	rows, err := queryRowsErr(h.db, `
-		SELECT id, name, platform, resin_enabled
-		FROM sites
-		WHERE resin_enabled IS NOT NULL
-		ORDER BY sort_order, id
-	`)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		siteID := coerceInt64(row["id"])
-		name := coerceString(row["name"])
-		platform := coerceString(row["platform"])
-		resinEnabled := coerceBool(row["resinEnabled"])
-		out = append(out, map[string]any{
-			"siteId":       siteID,
-			"name":         name,
-			"platform":     platform,
-			"resinEnabled": resinEnabled,
-		})
-	}
-	return out, nil
 }

@@ -17,7 +17,7 @@ func TestSiteAnnouncementSyncFuncInvoked(t *testing.T) {
 		return SiteAnnouncementSyncResult{ScannedSites: 2, Inserted: 1}
 	})
 
-	s := NewSiteAnnouncementScheduler(&config.Config{})
+	s := NewSiteAnnouncementScheduler(nil, &config.Config{})
 	if s.syncFunc == nil {
 		t.Fatal("expected default SyncFunc to be picked up")
 	}
@@ -34,7 +34,7 @@ func TestSiteAnnouncementSyncFuncInvoked(t *testing.T) {
 func TestSiteAnnouncementResidualWhenNil(t *testing.T) {
 	t.Cleanup(func() { SetDefaultSiteAnnouncementSyncFunc(nil) })
 	SetDefaultSiteAnnouncementSyncFunc(nil)
-	s := NewSiteAnnouncementScheduler(&config.Config{})
+	s := NewSiteAnnouncementScheduler(nil, &config.Config{})
 	s.SetSyncFunc(nil)
 	if s.syncFunc != nil {
 		t.Fatal("expected nil SyncFunc")

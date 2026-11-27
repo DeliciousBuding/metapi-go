@@ -92,7 +92,7 @@ func TestApplyRecomputeDeletesAggregatesAndResetsCheckpoint(t *testing.T) {
 
 	seedRecomputeCheckpoint(t, db, logID, logID)
 
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	cp := projectionCheckpoint{
 		ProjectorKey:    usageProjectorKey,
 		TimeZone:        "UTC",
@@ -159,7 +159,7 @@ func TestApplyRecomputeAbortsOnErrorKeepsRecomputeFlag(t *testing.T) {
 
 	seedRecomputeCheckpoint(t, db, logID, logID)
 
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	cp := projectionCheckpoint{
 		ProjectorKey:    usageProjectorKey,
 		TimeZone:        "UTC",
@@ -219,7 +219,7 @@ func TestApplyRecomputeNoopWhenRecomputeFlagUnset(t *testing.T) {
 	seedDayUsageRow(t, db, siteID, affectedDay, now)
 	seedRecomputeCheckpoint(t, db, logID, 0) // recompute_from_id = 0 → no-op
 
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	cp := projectionCheckpoint{
 		ProjectorKey:   usageProjectorKey,
 		TimeZone:       "UTC",

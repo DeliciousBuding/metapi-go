@@ -18,9 +18,14 @@ import (
 var (
 	ErrAccountChangedDuringRefresh = errors.New("OAuth account changed during refresh; retry selection")
 	ErrOAuthAccountDisabled        = errors.New("OAuth account is disabled")
-	refreshInFlight                = make(map[int64]*refreshPromise)
+	refreshInFlight                = make(map[accountRefreshKey]*refreshPromise)
 	refreshInFlightMu              sync.Mutex
 )
+
+type accountRefreshKey struct {
+	db        *store.DB
+	accountID int64
+}
 
 type refreshPromise struct {
 	done   chan struct{}
@@ -53,26 +58,27 @@ func (p *refreshPromise) resolve(result refreshResult) {
 }
 
 // RefreshAccessTokenSingleflight refreshes an OAuth access token with singleflight dedup.
-func RefreshAccessTokenSingleflight(accountID int64) (*refreshResult, error) {
+func RefreshAccessTokenSingleflight(db *store.DB, accountID int64) (*refreshResult, error) {
+	key := accountRefreshKey{db, accountID}
 	refreshInFlightMu.Lock()
-	if p, exists := refreshInFlight[accountID]; exists {
+	if p, exists := refreshInFlight[key]; exists {
 		refreshInFlightMu.Unlock()
 		result := p.wait()
 		return &result, result.Err
 	}
 
 	p := newRefreshPromise()
-	refreshInFlight[accountID] = p
+	refreshInFlight[key] = p
 	refreshInFlightMu.Unlock()
 
 	// Guaranteed cleanup even on panic.
 	defer func() {
 		refreshInFlightMu.Lock()
-		delete(refreshInFlight, accountID)
+		delete(refreshInFlight, key)
 		refreshInFlightMu.Unlock()
 	}()
 
-	result := doRefreshAccessToken(accountID)
+	result := doRefreshAccessToken(db, accountID)
 	p.resolve(result)
 
 	if result.Err != nil {
@@ -81,8 +87,7 @@ func RefreshAccessTokenSingleflight(accountID int64) (*refreshResult, error) {
 	return &result, nil
 }
 
-func doRefreshAccessToken(accountID int64) refreshResult {
-	db := store.GetDB()
+func doRefreshAccessToken(db *store.DB, accountID int64) refreshResult {
 	if db == nil {
 		return refreshResult{AccountID: accountID, Err: fmt.Errorf("database not initialized")}
 	}

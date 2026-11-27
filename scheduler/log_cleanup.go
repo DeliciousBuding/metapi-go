@@ -14,12 +14,13 @@ const logCleanupDefaultCron = "0 6 * * *"
 
 // LogCleanupScheduler cleans up proxy log records and event records.
 type LogCleanupScheduler struct {
+	db         *store.DB
 	cfg        *config.Config
 	cronRunner *cronRunner
 }
 
-func NewLogCleanupScheduler(cfg *config.Config) *LogCleanupScheduler {
-	return &LogCleanupScheduler{cfg: cfg}
+func NewLogCleanupScheduler(db *store.DB, cfg *config.Config) *LogCleanupScheduler {
+	return &LogCleanupScheduler{db: db, cfg: cfg}
 }
 
 func (s *LogCleanupScheduler) Name() string { return "log-cleanup" }
@@ -30,11 +31,11 @@ func (s *LogCleanupScheduler) Start(ctx context.Context) error {
 	if fallback == "" {
 		fallback = logCleanupDefaultCron
 	}
-	activeCron := resolveCronSetting("log_cleanup_cron", fallback)
-	usageEnabled := resolveBooleanSetting("log_cleanup_usage_logs_enabled", rt.LogCleanupUsageLogsEnabled)
-	programEnabled := resolveBooleanSetting("log_cleanup_program_logs_enabled", rt.LogCleanupProgramLogsEnabled)
+	activeCron := resolveCronSetting(s.db, "log_cleanup_cron", fallback)
+	usageEnabled := resolveBooleanSetting(s.db, "log_cleanup_usage_logs_enabled", rt.LogCleanupUsageLogsEnabled)
+	programEnabled := resolveBooleanSetting(s.db, "log_cleanup_program_logs_enabled", rt.LogCleanupProgramLogsEnabled)
 	retentionDays := config.ClampInt(
-		resolvePositiveIntegerSetting("log_cleanup_retention_days", rt.LogCleanupRetentionDays),
+		resolvePositiveIntegerSetting(s.db, "log_cleanup_retention_days", rt.LogCleanupRetentionDays),
 		1, 3650,
 	)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) {
@@ -109,7 +110,7 @@ func (s *LogCleanupScheduler) runJob() {
 	}
 
 	slog.Info("log-cleanup: running cleanup")
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		slog.Error("log-cleanup: database not available")
 		return

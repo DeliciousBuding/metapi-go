@@ -11,8 +11,8 @@ import (
 type ProxyLogRetentionScheduler = RetentionScheduler
 
 // NewProxyLogRetentionScheduler creates a new proxy log retention scheduler.
-func NewProxyLogRetentionScheduler(cfg *config.Config) *RetentionScheduler {
-	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+func NewProxyLogRetentionScheduler(db *store.DB, cfg *config.Config) *RetentionScheduler {
+	return NewRetentionScheduler(db, cfg, RetentionSchedulerOptions{
 		Name:               "proxy-log-retention",
 		Table:              "proxy_logs",
 		Prune:              store.PruneProxyRequestLogs,

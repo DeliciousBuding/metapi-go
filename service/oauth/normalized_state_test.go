@@ -122,7 +122,7 @@ func TestRefreshAccessTokenSingleflight_PreservesStateAcrossRefreshes(t *testing
 	}
 	accountID := insertCodexTestAccount(t, db, "synthetic-account", string(extra))
 	for round := 1; round <= 2; round++ {
-		result, err := RefreshAccessTokenSingleflight(accountID)
+		result, err := RefreshAccessTokenSingleflight(db, accountID)
 		if err != nil {
 			t.Fatalf("refresh %d failed after reading persisted state: %v", round, err)
 		}

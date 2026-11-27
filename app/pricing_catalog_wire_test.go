@@ -58,7 +58,7 @@ func TestConfigureProxyUpstreamWiresPricingCatalogResolver(t *testing.T) {
 		t.Fatalf("seed catalog source: %v", err)
 	}
 
-	if err := ConfigureProxyUpstream(cfg); err != nil {
+	if err := ConfigureProxyUpstream(db, cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}
 

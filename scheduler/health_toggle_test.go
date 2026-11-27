@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // Focused tests for the issue #1027 global kill switches on the
@@ -16,16 +15,13 @@ import (
 // TestCheckinScheduler_KillSwitchCronMode covers Start gating, the
 // no-re-arm guarantee on schedule updates while disabled, and hot toggling.
 func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
 	config.SetRuntime(&config.RuntimeSettings{
 		CheckinCron:         "0 8 * * *",
 		CheckinScheduleMode: "cron",
 		CheckinDisabled:     true,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(nil, &config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -68,16 +64,13 @@ func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
 // TestCheckinScheduler_KillSwitchIntervalMode covers the interval-mode arm
 // path for the same switch.
 func TestCheckinScheduler_KillSwitchIntervalMode(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
 	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
 		CheckinDisabled:      true,
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(nil, &config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -105,14 +98,12 @@ func TestCheckinScheduler_KillSwitchIntervalMode(t *testing.T) {
 // settings key/value table is identical on SQLite and PostgreSQL).
 func TestCheckinScheduler_KillSwitchFromDBSetting(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "checkin_enabled", "false")
 
 	config.SetRuntime(&config.RuntimeSettings{CheckinCron: "0 8 * * *", CheckinScheduleMode: "cron"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewCheckinScheduler(&config.Config{})
+	s := NewCheckinScheduler(db, &config.Config{})
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -127,12 +118,9 @@ func TestCheckinScheduler_KillSwitchFromDBSetting(t *testing.T) {
 // TestBalanceScheduler_KillSwitch covers Start gating and hot toggling for
 // the balance refresh scheduler.
 func TestBalanceScheduler_KillSwitch(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
 	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 * * * *", BalanceRefreshDisabled: true})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewBalanceScheduler(&config.Config{})
+	s := NewBalanceScheduler(nil, &config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -161,14 +149,12 @@ func TestBalanceScheduler_KillSwitch(t *testing.T) {
 // balance_refresh_enabled DB setting wins over the config default at Start.
 func TestBalanceScheduler_KillSwitchFromDBSetting(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "balance_refresh_enabled", "false")
 
 	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 * * * *"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewBalanceScheduler(&config.Config{})
+	s := NewBalanceScheduler(db, &config.Config{})
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -184,9 +170,6 @@ func TestBalanceScheduler_KillSwitchFromDBSetting(t *testing.T) {
 // previously only took effect at Start: enabling must start the ticker and
 // disabling must stop it without a restart.
 func TestModelProbeScheduler_SetEnabledHotToggle(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
 	cfg := &config.Config{
 		ModelAvailabilityProbeIntervalMs:  60_000,
 		ModelAvailabilityProbeTimeoutMs:   3000,
@@ -194,7 +177,7 @@ func TestModelProbeScheduler_SetEnabledHotToggle(t *testing.T) {
 	}
 	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: false})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}

@@ -32,7 +32,7 @@ func TestDailySummaryScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openDailySummaryTestDB(t)
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(db)
 
 	// Direct call to runJobLocked — exercises metric collection + notification
 	// dispatch. On a fresh DB, metrics are all zeros and the notification
@@ -40,17 +40,15 @@ func TestDailySummaryScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	s.runJobLocked(db)
 }
 
-// TestDailySummaryScheduler_runJob_WithOverrideDB exercises the full runJob
-// flow: store.GetDB lookup, context creation, lease acquisition, and
+// TestDailySummaryScheduler_runJob_WithDB exercises the full runJob
+// flow: context creation, lease acquisition, and
 // runJobLocked.
-func TestDailySummaryScheduler_runJob_WithOverrideDB(t *testing.T) {
+func TestDailySummaryScheduler_runJob_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openDailySummaryTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(db)
 
 	s.runJob()
 }
@@ -59,11 +57,9 @@ func TestDailySummaryScheduler_runJob_WithOverrideDB(t *testing.T) {
 // DB gracefully (logs "database not available" and returns without panic).
 func TestDailySummaryScheduler_runJob_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(nil)
 
 	s.runJob()
 }
@@ -72,7 +68,7 @@ func TestDailySummaryScheduler_runJob_NilDB(t *testing.T) {
 // wrapper: Start registers a cron job and begins the runner; Stop halts it.
 func TestDailySummaryScheduler_StartStop_Lifecycle(t *testing.T) {
 	testConfig() // publishes the runtime baseline
-	s := NewDailySummaryScheduler()
+	s := NewDailySummaryScheduler(nil)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)

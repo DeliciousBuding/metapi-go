@@ -27,9 +27,9 @@ func TestGatewayRequestsShareUsageRetention(t *testing.T) {
 				t.Fatal(err)
 			}
 			if owner == "main" {
-				NewLogCleanupScheduler(&config.Config{}).runJobLocked(db, &config.RuntimeSettings{LogCleanupUsageLogsEnabled: true, LogCleanupRetentionDays: 1})
+				NewLogCleanupScheduler(db, &config.Config{}).runJobLocked(db, &config.RuntimeSettings{LogCleanupUsageLogsEnabled: true, LogCleanupRetentionDays: 1})
 			} else {
-				NewProxyLogRetentionScheduler(&config.Config{ProxyLogRetentionDays: 1}).runCleanupLocked(db, 1)
+				NewProxyLogRetentionScheduler(db, &config.Config{ProxyLogRetentionDays: 1}).runCleanupLocked(db, 1)
 			}
 			if got := countRows(t, db, "SELECT COUNT(*) FROM gateway_requests WHERE id = 'keep-request'"); got != 1 {
 				t.Fatal("retained request removed")

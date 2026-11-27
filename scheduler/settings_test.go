@@ -35,12 +35,10 @@ func insertSetting(t *testing.T, db *store.DB, key, jsonValue string) {
 // of the fallback. This covers the Get → Unmarshal → Validate → return path.
 func TestResolveCronSetting_StoredValue(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "balance_refresh_cron", `"0 0 6 * * *"`)
 
-	got := resolveCronSetting("balance_refresh_cron", "0 0 0 * * *")
+	got := resolveCronSetting(db, "balance_refresh_cron", "0 0 0 * * *")
 	if got != "0 0 6 * * *" {
 		t.Errorf("resolveCronSetting = %q, want %q", got, "0 0 6 * * *")
 	}
@@ -49,10 +47,7 @@ func TestResolveCronSetting_StoredValue(t *testing.T) {
 // TestResolveCronSetting_FallbackOnNilDB verifies that resolveCronSetting
 // returns the fallback when the DB is nil.
 func TestResolveCronSetting_FallbackOnNilDB(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
-	got := resolveCronSetting("any_key", "0 0 0 * * *")
+	got := resolveCronSetting(nil, "any_key", "0 0 0 * * *")
 	if got != "0 0 0 * * *" {
 		t.Errorf("resolveCronSetting with nil DB = %q, want fallback", got)
 	}
@@ -62,10 +57,8 @@ func TestResolveCronSetting_FallbackOnNilDB(t *testing.T) {
 // returns the fallback when the key is not in the settings table.
 func TestResolveCronSetting_FallbackOnMissingKey(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	got := resolveCronSetting("nonexistent_key", "0 0 0 * * *")
+	got := resolveCronSetting(db, "nonexistent_key", "0 0 0 * * *")
 	if got != "0 0 0 * * *" {
 		t.Errorf("resolveCronSetting for missing key = %q, want fallback", got)
 	}
@@ -75,12 +68,10 @@ func TestResolveCronSetting_FallbackOnMissingKey(t *testing.T) {
 // returns the fallback when the stored value is not a valid cron expression.
 func TestResolveCronSetting_FallbackOnInvalidCron(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "bad_cron", `"not-a-cron"`)
 
-	got := resolveCronSetting("bad_cron", "0 0 0 * * *")
+	got := resolveCronSetting(db, "bad_cron", "0 0 0 * * *")
 	if got != "0 0 0 * * *" {
 		t.Errorf("resolveCronSetting with invalid cron = %q, want fallback", got)
 	}
@@ -90,12 +81,10 @@ func TestResolveCronSetting_FallbackOnInvalidCron(t *testing.T) {
 // reads a boolean from the DB settings table and returns it.
 func TestResolveBooleanSetting_StoredValue(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "my_bool", "true")
 
-	got := resolveBooleanSetting("my_bool", false)
+	got := resolveBooleanSetting(db, "my_bool", false)
 	if !got {
 		t.Errorf("resolveBooleanSetting = false, want true")
 	}
@@ -103,10 +92,7 @@ func TestResolveBooleanSetting_StoredValue(t *testing.T) {
 
 // TestResolveBooleanSetting_FallbackOnNilDB verifies the nil DB fallback.
 func TestResolveBooleanSetting_FallbackOnNilDB(t *testing.T) {
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
-	got := resolveBooleanSetting("any_key", true)
+	got := resolveBooleanSetting(nil, "any_key", true)
 	if !got {
 		t.Error("resolveBooleanSetting with nil DB should return fallback true")
 	}
@@ -116,12 +102,10 @@ func TestResolveBooleanSetting_FallbackOnNilDB(t *testing.T) {
 // reads a string from the DB and returns it.
 func TestResolveStringSetting_StoredValue(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "my_string", `"hello"`)
 
-	got := resolveStringSetting("my_string", "fallback")
+	got := resolveStringSetting(db, "my_string", "fallback")
 	if got != "hello" {
 		t.Errorf("resolveStringSetting = %q, want hello", got)
 	}
@@ -131,12 +115,10 @@ func TestResolveStringSetting_StoredValue(t *testing.T) {
 // resolvePositiveIntegerSetting reads a positive integer from the DB.
 func TestResolvePositiveIntegerSetting_StoredValue(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "my_int", "42")
 
-	got := resolvePositiveIntegerSetting("my_int", 7)
+	got := resolvePositiveIntegerSetting(db, "my_int", 7)
 	if got != 42 {
 		t.Errorf("resolvePositiveIntegerSetting = %d, want 42", got)
 	}
@@ -146,12 +128,10 @@ func TestResolvePositiveIntegerSetting_StoredValue(t *testing.T) {
 // value of 0 falls back to the default (value < 1 guard).
 func TestResolvePositiveIntegerSetting_FallbackOnZero(t *testing.T) {
 	db := openSettingsTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	insertSetting(t, db, "zero_int", "0")
 
-	got := resolvePositiveIntegerSetting("zero_int", 7)
+	got := resolvePositiveIntegerSetting(db, "zero_int", 7)
 	if got != 7 {
 		t.Errorf("resolvePositiveIntegerSetting with stored 0 = %d, want fallback 7", got)
 	}

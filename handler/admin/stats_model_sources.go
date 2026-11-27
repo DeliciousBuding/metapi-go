@@ -1,6 +1,10 @@
 package admin
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/deliciousbuding/metapi-go/store"
+)
 
 // Marketplace sources describe stored supply, not selector eligibility. In
 // particular enabled configuration and historical successes do not promise that
@@ -66,7 +70,7 @@ func (h *statsHandler) marketplaceDirectSources() (map[string][]marketplaceModel
 		}
 		binding := marketplaceRouteBinding{
 			ItemID: coerceInt64(row["itemId"]), RouteID: coerceInt64(row["routeId"]), PublicModel: name,
-			RouteEnabled: coerceBool(row["routeEnabled"]), GroupEnabled: coerceBool(row["groupEnabled"]),
+			RouteEnabled: store.RowBool(row["routeEnabled"]), GroupEnabled: store.RowBool(row["groupEnabled"]),
 			Selected: coerceString(row["mode"]) != "manual" || coerceInt64(row["activeItemId"]) == coerceInt64(row["itemId"]),
 		}
 		id := coerceInt64(row["grantId"])
@@ -85,7 +89,7 @@ func (h *statsHandler) marketplaceDirectSources() (map[string][]marketplaceModel
 			ConnectionName: coerceString(row["connectionName"]), UpstreamModel: name, Evidence: "configured",
 			ChannelID: coerceInt64(row["channelId"]), CredentialID: coerceInt64(row["credentialId"]),
 			CredentialKind: coerceString(row["credentialKind"]), SuccessCount: &successes, FailCount: &failures,
-			Enabled:  coerceBool(row["channelEnabled"]) && coerceBool(row["modelEnabled"]) && coerceBool(row["credentialEnabled"]) && coerceBool(row["grantEnabled"]),
+			Enabled:  store.RowBool(row["channelEnabled"]) && store.RowBool(row["modelEnabled"]) && store.RowBool(row["credentialEnabled"]) && store.RowBool(row["grantEnabled"]),
 			Bindings: byGrant[id],
 		}
 		if source.Bindings == nil {

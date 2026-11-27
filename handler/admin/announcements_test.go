@@ -14,13 +14,23 @@ func setupAnnouncementsTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, _ := setupStatsSQLiteTest(t)
 	r := chi.NewRouter()
-	RegisterAnnouncementsRoutes(r, db.DB)
+	RegisterAnnouncementsRoutes(r, db)
 	return db, r
 }
 
 func TestAnnouncements_CRUDAndActiveView(t *testing.T) {
 	_, r := setupAnnouncementsTest(t)
+	testAnnouncementRevisions(t, r)
+}
 
+func TestAnnouncementRevisionsPostgres(t *testing.T) {
+	db, r := setupSitesPostgresTest(t)
+	RegisterAnnouncementsRoutes(r, db)
+	testAnnouncementRevisions(t, r)
+}
+
+func testAnnouncementRevisions(t *testing.T, r chi.Router) {
+	t.Helper()
 	// Create two announcements (one critical, one info).
 	var body map[string]any
 	resp := doPostJSON(t, r, "/api/announcements", map[string]any{

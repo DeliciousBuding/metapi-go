@@ -19,7 +19,7 @@ import (
 func TestRefreshInFlight_Dedup(t *testing.T) {
 	// Clean up state from other tests.
 	refreshInFlightMu.Lock()
-	refreshInFlight = make(map[int64]*refreshPromise)
+	refreshInFlight = make(map[accountRefreshKey]*refreshPromise)
 	refreshInFlightMu.Unlock()
 
 	// Verify the map is initially empty.
@@ -32,25 +32,25 @@ func TestRefreshInFlight_Dedup(t *testing.T) {
 	p := newRefreshPromise()
 
 	refreshInFlightMu.Lock()
-	refreshInFlight[42] = p
+	refreshInFlight[accountRefreshKey{accountID: 42}] = p
 	refreshInFlightMu.Unlock()
 
 	// Verify it was stored.
 	refreshInFlightMu.Lock()
-	if _, exists := refreshInFlight[42]; !exists {
+	if _, exists := refreshInFlight[accountRefreshKey{accountID: 42}]; !exists {
 		t.Error("promise should exist after insertion")
 	}
 	refreshInFlightMu.Unlock()
 
 	// Clean up.
 	refreshInFlightMu.Lock()
-	delete(refreshInFlight, 42)
+	delete(refreshInFlight, accountRefreshKey{accountID: 42})
 	refreshInFlightMu.Unlock()
 }
 
 func TestRefreshInFlight_CleanupOnFinish(t *testing.T) {
 	refreshInFlightMu.Lock()
-	refreshInFlight = make(map[int64]*refreshPromise)
+	refreshInFlight = make(map[accountRefreshKey]*refreshPromise)
 	refreshInFlightMu.Unlock()
 
 	accountID := int64(999)
@@ -61,7 +61,7 @@ func TestRefreshInFlight_CleanupOnFinish(t *testing.T) {
 	p := newRefreshPromise()
 
 	refreshInFlightMu.Lock()
-	refreshInFlight[accountID] = p
+	refreshInFlight[accountRefreshKey{accountID: accountID}] = p
 	refreshInFlightMu.Unlock()
 
 	// 3. Simulate done — resolve result and clean up
@@ -73,12 +73,12 @@ func TestRefreshInFlight_CleanupOnFinish(t *testing.T) {
 	p.resolve(result)
 
 	refreshInFlightMu.Lock()
-	delete(refreshInFlight, accountID)
+	delete(refreshInFlight, accountRefreshKey{accountID: accountID})
 	refreshInFlightMu.Unlock()
 
 	// 4. Verify clean up.
 	refreshInFlightMu.Lock()
-	if _, exists := refreshInFlight[accountID]; exists {
+	if _, exists := refreshInFlight[accountRefreshKey{accountID: accountID}]; exists {
 		t.Error("promise should be cleaned up after completion")
 	}
 	refreshInFlightMu.Unlock()
@@ -86,7 +86,7 @@ func TestRefreshInFlight_CleanupOnFinish(t *testing.T) {
 
 func TestRefreshInFlight_ConcurrentDedup(t *testing.T) {
 	refreshInFlightMu.Lock()
-	refreshInFlight = make(map[int64]*refreshPromise)
+	refreshInFlight = make(map[accountRefreshKey]*refreshPromise)
 	refreshInFlightMu.Unlock()
 
 	accountID := int64(123)
@@ -96,7 +96,7 @@ func TestRefreshInFlight_ConcurrentDedup(t *testing.T) {
 	p := newRefreshPromise()
 
 	refreshInFlightMu.Lock()
-	refreshInFlight[accountID] = p
+	refreshInFlight[accountRefreshKey{accountID: accountID}] = p
 	refreshInFlightMu.Unlock()
 
 	// Second caller should find the existing promise.
@@ -104,7 +104,7 @@ func TestRefreshInFlight_ConcurrentDedup(t *testing.T) {
 	func() {
 		refreshInFlightMu.Lock()
 		defer refreshInFlightMu.Unlock()
-		if _, exists := refreshInFlight[accountID]; exists {
+		if _, exists := refreshInFlight[accountRefreshKey{accountID: accountID}]; exists {
 			found = true
 		}
 	}()
@@ -116,7 +116,7 @@ func TestRefreshInFlight_ConcurrentDedup(t *testing.T) {
 	// Cleanup: resolve result to unblock any waiter and remove.
 	p.resolve(refreshResult{AccountID: accountID, AccessToken: "deduped-token"})
 	refreshInFlightMu.Lock()
-	delete(refreshInFlight, accountID)
+	delete(refreshInFlight, accountRefreshKey{accountID: accountID})
 	refreshInFlightMu.Unlock()
 
 	if len(refreshInFlight) != 0 {
@@ -326,10 +326,7 @@ func insertCodexTestAccount(t *testing.T, db *store.DB, accountKey, extraConfig 
 func TestDoRefreshAccessToken_NoDatabase(t *testing.T) {
 	// Ensure no DB is active so the early-return "database not initialized"
 	// branch is exercised.
-	store.CloseDatabase()
-	t.Cleanup(func() { store.CloseDatabase() })
-
-	result := doRefreshAccessToken(1)
+	result := doRefreshAccessToken(nil, 1)
 	if result.Err == nil {
 		t.Fatal("expected error when database is not initialized")
 	}
@@ -339,10 +336,10 @@ func TestDoRefreshAccessToken_NoDatabase(t *testing.T) {
 }
 
 func TestDoRefreshAccessToken_AccountNotFound(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	result := doRefreshAccessToken(99999)
+	result := doRefreshAccessToken(db, 99999)
 	if result.Err == nil {
 		t.Fatal("expected error for missing account")
 	}
@@ -358,7 +355,7 @@ func TestDoRefreshAccessToken_NoRefreshToken(t *testing.T) {
 	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-no-rt","accountKey":"acct-no-rt"}}`
 	insertCodexTestAccount(t, db, "acct-no-rt", extraConfig)
 
-	result := doRefreshAccessToken(1)
+	result := doRefreshAccessToken(db, 1)
 	if result.Err == nil {
 		t.Fatal("expected error for account without refresh token")
 	}
@@ -398,7 +395,7 @@ func TestDoRefreshAccessToken_Success_Codex(t *testing.T) {
 	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-refresh-1","accountKey":"acct-refresh-1","refreshToken":"old-codex-rt","planType":"free","email":"old@example.com"}}`
 	accountID := insertCodexTestAccount(t, db, "acct-refresh-1", extraConfig)
 
-	result := doRefreshAccessToken(accountID)
+	result := doRefreshAccessToken(db, accountID)
 	if result.Err != nil {
 		t.Fatalf("refresh failed: %v", result.Err)
 	}
@@ -445,7 +442,7 @@ func TestDoRefreshAccessToken_RefreshFails(t *testing.T) {
 	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-fail","accountKey":"acct-fail","refreshToken":"dead-rt"}}`
 	accountID := insertCodexTestAccount(t, db, "acct-fail", extraConfig)
 
-	result := doRefreshAccessToken(accountID)
+	result := doRefreshAccessToken(db, accountID)
 	if result.Err == nil {
 		t.Fatal("expected refresh error to propagate")
 	}
@@ -482,7 +479,7 @@ func TestDoRefreshAccessToken_UnknownProvider(t *testing.T) {
 	}
 	accountID, _ := res.LastInsertId()
 
-	result := doRefreshAccessToken(accountID)
+	result := doRefreshAccessToken(db, accountID)
 	if result.Err == nil {
 		t.Fatal("expected error for unknown provider")
 	}
@@ -494,14 +491,11 @@ func TestDoRefreshAccessToken_UnknownProvider(t *testing.T) {
 // ---- RefreshAccessTokenSingleflight ----
 
 func TestRefreshAccessTokenSingleflight_NoDatabase(t *testing.T) {
-	store.CloseDatabase()
-	t.Cleanup(func() { store.CloseDatabase() })
-
 	refreshInFlightMu.Lock()
-	refreshInFlight = make(map[int64]*refreshPromise)
+	refreshInFlight = make(map[accountRefreshKey]*refreshPromise)
 	refreshInFlightMu.Unlock()
 
-	_, err := RefreshAccessTokenSingleflight(1)
+	_, err := RefreshAccessTokenSingleflight(nil, 1)
 	if err == nil {
 		t.Fatal("expected error when database is not initialized")
 	}
@@ -529,7 +523,7 @@ func TestRefreshAccessTokenSingleflight_Success(t *testing.T) {
 	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-sf-1","accountKey":"acct-sf-1","refreshToken":"old-rt"}}`
 	accountID := insertCodexTestAccount(t, db, "acct-sf-1", extraConfig)
 
-	result, err := RefreshAccessTokenSingleflight(accountID)
+	result, err := RefreshAccessTokenSingleflight(db, accountID)
 	if err != nil {
 		t.Fatalf("singleflight refresh failed: %v", err)
 	}
@@ -571,7 +565,7 @@ func TestRefreshAccessTokenSingleflight_Dedupes(t *testing.T) {
 		accountID := insertCodexTestAccount(t, db, "acct-dedupe", extraConfig)
 		results := make(chan refreshResult, 2)
 		call := func() {
-			result, err := RefreshAccessTokenSingleflight(accountID)
+			result, err := RefreshAccessTokenSingleflight(db, accountID)
 			if err != nil {
 				results <- refreshResult{Err: err}
 				return

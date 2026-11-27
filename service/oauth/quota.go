@@ -51,8 +51,7 @@ type OauthSubscription struct {
 
 // RefreshOauthQuotaSnapshot refreshes the quota snapshot for an OAuth account.
 // Only implemented for Codex provider; non-codex accounts get an "unsupported" snapshot.
-func RefreshOauthQuotaSnapshot(accountID int64) (*OauthQuotaSnapshot, error) {
-	db := store.GetDB()
+func RefreshOauthQuotaSnapshot(db *store.DB, accountID int64) (*OauthQuotaSnapshot, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -88,7 +87,7 @@ func RefreshOauthQuotaSnapshot(accountID int64) (*OauthQuotaSnapshot, error) {
 
 // RefreshOauthConnectionQuotaBatch refreshes quota for multiple accounts concurrently.
 // Runs with max concurrency of 4 workers.
-func RefreshOauthConnectionQuotaBatch(accountIDs []int64) *QuotaBatchResult {
+func RefreshOauthConnectionQuotaBatch(db *store.DB, accountIDs []int64) *QuotaBatchResult {
 	// Deduplicate account IDs.
 	seen := make(map[int64]bool)
 	unique := make([]int64, 0, len(accountIDs))
@@ -120,7 +119,7 @@ func RefreshOauthConnectionQuotaBatch(accountIDs []int64) *QuotaBatchResult {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			quota, err := RefreshOauthConnectionQuota(id)
+			quota, err := RefreshOauthConnectionQuota(db, id)
 			mu.Lock()
 			if err != nil {
 				result.Items = append(result.Items, QuotaBatchItem{
@@ -154,8 +153,8 @@ func RefreshOauthConnectionQuotaBatch(accountIDs []int64) *QuotaBatchResult {
 }
 
 // RefreshOauthConnectionQuota wraps RefreshOauthQuotaSnapshot for a single account.
-func RefreshOauthConnectionQuota(accountID int64) (*OauthQuotaSnapshot, error) {
-	return RefreshOauthQuotaSnapshot(accountID)
+func RefreshOauthConnectionQuota(db *store.DB, accountID int64) (*OauthQuotaSnapshot, error) {
+	return RefreshOauthQuotaSnapshot(db, accountID)
 }
 
 // QuotaBatchResult holds the result of a batch quota refresh.

@@ -86,7 +86,7 @@ var startLoopbackCallbackServerForFlow = StartLoopbackCallbackServer
 // ---- Flow Functions ----
 
 // StartFlow initiates an OAuth flow for the given provider.
-func StartFlow(input StartFlowInput) (*FlowStartResult, error) {
+func StartFlow(db *store.DB, input StartFlowInput) (*FlowStartResult, error) {
 	def := GetProviderDefinition(input.Provider)
 	if def == nil {
 		return nil, fmt.Errorf("unsupported oauth provider: %s", input.Provider)
@@ -107,6 +107,7 @@ func StartFlow(input StartFlowInput) (*FlowStartResult, error) {
 
 	redirectURI := def.Loopback.RedirectURI
 	session, err := CreateSession(CreateSessionInput{
+		db:              db,
 		Provider:        input.Provider,
 		RedirectURI:     redirectURI,
 		RebindAccountID: input.RebindAccountID,
@@ -197,7 +198,7 @@ func pollDeviceFlowSession(ctx context.Context, session *SessionRecord, def *OAu
 		return err
 	}
 
-	persistResult, err := activatePersistedOAuthAccount(ctx, ActivateInput{
+	persistResult, err := activatePersistedOAuthAccount(ctx, session.db, ActivateInput{
 		Definition:      def,
 		Exchange:        token,
 		RebindAccountID: session.RebindAccountID,
@@ -251,7 +252,7 @@ func HandleCallback(input CallbackInput) (*CallbackResult, error) {
 
 	// Persist the OAuth account with full pipeline.
 	ctx := context.Background()
-	persistResult, err := activatePersistedOAuthAccount(ctx, ActivateInput{
+	persistResult, err := activatePersistedOAuthAccount(ctx, session.db, ActivateInput{
 		Definition:      def,
 		Exchange:        token,
 		RebindAccountID: session.RebindAccountID,
@@ -414,8 +415,7 @@ type accountSnapshot struct {
 
 // activatePersistedOAuthAccount persists or updates an OAuth account with full pipeline:
 // upsert -> refresh models -> rebuild routes, with rollback on failures.
-func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*PersistResult, error) {
-	db := store.GetDB()
+func activatePersistedOAuthAccount(ctx context.Context, db *store.DB, input ActivateInput) (*PersistResult, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}

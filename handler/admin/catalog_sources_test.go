@@ -26,7 +26,7 @@ func testCatalogDisabledStatus(t *testing.T, db *store.DB) {
 	config.Set(&config.Config{PricingCatalogEnabled: false})
 	t.Cleanup(func() { config.Set(previous) })
 	r := chi.NewRouter()
-	RegisterCatalogSourceRoutes(r, db.DB)
+	RegisterCatalogSourceRoutes(r, catalogsync.NewStore(db.DB))
 	created := doPostJSON(t, r, "/api/models/catalog-sources", map[string]any{"name": "Fixture", "url": "https://fixture.example/catalog.json"})
 	if created.Code != 200 {
 		t.Fatalf("create: %d %s", created.Code, created.Body.String())

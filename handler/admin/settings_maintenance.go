@@ -52,9 +52,6 @@ func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) 
 	// Local in-process invalidation (this instance only).
 	invalidateLocalProcessCaches()
 
-	// Ensure rebuild path uses this request's DB handle (tests / non-global DB).
-	service.SetRouteRebuildDB(h.db)
-
 	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
 		Type:      clearCacheTaskType,
 		Title:     clearCacheTaskTitle,
@@ -62,7 +59,7 @@ func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) 
 	}, func() (any, error) {
 		// Recompose automatic channels from the route definitions and model
 		// availability that are still on the row — real work, and idempotent.
-		service.RebuildRoutesBestEffort()
+		service.RebuildRoutesBestEffort(h.db)
 		// Re-invalidate after rebuild so stale route matches cannot linger.
 		invalidateLocalProcessCaches()
 		return map[string]any{

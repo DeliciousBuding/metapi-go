@@ -29,24 +29,22 @@ func TestModelSyncScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openModelSyncTestDB(t)
 	testConfig() // publishes the runtime baseline
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(db)
 
 	// Direct call to runJobLocked — no lease acquisition, no cron wrapper.
 	s.runJobLocked(context.Background(), db)
 }
 
-// TestModelSyncScheduler_runJob_WithOverrideDB exercises the full runJob flow:
-// store.GetDB lookup, context creation, lease acquisition, and runJobLocked.
-func TestModelSyncScheduler_runJob_WithOverrideDB(t *testing.T) {
+// TestModelSyncScheduler_runJob_WithDB exercises the full runJob flow:
+// context creation, lease acquisition, and runJobLocked.
+func TestModelSyncScheduler_runJob_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openModelSyncTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	testConfig() // publishes the runtime baseline
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(db)
 
-	// runJob calls store.GetDB() -> overridden DB, acquires a local lease
+	// runJob acquires a local lease
 	// (SQLite uses process-local exclusion), then calls runJobLocked.
 	s.runJob()
 }
@@ -55,13 +53,11 @@ func TestModelSyncScheduler_runJob_WithOverrideDB(t *testing.T) {
 // gracefully (logs "database not available" and returns without panic).
 func TestModelSyncScheduler_runJob_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	testConfig() // publishes the runtime baseline
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(nil)
 
-	// Should not panic when GetDB returns nil.
+	// Should not panic with a nil database.
 	s.runJob()
 }
 
@@ -71,7 +67,7 @@ func TestModelSyncScheduler_runJob_NilDB(t *testing.T) {
 func TestModelSyncScheduler_StartStop_Lifecycle(t *testing.T) {
 	testConfig()                                                                              // publishes the runtime baseline
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = "0 0 4 * * *" }) // 04:00 daily — won't fire during test
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(nil)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -93,7 +89,7 @@ func TestModelSyncScheduler_StartStop_Lifecycle(t *testing.T) {
 func TestModelSyncScheduler_UpdateCron_InvalidAndValid(t *testing.T) {
 	config.SetRuntime(&config.RuntimeSettings{ModelSyncCron: "0 0 4 * * *"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(nil)
 
 	if err := s.UpdateCron("not-a-cron"); err == nil {
 		t.Error("expected error for invalid cron expression")
@@ -118,8 +114,6 @@ func TestModelSyncScheduler_UpdateCron_InvalidAndValid(t *testing.T) {
 // balance_refresh_cron resolveCronSetting pattern.
 func TestModelSyncScheduler_StartResolvesDBSetting(t *testing.T) {
 	db := openModelSyncTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	// Persist a valid override + an invalid value scenario.
 	if _, err := db.Exec(`INSERT INTO settings (key, value) VALUES ('model_sync_cron', '"15 3 * * 1"')`); err != nil {
@@ -128,7 +122,7 @@ func TestModelSyncScheduler_StartResolvesDBSetting(t *testing.T) {
 
 	config.SetRuntime(&config.RuntimeSettings{ModelSyncCron: config.DefaultModelSyncCron})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(db)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -143,8 +137,6 @@ func TestModelSyncScheduler_StartResolvesDBSetting(t *testing.T) {
 // persisted value falls back to the config default instead of failing Start.
 func TestModelSyncScheduler_StartFallsBackOnInvalidDBSetting(t *testing.T) {
 	db := openModelSyncTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	if _, err := db.Exec(`INSERT INTO settings (key, value) VALUES ('model_sync_cron', '"not a cron"')`); err != nil {
 		t.Fatalf("insert setting: %v", err)
@@ -152,7 +144,7 @@ func TestModelSyncScheduler_StartFallsBackOnInvalidDBSetting(t *testing.T) {
 
 	config.SetRuntime(&config.RuntimeSettings{ModelSyncCron: config.DefaultModelSyncCron})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelSyncScheduler()
+	s := NewModelSyncScheduler(db)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}

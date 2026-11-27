@@ -116,11 +116,7 @@ func runUsageAggregationFlushFailureLifecycle(t *testing.T, db *store.DB, suffix
 	logTime := time.Date(2026, 7, 6, 10, 37, 42, 0, time.UTC)
 	logID := insertProjectionProxyLog(t, db, accountID, "success", "gpt-4.1", 120, 0.42, 230, logTime)
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 
 	// Pass 1: flush fails inside the batch transaction.
 	armFailure()
@@ -247,10 +243,6 @@ func TestUsageAggregationFlushFailureKeepsWatermarkAtLastPersistedBatch(t *testi
 		seedProjectionCheckpoint(t, db, maxProxyLogID(t, db))
 	})
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
 	// One full batch (1000 rows, single day/hour/model bucket) plus a small
 	// follow-up batch that will fail.
 	baseTime := time.Date(2026, 7, 6, 10, 0, 0, 0, time.UTC)
@@ -259,7 +251,7 @@ func TestUsageAggregationFlushFailureKeepsWatermarkAtLastPersistedBatch(t *testi
 		insertProjectionProxyLog(t, db, accountID, "success", "gpt-4.1", 120, 0.42, 230, baseTime.Add(time.Duration(i)*time.Second))
 	}
 
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 
 	first := s.RunProjectionPass()
 	if first == nil || first.ProcessedLogs != usageProjectionBatchSize {

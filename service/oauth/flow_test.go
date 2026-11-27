@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func TestMain(m *testing.M) {
@@ -49,7 +48,7 @@ func TestStartFlow_ValidProvider(t *testing.T) {
 	delete(callbackStates, "codex")
 	callbackMu.Unlock()
 
-	result, err := StartFlow(StartFlowInput{
+	result, err := StartFlow(nil, StartFlowInput{
 		Provider:      "codex",
 		RequestOrigin: "http://localhost:8080",
 	})
@@ -90,7 +89,7 @@ func TestStartFlow_ValidProvider(t *testing.T) {
 }
 
 func TestStartFlow_InvalidProvider(t *testing.T) {
-	_, err := StartFlow(StartFlowInput{Provider: "invalid-provider"})
+	_, err := StartFlow(nil, StartFlowInput{Provider: "invalid-provider"})
 	if err == nil {
 		t.Fatal("expected error for invalid provider")
 	}
@@ -111,7 +110,7 @@ func TestStartFlow_ManualFallbackWhenCallbackServerUnavailable(t *testing.T) {
 	}
 	t.Cleanup(func() { startLoopbackCallbackServerForFlow = originalStart })
 
-	result, err := StartFlow(StartFlowInput{Provider: "codex"})
+	result, err := StartFlow(nil, StartFlowInput{Provider: "codex"})
 	if err != nil {
 		t.Fatalf("manual callback fallback should keep the flow usable: %v", err)
 	}
@@ -129,7 +128,7 @@ func TestStartFlow_AllFourProviders(t *testing.T) {
 		callbackMu.Unlock()
 
 		t.Run(provider, func(t *testing.T) {
-			result, err := StartFlow(StartFlowInput{
+			result, err := StartFlow(nil, StartFlowInput{
 				Provider:      provider,
 				RequestOrigin: "http://localhost:8080",
 			})
@@ -148,7 +147,7 @@ func TestStartFlow_StoresSessionFields(t *testing.T) {
 	delete(callbackStates, "codex")
 	callbackMu.Unlock()
 
-	result, err := StartFlow(StartFlowInput{
+	result, err := StartFlow(nil, StartFlowInput{
 		Provider:        "gemini-cli",
 		RebindAccountID: 99,
 		ProjectID:       "my-gcp-project",
@@ -183,7 +182,7 @@ func TestGetSessionStatus_ExistingSession(t *testing.T) {
 	delete(callbackStates, "codex")
 	callbackMu.Unlock()
 
-	result, err := StartFlow(StartFlowInput{Provider: "codex"})
+	result, err := StartFlow(nil, StartFlowInput{Provider: "codex"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -483,25 +482,11 @@ func TestHandleCallback_MissingCode_Whitespace(t *testing.T) {
 }
 
 func TestActivatePersistedOAuthAccount_PostgresCreate(t *testing.T) {
-	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
-	if dsn == "" {
-		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
-	}
-
-	store.CloseDatabase()
-	cfg := &config.Config{DataDir: "."}
-	rt := &config.RuntimeSettings{DbType: store.DialectPostgres, DbUrl: dsn}
-	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
-		t.Fatalf("failed to initialize PostgreSQL test database: %v", err)
-	}
-	db := store.GetDB()
-	if db == nil {
-		t.Fatal("GetDB returned nil after PostgreSQL initialization")
-	}
+	db, cleanup := setupPostgresRouteUnitDB(t)
+	t.Cleanup(cleanup)
 	suffix := "pg-" + strconv.FormatInt(time.Now().UnixNano(), 36)
 	t.Cleanup(func() {
 		_, _ = db.Exec("DELETE FROM sites WHERE url = ?", "https://oauth-pg-"+suffix+".example.com")
-		store.CloseDatabase()
 	})
 
 	previousHooks := workflowHooks
@@ -509,7 +494,7 @@ func TestActivatePersistedOAuthAccount_PostgresCreate(t *testing.T) {
 	t.Cleanup(func() { SetOAuthWorkflowHooks(previousHooks) })
 
 	def := testOAuthProviderDefinition(suffix)
-	result, err := activatePersistedOAuthAccount(context.Background(), ActivateInput{
+	result, err := activatePersistedOAuthAccount(context.Background(), db, ActivateInput{
 		Definition: def,
 		Exchange: &TokenSet{
 			AccessToken:  "oauth-access-token-" + suffix,
@@ -534,7 +519,7 @@ func TestActivatePersistedOAuthAccount_PostgresCreate(t *testing.T) {
 		t.Fatalf("oauth account count = %d, want 1", count)
 	}
 
-	second, err := activatePersistedOAuthAccount(context.Background(), ActivateInput{
+	second, err := activatePersistedOAuthAccount(context.Background(), db, ActivateInput{
 		Definition: def,
 		Exchange: &TokenSet{
 			AccessToken:  "oauth-access-token-updated-" + suffix,
@@ -562,7 +547,7 @@ func TestActivatePersistedOAuthAccount_SQLiteCreate(t *testing.T) {
 
 	suffix := "sqlite-" + strings.ReplaceAll(t.Name(), "/", "-")
 	def := testOAuthProviderDefinition(suffix)
-	result, err := activatePersistedOAuthAccount(context.Background(), ActivateInput{
+	result, err := activatePersistedOAuthAccount(context.Background(), db, ActivateInput{
 		Definition: def,
 		Exchange: &TokenSet{
 			AccessToken:  "oauth-access-token-" + suffix,
@@ -587,7 +572,7 @@ func TestActivatePersistedOAuthAccount_SQLiteCreate(t *testing.T) {
 		t.Fatalf("oauth account count = %d, want 1", count)
 	}
 
-	second, err := activatePersistedOAuthAccount(context.Background(), ActivateInput{
+	second, err := activatePersistedOAuthAccount(context.Background(), db, ActivateInput{
 		Definition: def,
 		Exchange: &TokenSet{
 			AccessToken:  "oauth-access-token-updated-" + suffix,

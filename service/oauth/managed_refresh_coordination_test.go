@@ -35,13 +35,13 @@ func TestAccountConcurrentRefreshConsumesTokenOnce(t *testing.T) {
 	t.Cleanup(func() { unblock.Do(func() { close(release) }) })
 	withCodexTokenURLSwap(t, server.URL)
 	results := make(chan refreshResult, 2)
-	go func() { results <- doRefreshAccessToken(id) }()
+	go func() { results <- doRefreshAccessToken(db, id) }()
 	select {
 	case <-entered:
 	case <-time.After(3 * time.Second):
 		t.Fatal("first account refresh did not start")
 	}
-	go func() { results <- doRefreshAccessToken(id) }()
+	go func() { results <- doRefreshAccessToken(db, id) }()
 	select {
 	case <-duplicate:
 	case <-time.After(150 * time.Millisecond):

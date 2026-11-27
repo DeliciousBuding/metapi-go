@@ -31,6 +31,7 @@ var leadMsByProvider = map[string]int64{
 // OAuthRefreshScheduler periodically scans OAuth accounts and refreshes
 // tokens nearing expiry. Mirrors the TS oauthRefreshScheduler.ts.
 type OAuthRefreshScheduler struct {
+	db           *store.DB
 	cfg          *config.Config
 	mu           sync.Mutex
 	passInFlight bool
@@ -44,8 +45,9 @@ type OAuthRefreshScheduler struct {
 }
 
 // NewOAuthRefreshScheduler creates a new OAuth token refresh scheduler.
-func NewOAuthRefreshScheduler(cfg *config.Config) *OAuthRefreshScheduler {
+func NewOAuthRefreshScheduler(db *store.DB, cfg *config.Config) *OAuthRefreshScheduler {
 	return &OAuthRefreshScheduler{
+		db:     db,
 		cfg:    cfg,
 		runner: &intervalRunner{},
 		ctx:    context.Background(),
@@ -109,7 +111,7 @@ func (s *OAuthRefreshScheduler) runPass() {
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}
@@ -125,7 +127,7 @@ func (s *OAuthRefreshScheduler) runPass() {
 
 func (s *OAuthRefreshScheduler) runPassLocked() {
 	nowMs := time.Now().UnixMilli()
-	rows, err := oauth.ListOAuthRefreshCandidates()
+	rows, err := oauth.ListOAuthRefreshCandidates(s.db)
 	if err != nil {
 		slog.Warn("oauth-refresh: query failed", "error", err)
 		return
@@ -160,7 +162,7 @@ func (s *OAuthRefreshScheduler) runPassLocked() {
 		}
 
 		// Token is within lead window — refresh.
-		_, err := oauth.RefreshAccessTokenSingleflight(row.Account.ID)
+		_, err := oauth.RefreshAccessTokenSingleflight(s.db, row.Account.ID)
 		if err != nil {
 			result.Failed++
 			result.FailedAccountIDs = append(result.FailedAccountIDs, row.Account.ID)

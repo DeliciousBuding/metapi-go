@@ -53,12 +53,11 @@ type CreateRouteUnitResult struct {
 }
 
 // ListOauthRouteUnitsByAccountIDs returns route unit participation for a set of accounts.
-func ListOauthRouteUnitsByAccountIDs(accountIDs []int64) map[int64]*OAuthRouteUnitAccountParticipation {
+func ListOauthRouteUnitsByAccountIDs(db *store.DB, accountIDs []int64) map[int64]*OAuthRouteUnitAccountParticipation {
 	if len(accountIDs) == 0 {
 		return nil
 	}
 
-	db := store.GetDB()
 	if db == nil {
 		return nil
 	}
@@ -102,11 +101,10 @@ func ListOauthRouteUnitsByAccountIDs(accountIDs []int64) map[int64]*OAuthRouteUn
 }
 
 // ListEnabledOauthRouteUnitsWithMembers returns all enabled route units with their members.
-func ListEnabledOauthRouteUnitsWithMembers() []struct {
+func ListEnabledOauthRouteUnitsWithMembers(db *store.DB) []struct {
 	Unit    store.OAuthRouteUnit
 	Members []store.OAuthRouteUnitMember
 } {
-	db := store.GetDB()
 	if db == nil {
 		return nil
 	}
@@ -150,8 +148,7 @@ func ListEnabledOauthRouteUnitsWithMembers() []struct {
 }
 
 // CreateOauthRouteUnit creates a new OAuth route unit.
-func CreateOauthRouteUnit(input CreateRouteUnitInput) (*CreateRouteUnitResult, error) {
-	db := store.GetDB()
+func CreateOauthRouteUnit(db *store.DB, input CreateRouteUnitInput) (*CreateRouteUnitResult, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -262,7 +259,7 @@ func CreateOauthRouteUnit(input CreateRouteUnitInput) (*CreateRouteUnitResult, e
 		if err := hooks.RebuildRoutesOnly(context.Background()); err != nil {
 			// Step 6: On rebuild failure, rollback created route unit.
 			slog.Warn("route rebuild failed after creating route unit, rolling back", "unitID", unitID, "error", err)
-			rollbackErr := rollbackCreateRouteUnit(unitID, accountIDs)
+			rollbackErr := rollbackCreateRouteUnit(db, unitID, accountIDs)
 			if rollbackErr != nil {
 				slog.Warn("rollback route unit creation failed", "error", rollbackErr)
 			}
@@ -289,8 +286,7 @@ func CreateOauthRouteUnit(input CreateRouteUnitInput) (*CreateRouteUnitResult, e
 }
 
 // UpdateOauthRouteUnit updates a route unit's name and/or strategy.
-func UpdateOauthRouteUnit(routeUnitID int64, name *string, strategy *OAuthRouteUnitStrategy) (*OAuthRouteUnitSummary, error) {
-	db := store.GetDB()
+func UpdateOauthRouteUnit(db *store.DB, routeUnitID int64, name *string, strategy *OAuthRouteUnitStrategy) (*OAuthRouteUnitSummary, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -344,8 +340,7 @@ func UpdateOauthRouteUnit(routeUnitID int64, name *string, strategy *OAuthRouteU
 }
 
 // DeleteOauthRouteUnit deletes a route unit with snapshot + rebuild + rollback.
-func DeleteOauthRouteUnit(routeUnitID int64) error {
-	db := store.GetDB()
+func DeleteOauthRouteUnit(db *store.DB, routeUnitID int64) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
@@ -457,8 +452,7 @@ func execRouteUnitInsertID(db *store.DB, tx *sqlx.Tx, query string, args ...any)
 // ---- Rollback helpers ----
 
 // rollbackCreateRouteUnit deletes a route unit and its members when route rebuild fails.
-func rollbackCreateRouteUnit(unitID int64, accountIDs []int64) error {
-	db := store.GetDB()
+func rollbackCreateRouteUnit(db *store.DB, unitID int64, accountIDs []int64) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}

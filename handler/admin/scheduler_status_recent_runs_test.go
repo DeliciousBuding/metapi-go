@@ -67,7 +67,7 @@ func TestSchedulerStatusModelProbeRecentRuns(t *testing.T) {
 
 	prev := scheduler.GetGlobalModelProbeScheduler()
 	t.Cleanup(func() { scheduler.SetGlobalModelProbeScheduler(prev) })
-	sched := scheduler.NewModelProbeScheduler(&config.Config{})
+	sched := scheduler.NewModelProbeScheduler(db, &config.Config{})
 	sched.SetProbeExecutor(statusProbeStub{})
 	sched.SetHealthRecorder(statusRecorderStub{})
 	scheduler.SetGlobalModelProbeScheduler(sched)

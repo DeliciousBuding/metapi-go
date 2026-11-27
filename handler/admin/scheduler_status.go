@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/scheduler"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterSchedulerStatusRoutes exposes a unified run-history view of the
@@ -23,13 +23,13 @@ import (
 // - model-probe: in-memory ProbeRunSummary (single-instance honest)
 // - announcements: site_announcements.last_seen_at
 // - daily-summary / log-cleanup / usage-aggregation: recent events rows
-func RegisterSchedulerStatusRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterSchedulerStatusRoutes(r chi.Router, db *store.DB) {
 	h := &schedulerStatusHandler{db: db}
 	r.Get("/api/scheduler/status", h.status)
 }
 
 type schedulerStatusHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 type schedulerRunStatus struct {
@@ -64,9 +64,9 @@ func (h *schedulerStatusHandler) status(w http.ResponseWriter, r *http.Request) 
 		h.balanceRefreshStatus(),
 		h.modelProbeStatus(),
 		h.announcementsStatus(),
-		h.eventsStatus("daily-summary", "Daily summary"),
-		h.eventsStatus("log-cleanup", "Log cleanup"),
-		h.eventsStatus("usage-aggregation", "Usage aggregation"),
+		h.eventsStatus("daily-summary"),
+		h.eventsStatus("log-cleanup"),
+		h.eventsStatus("usage-aggregation"),
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items":       items,
@@ -81,54 +81,41 @@ func since24h() string {
 
 // checkinStatus aggregates checkin_logs for the last 24h.
 func (h *schedulerStatusHandler) checkinStatus() schedulerRunStatus {
-	var latest struct {
-		CreatedAt string `db:"created_at"`
-		Status    string `db:"status"`
-	}
-	var runs24h, success24h int64
-	_ = h.db.Get(&latest, `SELECT created_at, status FROM checkin_logs ORDER BY created_at DESC LIMIT 1`)
-	_ = h.db.Get(&runs24h, h.db.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`), since24h())
-	_ = h.db.Get(&success24h, h.db.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ? AND status = 'success'`), since24h())
+	signal := h.db.CheckinActivity(since24h())
 
 	status := "never"
-	if latest.CreatedAt != "" {
-		status = mapRunStatus(latest.Status)
+	if signal.Latest != "" {
+		status = mapRunStatus(signal.Status)
 	}
 	return schedulerRunStatus{
 		Job:        "checkin",
 		Enabled:    true,
-		LastRunAt:  latest.CreatedAt,
+		LastRunAt:  signal.Latest,
 		LastStatus: status,
-		Runs24h:    runs24h,
-		Success24h: success24h,
+		Runs24h:    signal.Runs,
+		Success24h: signal.Success,
 	}
 }
 
 // balanceRefreshStatus uses accounts.last_balance_refresh as the run signal.
 func (h *schedulerStatusHandler) balanceRefreshStatus() schedulerRunStatus {
-	var latest struct {
-		RefreshedAt string `db:"refreshed_at"`
-	}
-	var refreshed24h, total int64
-	_ = h.db.Get(&latest, `SELECT MAX(last_balance_refresh) AS refreshed_at FROM accounts WHERE last_balance_refresh IS NOT NULL`)
-	_ = h.db.Get(&refreshed24h, h.db.Rebind(`SELECT COUNT(*) FROM accounts WHERE last_balance_refresh >= ?`), since24h())
-	_ = h.db.Get(&total, `SELECT COUNT(*) FROM accounts WHERE status = 'active'`)
+	signal, total := h.db.BalanceRefreshActivity(since24h())
 
 	// The job records no per-run status row, so derive the last-status badge
 	// from its own data sources instead of reporting "never": a non-empty
 	// last_balance_refresh written within the 24h window is the success
 	// signal (the timestamp is only stamped after a successful fetch).
 	status := mapRunStatus("")
-	if latest.RefreshedAt != "" && refreshed24h > 0 {
+	if signal.Latest != "" && signal.Runs > 0 {
 		status = "success"
 	}
 	return schedulerRunStatus{
 		Job:        "balance-refresh",
 		Enabled:    true,
-		LastRunAt:  latest.RefreshedAt,
+		LastRunAt:  signal.Latest,
 		LastStatus: status,
-		Runs24h:    refreshed24h,
-		Success24h: refreshed24h,
+		Runs24h:    signal.Runs,
+		Success24h: signal.Runs,
 		Note:       "activeAccounts=" + numStr(total),
 	}
 }
@@ -174,8 +161,7 @@ func (h *schedulerStatusHandler) modelProbeStatus() schedulerRunStatus {
 
 // announcementsStatus uses the latest site_announcements.last_seen_at.
 func (h *schedulerStatusHandler) announcementsStatus() schedulerRunStatus {
-	var latest string
-	_ = h.db.Get(&latest, `SELECT MAX(last_seen_at) FROM site_announcements`)
+	latest := h.db.LatestSiteAnnouncementTime()
 	return schedulerRunStatus{
 		Job:        "site-announcements",
 		Enabled:    true,
@@ -186,19 +172,14 @@ func (h *schedulerStatusHandler) announcementsStatus() schedulerRunStatus {
 
 // eventsStatus reports a job whose runs land in the events table (type =
 // eventType). Used for daily-summary / log-cleanup / usage-aggregation.
-func (h *schedulerStatusHandler) eventsStatus(eventType, label string) schedulerRunStatus {
-	var latest struct {
-		CreatedAt string `db:"created_at"`
-	}
-	var runs24h int64
-	_ = h.db.Get(&latest, h.db.Rebind(`SELECT created_at FROM events WHERE type = ? ORDER BY created_at DESC LIMIT 1`), eventType)
-	_ = h.db.Get(&runs24h, h.db.Rebind(`SELECT COUNT(*) FROM events WHERE type = ? AND created_at >= ?`), eventType, since24h())
+func (h *schedulerStatusHandler) eventsStatus(eventType string) schedulerRunStatus {
+	signal := h.db.EventActivity(eventType, since24h())
 	return schedulerRunStatus{
 		Job:        eventType,
 		Enabled:    true,
-		LastRunAt:  latest.CreatedAt,
+		LastRunAt:  signal.Latest,
 		LastStatus: mapRunStatus(""),
-		Runs24h:    runs24h,
+		Runs24h:    signal.Runs,
 	}
 }
 

@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/deliciousbuding/metapi-go/store"
 	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver for sql.Open("pgx", ...)
-	_ "modernc.org/sqlite"             // register sqlite driver for sqlx.Open("sqlite", ...)
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite" // register sqlite driver for sqlx.Open("sqlite", ...)
 )
 
 // ---- test DB fixtures ----
 
 // newSQLiteInMemoryDB returns a real in-memory SQLite *sqlx.DB so tests can
-// actually execute the SQL produced by credentialFragmentsSelect() against
+// actually execute the SQL produced by store.CredentialFragmentsSelect() against
 // the SQLite dialect. DriverName() reports "sqlite".
 func newSQLiteInMemoryDB(t *testing.T) *sqlx.DB {
 	t.Helper()
@@ -29,7 +29,7 @@ func newSQLiteInMemoryDB(t *testing.T) *sqlx.DB {
 }
 
 // newPgxLabeledDB returns a *sqlx.DB whose DriverName() reports "pgx" without
-// needing a running PostgreSQL server. credentialFragmentsSelect() only reads
+// needing a running PostgreSQL server. store.CredentialFragmentsSelect() only reads
 // DriverName() for the dialect-selection tests, so no query is ever executed
 // against this handle.
 func newPgxLabeledDB(t *testing.T) *sqlx.DB {
@@ -56,7 +56,7 @@ func newLabeledDB(t *testing.T, driverName string) *sqlx.DB {
 	return sqlx.NewDb(rawDB, driverName)
 }
 
-// ---- credentialFragmentsSelect: dialect string generation ----
+// ---- store.CredentialFragmentsSelect: dialect string generation ----
 
 func TestCredentialFragmentsSelectDialects(t *testing.T) {
 	const column = "c.secret"
@@ -79,9 +79,9 @@ func TestCredentialFragmentsSelectDialects(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := credentialFragmentsSelect(tc.db, column, aliasBase)
+			got := store.CredentialFragmentsSelect(tc.db, column, aliasBase)
 			if got != tc.want {
-				t.Errorf("credentialFragmentsSelect(%s) =\n  %q\nwant\n  %q", tc.name, got, tc.want)
+				t.Errorf("store.CredentialFragmentsSelect(%s) =\n  %q\nwant\n  %q", tc.name, got, tc.want)
 			}
 		})
 	}
@@ -92,17 +92,17 @@ func TestCredentialFragmentsSelectDialects(t *testing.T) {
 // the table-driven cases above.
 func TestCredentialFragmentsSelectPostgresShape(t *testing.T) {
 	db := newPgxLabeledDB(t)
-	got := credentialFragmentsSelect(db, "at.token", "token")
+	got := store.CredentialFragmentsSelect(db, "at.token", "token")
 	want := "LEFT(at.token, 4) AS token_prefix, RIGHT(at.token, 4) AS token_suffix, LENGTH(at.token) AS token_len"
 	if got != want {
-		t.Fatalf("credentialFragmentsSelect(pgx) =\n  %q\nwant\n  %q", got, want)
+		t.Fatalf("store.CredentialFragmentsSelect(pgx) =\n  %q\nwant\n  %q", got, want)
 	}
 }
 
-// ---- credentialFragmentsSelect: SQLite execution ----
+// ---- store.CredentialFragmentsSelect: SQLite execution ----
 
 // TestCredentialFragmentsSelectSQLiteExecutable runs the exact SQL that
-// credentialFragmentsSelect() generates for SQLite against a real in-memory
+// store.CredentialFragmentsSelect() generates for SQLite against a real in-memory
 // SQLite DB and verifies the returned prefix/suffix/length fragments are the
 // expected first-4 / last-4 / total-length of the secret, and that
 // maskSecretFromFragments() rebuilt from those fragments matches maskSecret().
@@ -118,7 +118,7 @@ func TestCredentialFragmentsSelectSQLiteExecutable(t *testing.T) {
 
 	for _, secret := range secrets {
 		t.Run(fmt.Sprintf("len=%d", len(secret)), func(t *testing.T) {
-			fragments := credentialFragmentsSelect(db, "secret", "cred")
+			fragments := store.CredentialFragmentsSelect(db, "secret", "cred")
 			query := db.Rebind("SELECT " + fragments + " FROM (SELECT ? AS secret)")
 
 			type credFragmentsRow struct {

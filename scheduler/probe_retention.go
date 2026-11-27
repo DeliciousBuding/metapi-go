@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // modelProbeResultRetentionDays bounds model_probe_results, the highest-volume
@@ -14,7 +15,7 @@ import (
 //   - service.loadLatestProbeFailures (route rebuild's probe filter, #625)
 //     reads only the newest row per (account_id, model_name), and those rows are
 //     exempt from this job outright — see modelProbeResultKeepLatestWhere;
-//   - handler/admin.queryProbeHistory shows the newest N rows per channel or
+//   - store.RecentProbeHistory shows the newest N rows per channel or
 //     account with NO time filter, so extra days never reach the screen while
 //     every extra row is paid for twice: the window scan that query performs
 //     over the whole table, and the three indexes each insert maintains.
@@ -54,8 +55,8 @@ type ModelProbeResultRetentionScheduler = RetentionScheduler
 // scheduler. It runs by default: there is no operator opt-out, because the rows
 // it deletes are provably unread (the two consumers are listed above) while the
 // rows it keeps are pinned by modelProbeResultKeepLatestWhere.
-func NewModelProbeResultRetentionScheduler(cfg *config.Config) *RetentionScheduler {
-	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+func NewModelProbeResultRetentionScheduler(db *store.DB, cfg *config.Config) *RetentionScheduler {
+	return NewRetentionScheduler(db, cfg, RetentionSchedulerOptions{
 		Name:               "model-probe-result-retention",
 		Table:              "model_probe_results",
 		ExtraWhere:         modelProbeResultKeepLatestWhere,

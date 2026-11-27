@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -31,7 +32,7 @@ const searchQueryMaxLength = 200
 
 // accountPublicSelectColumns lists every accounts column EXCEPT the plaintext
 // credentials (access_token, api_token). List/search endpoints pair this with
-// credentialFragmentsSelect() to expose masked secrets without ever scanning
+// store.CredentialFragmentsSelect() to expose masked secrets without ever scanning
 // the full plaintext into Go memory. Mirrors service.SiteSelectColumns.
 const accountPublicSelectColumns = `a.id, a.site_id, a.username, a.balance, a.balance_used,
 	a.quota, a.unit_cost, a.value_score, a.status, a.is_pinned, a.sort_order,
@@ -40,7 +41,7 @@ const accountPublicSelectColumns = `a.id, a.site_id, a.username, a.balance, a.ba
 	a.updated_at, a.tags, a.remark`
 
 // accountTokenPublicSelectColumns lists every account_tokens column EXCEPT the
-// plaintext token. Paired with credentialFragmentsSelect("at.token", ...).
+// plaintext token. Paired with store.CredentialFragmentsSelect("at.token", ...).
 const accountTokenPublicSelectColumns = `at.id, at.account_id, at.name, at.token_group,
 	at.value_status, at.source, at.enabled, at.is_default, at.created_at, at.updated_at`
 
@@ -113,8 +114,8 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	// form is rebuilt in Go by redactSearchAccountSecrets().
 	accounts, err := queryRowsErr(h.db,
 		`SELECT `+accountPublicSelectColumns+`, `+
-			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
-			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
+			store.CredentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
+			store.CredentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
 			s.name as site_name, s.platform as site_platform
 		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id
 		 WHERE LOWER(a.username) LIKE ? OR LOWER(s.name) LIKE ? OR LOWER(s.platform) LIKE ?
@@ -128,7 +129,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	// Search account tokens. Same fragment pattern for at.token.
 	accountTokens, err := queryRowsErr(h.db,
 		`SELECT `+accountTokenPublicSelectColumns+`, `+
-			credentialFragmentsSelect(h.db, "at.token", "token")+`,
+			store.CredentialFragmentsSelect(h.db, "at.token", "token")+`,
 			a.username as account_username, s.name as site_name
 		 FROM account_tokens at
 		 INNER JOIN accounts a ON at.account_id = a.id
@@ -203,7 +204,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 }
 
 // redactSearchAccountSecrets rebuilds masked credentials from the
-// prefix/suffix/length fragments selected by credentialFragmentsSelect(), then
+// prefix/suffix/length fragments selected by store.CredentialFragmentsSelect(), then
 // applies the same service.RedactAccountSecrets policy used by GET /api/accounts
 // so the search surface cannot grow a second, drifting credential field list.
 // The plaintext access_token/api_token are never pulled from the DB; the shared
@@ -223,7 +224,7 @@ func redactSearchAccountSecrets(row map[string]any) {
 }
 
 // redactSearchTokenSecrets rebuilds the masked token from the prefix/suffix/
-// length fragments selected by credentialFragmentsSelect(). The plaintext
+// length fragments selected by store.CredentialFragmentsSelect(). The plaintext
 // token is never pulled from the DB.
 func redactSearchTokenSecrets(row map[string]any) {
 	if row == nil {

@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/schedulespec"
+
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/checkin"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -24,6 +26,7 @@ type intervalCandidate struct {
 // CheckinScheduler implements dual-mode (cron + interval) checkin scheduling.
 // Mirrors TS checkinScheduler.ts.
 type CheckinScheduler struct {
+	db  *store.DB
 	cfg *config.Config
 
 	mu               sync.Mutex
@@ -52,8 +55,9 @@ type CheckinScheduler struct {
 }
 
 // NewCheckinScheduler creates a new checkin scheduler.
-func NewCheckinScheduler(cfg *config.Config) *CheckinScheduler {
+func NewCheckinScheduler(db *store.DB, cfg *config.Config) *CheckinScheduler {
 	return &CheckinScheduler{
+		db:               db,
 		cfg:              cfg,
 		mode:             config.Runtime().CheckinScheduleMode,
 		attemptByAccount: make(map[int64]int64),
@@ -78,16 +82,16 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
 	rt := config.Runtime()
-	activeCron := resolveCronSetting("checkin_cron", rt.CheckinCron)
-	activeMode := resolveCheckinScheduleMode(rt)
+	activeCron := resolveCronSetting(s.db, "checkin_cron", rt.CheckinCron)
+	activeMode := resolveCheckinScheduleMode(s.db, rt)
 	activeIntervalHours := config.ClampInt(
-		resolvePositiveIntegerSetting("checkin_interval_hours", rt.CheckinIntervalHours),
+		resolvePositiveIntegerSetting(s.db, "checkin_interval_hours", rt.CheckinIntervalHours),
 		1, 24,
 	)
 
 	// E1: window bounds (HH:mm) hydrate from settings with env defaults.
-	windowStart := resolveStringSetting("checkin_window_start", rt.CheckinWindowStart)
-	windowEnd := resolveStringSetting("checkin_window_end", rt.CheckinWindowEnd)
+	windowStart := resolveStringSetting(s.db, "checkin_window_start", rt.CheckinWindowStart)
+	windowEnd := resolveStringSetting(s.db, "checkin_window_end", rt.CheckinWindowEnd)
 
 	config.UpdateRuntime(func(r *config.RuntimeSettings) {
 		r.CheckinCron = activeCron
@@ -101,7 +105,7 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 	// #1027: global check-in kill switch (env CHECKIN_ENABLED or the
 	// checkin_enabled runtime setting). Default true keeps historical
 	// behavior; when disabled no schedule is armed at all.
-	enabled := resolveBooleanSetting("checkin_enabled", !rt.CheckinDisabled)
+	enabled := resolveBooleanSetting(s.db, "checkin_enabled", !rt.CheckinDisabled)
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinDisabled = !enabled })
 	if !enabled {
 		slog.Info("checkin scheduler disabled (checkinEnabled=false)")
@@ -205,7 +209,7 @@ func (s *CheckinScheduler) startLocked() {
 // was added mid-day, recovered after a transient failure, or was skipped by
 // an aborted prior run while other accounts succeeded.
 func (s *CheckinScheduler) maybeCatchUpCheckin() {
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}
@@ -335,7 +339,7 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 		return fmt.Errorf("invalid interval hours: %d (must be 1-24)", intervalHours)
 	}
 	if mode == "window" {
-		if _, err := RandomCronInWindow(windowStart, windowEnd); err != nil {
+		if _, _, err := schedulespec.WindowBounds(windowStart, windowEnd); err != nil {
 			return err
 		}
 	}
@@ -393,7 +397,7 @@ func (s *CheckinScheduler) ResetAttempts() {
 
 func (s *CheckinScheduler) runCronJob() {
 	slog.Info("checkin: cron job starting")
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		slog.Error("checkin: database not available")
 		return
@@ -411,7 +415,7 @@ func (s *CheckinScheduler) runCronJob() {
 }
 
 func (s *CheckinScheduler) runIntervalPass() {
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

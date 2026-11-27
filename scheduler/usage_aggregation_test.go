@@ -63,11 +63,7 @@ func runUsageAggregationProjectionLifecycle(t *testing.T, db *store.DB, suffix s
 	secondLogTime := firstLogTime.Add(18 * time.Minute)
 	insertProjectionProxyLog(t, db, accountID, "success", "gpt-4.1", 120, 0.42, 230, firstLogTime)
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	first := s.RunProjectionPass()
 	if first == nil {
 		t.Fatal("first projection pass returned nil")
@@ -306,11 +302,7 @@ func TestUsageAggregationProjectsFailedStatusTokens(t *testing.T) {
 	insertProjectionProxyLog(t, db, accountID, "success", "gpt-4o", successTokens, 0.42, 230, successTime)
 	insertProjectionProxyLog(t, db, accountID, "failed", "gpt-4o", failedTokens, 0.01, 50, failedTime)
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	pass := s.RunProjectionPass()
 	if pass == nil || pass.ProcessedLogs != 2 {
 		t.Fatalf("projection pass = %#v, want ProcessedLogs=2", pass)
@@ -392,11 +384,7 @@ func TestUsageAggregationProjection_PartialTokenFieldsAccumulate(t *testing.T) {
 	// total_tokens missing/zero, but prompt+completion present.
 	insertProjectionProxyLogTokens(t, db, accountID, "success", "gpt-4.1", &prompt, &completion, nil, nil, 120, logTime)
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	result := s.RunProjectionPass()
 	if result == nil || result.ProcessedLogs != 1 {
 		t.Fatalf("projection result = %+v, want processed 1", result)
@@ -445,11 +433,7 @@ func TestUsageAggregationProjection_OrphanLogAdvancesWatermarkWithoutDoubleCount
 	goodTime := orphanTime.Add(time.Minute)
 	insertProjectionProxyLog(t, db, accountID, "success", "gpt-4.1", 50, 0.05, 10, goodTime)
 
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
-
-	s := NewUsageAggregationScheduler(testConfig())
+	s := NewUsageAggregationScheduler(db, testConfig())
 	first := s.RunProjectionPass()
 	if first == nil || first.ProcessedLogs != 2 {
 		t.Fatalf("first pass = %+v, want processed 2", first)

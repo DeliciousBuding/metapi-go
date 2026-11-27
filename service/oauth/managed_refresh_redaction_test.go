@@ -21,7 +21,7 @@ func TestAccountRefreshFailureDoesNotReturnProviderSecrets(t *testing.T) {
 	})
 	t.Cleanup(server.Close)
 	withCodexTokenURLSwap(t, server.URL)
-	result := doRefreshAccessToken(id)
+	result := doRefreshAccessToken(db, id)
 	if result.Err == nil || !strings.Contains(result.Err.Error(), "invalid_grant") {
 		t.Fatal("refresh did not preserve the rejection classification")
 	}

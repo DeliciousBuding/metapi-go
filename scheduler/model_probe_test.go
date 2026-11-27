@@ -143,7 +143,7 @@ func TestModelProbeScheduler_ProbeOne_RecordsSuccessAndFailure(t *testing.T) {
 	}
 	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: true})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	probe := &fakeProbe{outcomes: map[int64]ProbeOutcome{
 		1: {Status: "success", LatencyMs: 11},
 		2: {Status: "failure", HTTPStatus: 503, ErrorText: "unavailable"},
@@ -172,7 +172,7 @@ func TestModelProbeScheduler_ProbeOne_RecordsSuccessAndFailure(t *testing.T) {
 }
 
 func TestModelProbeScheduler_ProbeOne_RecordsFailureAfterProbeTimeout(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	rec := &fakeRecorder{}
 	s.SetProbeExecutor(timeoutProbe{})
 	s.SetHealthRecorder(rec)
@@ -189,7 +189,7 @@ func TestModelProbeScheduler_ProbeOne_RecordsFailureAfterProbeTimeout(t *testing
 }
 
 func TestModelProbeScheduler_ProbeOne_ExecutorErrorIsInconclusive(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	s.SetProbeExecutor(&fakeProbe{err: errors.New("dial boom")})
 	s.SetHealthRecorder(&fakeRecorder{})
 	if got := s.probeOne(ProbeTarget{ChannelID: 1, AccountID: 1, ModelName: "m"}, 1000); got != "inconclusive" {
@@ -198,7 +198,7 @@ func TestModelProbeScheduler_ProbeOne_ExecutorErrorIsInconclusive(t *testing.T) 
 }
 
 func TestModelProbeScheduler_ProbeOne_MissingDepsSkipped(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	if got := s.probeOne(ProbeTarget{ChannelID: 1, AccountID: 1, ModelName: "m"}, 1000); got != "skipped" {
 		t.Fatalf("got %s, want skipped when deps missing", got)
 	}
@@ -207,7 +207,7 @@ func TestModelProbeScheduler_ProbeOne_MissingDepsSkipped(t *testing.T) {
 func TestModelProbeScheduler_DisabledDoesNotStartTicker(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = false })
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestModelProbeScheduler_StartStopWithDeps(t *testing.T) {
 	cfg := testConfig()
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = true })
 	cfg.ModelAvailabilityProbeIntervalMs = 60_000
-	s := NewModelProbeScheduler(cfg)
+	s := NewModelProbeScheduler(nil, cfg)
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{}})
 	s.SetHealthRecorder(&fakeRecorder{})
 	if err := s.Start(context.Background()); err != nil {
@@ -238,7 +238,7 @@ func TestModelProbeScheduler_StartStopWithDeps(t *testing.T) {
 }
 
 func TestRecoveryProbeRecordsMeasuredMember(t *testing.T) {
-	s := NewModelProbeScheduler(testConfig())
+	s := NewModelProbeScheduler(nil, testConfig())
 	rec := &fakeRecorder{}
 	s.SetHealthRecorder(rec)
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{1: {Status: "success", AccountID: 2, SiteID: 3}}})

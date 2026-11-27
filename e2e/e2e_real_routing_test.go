@@ -44,13 +44,13 @@ func TestConfiguredRoutesReachUpstreamThroughRealRouter(t *testing.T) {
 			}
 			migrateFixtureRootKey(t, rt)
 			db := store.GetDB()
-			if err := app.ConfigureProxyUpstream(cfg); err != nil {
+			if err := app.ConfigureProxyUpstream(db, cfg); err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
 				proxyhandler.SetUpstreamConfig(nil)
 				_ = store.CloseDatabase()
-				_ = app.ConfigureProxyUpstream(cfg) // no DB clears the runtime router hooks
+				_ = app.ConfigureProxyUpstream(nil, cfg) // no DB clears the runtime router hooks
 				config.Set(makeTestConfig())
 				config.SetRuntime(makeTestRuntime())
 			})

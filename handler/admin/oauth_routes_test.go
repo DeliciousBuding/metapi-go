@@ -45,7 +45,7 @@ func setupOAuthRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterOauthRoutes(r, db.DB)
+	RegisterOauthRoutes(r, db)
 	return db, r
 }
 

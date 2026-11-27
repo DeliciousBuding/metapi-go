@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ProxyVideoTaskRetentionScheduler periodically prunes aged proxy_video_tasks rows.
@@ -13,8 +14,8 @@ import (
 type ProxyVideoTaskRetentionScheduler = RetentionScheduler
 
 // NewProxyVideoTaskRetentionScheduler creates a video task retention scheduler.
-func NewProxyVideoTaskRetentionScheduler(cfg *config.Config) *RetentionScheduler {
-	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
+func NewProxyVideoTaskRetentionScheduler(db *store.DB, cfg *config.Config) *RetentionScheduler {
+	return NewRetentionScheduler(db, cfg, RetentionSchedulerOptions{
 		Name:               "proxy-video-task-retention",
 		Table:              "proxy_video_tasks",
 		ExtraWhere:         " AND upstream_video_id <> ''",

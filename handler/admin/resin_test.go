@@ -33,7 +33,7 @@ func setupResinStatusTest(t *testing.T) (*store.DB, chi.Router, *config.Config) 
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterResinRoutes(r, db.DB, cfg)
+	RegisterResinRoutes(r, db, cfg)
 	return db, r, cfg
 }
 

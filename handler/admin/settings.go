@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/schedulespec"
+
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -93,14 +94,14 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"serverAddress": rt.ServerAddress,
 		// Balance
 		"balanceRefreshCron":     rt.BalanceRefreshCron,
-		"balanceRefreshSchedule": scheduler.CronToSchedule(rt.BalanceRefreshCron),
+		"balanceRefreshSchedule": schedulespec.CronToSchedule(rt.BalanceRefreshCron),
 		"balanceRefreshEnabled":  !rt.BalanceRefreshDisabled,
 		// Model sync (#1005) — plain cron, no v2 schedule mirror
 		"modelSyncCron":         rt.ModelSyncCron,
 		"autoCreateModelRoutes": rt.AutoCreateModelRoutes,
 		// Log cleanup
 		"logCleanupCron":               rt.LogCleanupCron,
-		"logCleanupSchedule":           scheduler.CronToSchedule(rt.LogCleanupCron),
+		"logCleanupSchedule":           schedulespec.CronToSchedule(rt.LogCleanupCron),
 		"logCleanupUsageLogsEnabled":   rt.LogCleanupUsageLogsEnabled,
 		"logCleanupProgramLogsEnabled": rt.LogCleanupProgramLogsEnabled,
 		"logCleanupRetentionDays":      rt.LogCleanupRetentionDays,
@@ -504,21 +505,21 @@ func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt s
 }
 
 // decodeScheduleSpec converts a decoded JSON body value into a ScheduleSpec.
-func decodeScheduleSpec(v any) (scheduler.ScheduleSpec, error) {
+func decodeScheduleSpec(v any) (schedulespec.ScheduleSpec, error) {
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return scheduler.ScheduleSpec{}, err
+		return schedulespec.ScheduleSpec{}, err
 	}
-	var spec scheduler.ScheduleSpec
+	var spec schedulespec.ScheduleSpec
 	if err := json.Unmarshal(raw, &spec); err != nil {
-		return scheduler.ScheduleSpec{}, err
+		return schedulespec.ScheduleSpec{}, err
 	}
 	return spec, nil
 }
 
 // persistDualSchedule writes the legacy cron key and its v2 ScheduleSpec
 // mirror in one transaction so the two never diverge.
-func persistDualSchedule(db *sqlx.DB, legacyKey string, legacyValue any, v2Key string, spec scheduler.ScheduleSpec) error {
+func persistDualSchedule(db *sqlx.DB, legacyKey string, legacyValue any, v2Key string, spec schedulespec.ScheduleSpec) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return fmt.Errorf("settings: begin dual schedule write: %w", err)

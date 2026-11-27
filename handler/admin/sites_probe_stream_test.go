@@ -147,14 +147,12 @@ func seedProbeTargetsForSite(t *testing.T, db *store.DB, models []string) (siteI
 	return siteID, chanIDs
 }
 
-// setupAdminGlobalScheduler points store.GetDB() at the in-memory test DB and
-// installs a global model-probe scheduler with the given probe executor, so
+// setupAdminGlobalScheduler installs a model-probe scheduler using the test DB and executor, so
 // the admin probe-now / probe-stream handlers use the fake instead of a real
 // upstream. Returns a cleanup func that restores the global state.
 func setupAdminGlobalScheduler(t *testing.T, db *store.DB, probe scheduler.ChannelHealthProbe) func() {
 	t.Helper()
-	store.OverrideDB(db)
-	sched := scheduler.NewModelProbeScheduler(&config.Config{
+	sched := scheduler.NewModelProbeScheduler(db, &config.Config{
 		ModelAvailabilityProbeTimeoutMs: 5000,
 	})
 	sched.SetProbeExecutor(probe)
@@ -162,7 +160,6 @@ func setupAdminGlobalScheduler(t *testing.T, db *store.DB, probe scheduler.Chann
 	scheduler.SetGlobalModelProbeScheduler(sched)
 	return func() {
 		scheduler.SetGlobalModelProbeScheduler(nil)
-		store.OverrideDB(nil)
 	}
 }
 

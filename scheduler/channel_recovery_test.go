@@ -49,7 +49,7 @@ func TestChannelRecoveryOnlyProbesCoolingChannels(t *testing.T) {
 			if _, err := db.Exec("UPDATE accounts SET status = ? WHERE id = (SELECT account_id FROM route_channels WHERE id = ?)", "disabled", inactive); err != nil {
 				t.Fatal(err)
 			}
-			s := NewChannelRecoveryScheduler(testConfig())
+			s := NewChannelRecoveryScheduler(db, testConfig())
 			candidates := s.loadCoolingCandidates(db)
 			if len(candidates) != 1 || candidates[0].channelID != cooling || candidates[0].modelName != "fixture-model" {
 				t.Fatalf("cooling candidates = %+v", candidates)
@@ -64,7 +64,7 @@ func TestChannelRecoveryOnlyProbesCoolingChannels(t *testing.T) {
 			if _, err := db.Exec("UPDATE route_channels SET cooldown_until = NULL WHERE id = ?", cooling); err != nil {
 				t.Fatal(err)
 			}
-			s = NewChannelRecoveryScheduler(testConfig())
+			s = NewChannelRecoveryScheduler(db, testConfig())
 			s.runSweepLocked(db)
 			if len(s.lastStartedAtByKey) != 0 {
 				t.Fatalf("recovery started a healthy-channel scan: %+v", s.lastStartedAtByKey)

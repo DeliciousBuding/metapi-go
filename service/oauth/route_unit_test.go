@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -15,52 +14,29 @@ import (
 // Returns a cleanup function that should be deferred.
 func setupTestDB(t *testing.T) (*store.DB, func()) {
 	t.Helper()
-
-	// Close any previously active database to reset singleton state.
-	store.CloseDatabase()
-
-	// Use EnsureRuntimeDatabase with in-memory SQLite.
-	cfg := &config.Config{DataDir: "."}
-	rt := &config.RuntimeSettings{DbType: store.DialectSQLite, DbUrl: ":memory:"}
-	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
-		t.Fatalf("failed to initialize test database: %v", err)
-	}
-
-	db := store.GetDB()
-	if db == nil {
-		t.Fatal("GetDB returned nil after EnsureRuntimeDatabase")
-	}
-
-	cleanup := func() {
-		store.CloseDatabase()
-	}
-	return db, cleanup
+	return openOAuthTestDB(t, store.DialectSQLite, ":memory:")
 }
 
 func setupPostgresRouteUnitDB(t *testing.T) (*store.DB, func()) {
 	t.Helper()
-
 	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
 	if dsn == "" {
 		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
 	}
+	return openOAuthTestDB(t, store.DialectPostgres, dsn)
+}
 
-	store.CloseDatabase()
-	cfg := &config.Config{DataDir: "."}
-	rt := &config.RuntimeSettings{DbType: store.DialectPostgres, DbUrl: dsn}
-	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
-		t.Fatalf("failed to initialize PostgreSQL test database: %v", err)
+func openOAuthTestDB(t *testing.T, dialect, dsn string) (*store.DB, func()) {
+	t.Helper()
+	db, err := store.Open(dialect, dsn, false)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	db := store.GetDB()
-	if db == nil {
-		t.Fatal("GetDB returned nil after PostgreSQL initialization")
+	if err := store.AutoMigrate(db); err != nil {
+		db.Close()
+		t.Fatal(err)
 	}
-
-	cleanup := func() {
-		store.CloseDatabase()
-	}
-	return db, cleanup
+	return db, func() { db.Close() }
 }
 
 // ---- normalizeStrategy Tests ----
@@ -153,10 +129,10 @@ func TestRouteUnitStrategyConstants(t *testing.T) {
 // ---- CreateOauthRouteUnit Tests (requires DB) ----
 
 func TestCreateOauthRouteUnit_RequiresAtLeastTwoAccounts(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{1},
 		Name:       "my-unit",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -167,10 +143,10 @@ func TestCreateOauthRouteUnit_RequiresAtLeastTwoAccounts(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_EmptyAccountList(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{},
 		Name:       "my-unit",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -181,10 +157,10 @@ func TestCreateOauthRouteUnit_EmptyAccountList(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_EmptyName(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{1, 2},
 		Name:       "",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -195,10 +171,10 @@ func TestCreateOauthRouteUnit_EmptyName(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_WhitespaceName(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{1, 2},
 		Name:       "   ",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -209,10 +185,10 @@ func TestCreateOauthRouteUnit_WhitespaceName(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_InvalidStrategy(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{1, 2},
 		Name:       "my-unit",
 		Strategy:   "invalid",
@@ -223,10 +199,10 @@ func TestCreateOauthRouteUnit_InvalidStrategy(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_AccountsNotFound(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{99999, 99998},
 		Name:       "my-unit",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -237,12 +213,12 @@ func TestCreateOauthRouteUnit_AccountsNotFound(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_DedupAccountIDs(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	// [1,1,2] deduplicates to [1,2] = 2 valid account IDs.
 	// Validation passes for count, but accounts 1 and 2 don't exist in this test DB.
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{1, 1, 2},
 		Name:       "my-unit",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -253,10 +229,10 @@ func TestCreateOauthRouteUnit_DedupAccountIDs(t *testing.T) {
 }
 
 func TestCreateOauthRouteUnit_NegativeAccountIDsFiltered(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	_, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	_, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{-1, 0, 1, 2},
 		Name:       "my-unit",
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -269,33 +245,33 @@ func TestCreateOauthRouteUnit_NegativeAccountIDsFiltered(t *testing.T) {
 // ---- UpdateOauthRouteUnit Tests (requires DB) ----
 
 func TestUpdateOauthRouteUnit_NotFound(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	name := "new-name"
-	_, err := UpdateOauthRouteUnit(99999, &name, nil)
+	_, err := UpdateOauthRouteUnit(db, 99999, &name, nil)
 	if err == nil {
 		t.Fatal("expected error for nonexistent route unit")
 	}
 }
 
 func TestUpdateOauthRouteUnit_EmptyName(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	name := ""
-	_, err := UpdateOauthRouteUnit(1, &name, nil)
+	_, err := UpdateOauthRouteUnit(db, 1, &name, nil)
 	if err == nil {
 		t.Fatal("expected error for empty name")
 	}
 }
 
 func TestUpdateOauthRouteUnit_InvalidStrategy(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	strategy := OAuthRouteUnitStrategy("bad")
-	_, err := UpdateOauthRouteUnit(1, nil, &strategy)
+	_, err := UpdateOauthRouteUnit(db, 1, nil, &strategy)
 	if err == nil {
 		t.Fatal("expected error for invalid strategy")
 	}
@@ -304,10 +280,10 @@ func TestUpdateOauthRouteUnit_InvalidStrategy(t *testing.T) {
 // ---- DeleteOauthRouteUnit Tests (requires DB) ----
 
 func TestDeleteOauthRouteUnit_NotFound(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	err := DeleteOauthRouteUnit(99999)
+	err := DeleteOauthRouteUnit(db, 99999)
 	if err == nil {
 		t.Fatal("expected error for nonexistent route unit")
 	}
@@ -345,7 +321,7 @@ func TestDeleteOauthRouteUnit_SnapshotErrorAbortsBeforeDelete(t *testing.T) {
 			accountID1 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-1")
 			accountID2 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-2")
 
-			created, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+			created, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 				AccountIDs: []int64{accountID1, accountID2},
 				Name:       "unit-" + suffix,
 				Strategy:   RouteUnitStrategyRoundRobin,
@@ -358,7 +334,7 @@ func TestDeleteOauthRouteUnit_SnapshotErrorAbortsBeforeDelete(t *testing.T) {
 				t.Fatalf("drop %s: %v", tc.dropTable, err)
 			}
 
-			err = DeleteOauthRouteUnit(created.RouteUnit.ID)
+			err = DeleteOauthRouteUnit(db, created.RouteUnit.ID)
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("DeleteOauthRouteUnit err = %v, want substring %q", err, tc.wantErr)
 			}
@@ -375,20 +351,20 @@ func TestDeleteOauthRouteUnit_SnapshotErrorAbortsBeforeDelete(t *testing.T) {
 // ---- ListOauthRouteUnitsByAccountIDs Tests (no DB / empty) ----
 
 func TestListOauthRouteUnitsByAccountIDs_EmptyInput(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	result := ListOauthRouteUnitsByAccountIDs([]int64{})
+	result := ListOauthRouteUnitsByAccountIDs(db, []int64{})
 	if result != nil {
 		t.Errorf("expected nil for empty input, got %v", result)
 	}
 }
 
 func TestListOauthRouteUnitsByAccountIDs_NoMatches(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	result := ListOauthRouteUnitsByAccountIDs([]int64{99999})
+	result := ListOauthRouteUnitsByAccountIDs(db, []int64{99999})
 	if len(result) != 0 {
 		t.Errorf("expected empty map for no matches, got %d entries", len(result))
 	}
@@ -397,10 +373,10 @@ func TestListOauthRouteUnitsByAccountIDs_NoMatches(t *testing.T) {
 // ---- ListEnabledOauthRouteUnitsWithMembers Tests (requires DB) ----
 
 func TestListEnabledOauthRouteUnitsWithMembers_NoData(t *testing.T) {
-	_, cleanup := setupTestDB(t)
+	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	result := ListEnabledOauthRouteUnitsWithMembers()
+	result := ListEnabledOauthRouteUnitsWithMembers(db)
 	if len(result) != 0 {
 		t.Errorf("expected empty list, got %d items", len(result))
 	}
@@ -436,7 +412,7 @@ func runOauthRouteUnitLifecycle(t *testing.T, db *store.DB, suffix string) {
 	accountID1 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-1")
 	accountID2 := insertRouteUnitAccount(t, db, siteID, "codex", suffix+"-2")
 
-	created, err := CreateOauthRouteUnit(CreateRouteUnitInput{
+	created, err := CreateOauthRouteUnit(db, CreateRouteUnitInput{
 		AccountIDs: []int64{accountID1, accountID2},
 		Name:       "unit-" + suffix,
 		Strategy:   RouteUnitStrategyRoundRobin,
@@ -451,7 +427,7 @@ func runOauthRouteUnitLifecycle(t *testing.T, db *store.DB, suffix string) {
 		t.Fatalf("created member count = %d, want 2", created.RouteUnit.MemberCount)
 	}
 
-	participation := ListOauthRouteUnitsByAccountIDs([]int64{accountID1, accountID2})
+	participation := ListOauthRouteUnitsByAccountIDs(db, []int64{accountID1, accountID2})
 	if len(participation) != 2 {
 		t.Fatalf("participation count = %d, want 2", len(participation))
 	}
@@ -459,7 +435,7 @@ func runOauthRouteUnitLifecycle(t *testing.T, db *store.DB, suffix string) {
 		t.Fatalf("unexpected participation for account 1: %+v", participation[accountID1])
 	}
 
-	enabled := ListEnabledOauthRouteUnitsWithMembers()
+	enabled := ListEnabledOauthRouteUnitsWithMembers(db)
 	if len(enabled) != 1 {
 		t.Fatalf("enabled route units = %d, want 1", len(enabled))
 	}
@@ -469,7 +445,7 @@ func runOauthRouteUnitLifecycle(t *testing.T, db *store.DB, suffix string) {
 
 	newName := "unit-updated-" + suffix
 	newStrategy := RouteUnitStrategyStickUntilUnavailable
-	updated, err := UpdateOauthRouteUnit(created.RouteUnit.ID, &newName, &newStrategy)
+	updated, err := UpdateOauthRouteUnit(db, created.RouteUnit.ID, &newName, &newStrategy)
 	if err != nil {
 		t.Fatalf("UpdateOauthRouteUnit: %v", err)
 	}
@@ -480,7 +456,7 @@ func runOauthRouteUnitLifecycle(t *testing.T, db *store.DB, suffix string) {
 	routeID := insertRouteUnitTokenRoute(t, db, suffix)
 	insertRouteUnitChannel(t, db, routeID, accountID1, created.RouteUnit.ID)
 
-	if err := DeleteOauthRouteUnit(created.RouteUnit.ID); err != nil {
+	if err := DeleteOauthRouteUnit(db, created.RouteUnit.ID); err != nil {
 		t.Fatalf("DeleteOauthRouteUnit: %v", err)
 	}
 

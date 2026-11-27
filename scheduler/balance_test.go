@@ -32,7 +32,7 @@ func TestBalanceScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openBalanceTestDB(t)
 	cfg := testConfig()
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(db, cfg)
 
 	// Direct call to runJobLocked — no lease acquisition, no cron wrapper.
 	// On an empty DB, RefreshAllBalances returns nil/empty and the method
@@ -40,20 +40,17 @@ func TestBalanceScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	s.runJobLocked(db)
 }
 
-// TestBalanceScheduler_runJob_WithOverrideDB exercises the full runJob flow:
-// store.GetDB lookup, context creation, lease acquisition, and runJobLocked.
-// The DB is overridden via store.OverrideDB so GetDB returns the test DB.
+// TestBalanceScheduler_runJob_WithDB exercises the full runJob flow:
+// context creation, lease acquisition, and runJobLocked.
 // On an empty DB, no HTTP calls are made and the lease is released cleanly.
-func TestBalanceScheduler_runJob_WithOverrideDB(t *testing.T) {
+func TestBalanceScheduler_runJob_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openBalanceTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(db, cfg)
 
-	// runJob calls store.GetDB() → overridden DB, acquires a local lease
+	// runJob acquires a local lease
 	// (SQLite uses process-local exclusion), then calls runJobLocked.
 	s.runJob()
 }
@@ -62,13 +59,11 @@ func TestBalanceScheduler_runJob_WithOverrideDB(t *testing.T) {
 // gracefully (logs "database not available" and returns without panic).
 func TestBalanceScheduler_runJob_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(nil, cfg)
 
-	// Should not panic when GetDB returns nil.
+	// Should not panic with a nil database.
 	s.runJob()
 }
 
@@ -79,7 +74,7 @@ func TestBalanceScheduler_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
 	// Midnight daily — won't fire during the test.
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
-	s := NewBalanceScheduler(cfg)
+	s := NewBalanceScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -101,7 +96,7 @@ func TestBalanceScheduler_StartStop_Lifecycle(t *testing.T) {
 func TestBalanceScheduler_UpdateCron_InvalidAndValid(t *testing.T) {
 	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 0 0 * * *"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	s := NewBalanceScheduler(&config.Config{})
+	s := NewBalanceScheduler(nil, &config.Config{})
 
 	if err := s.UpdateCron("not-a-cron"); err == nil {
 		t.Error("expected error for invalid cron expression")

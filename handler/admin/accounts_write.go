@@ -217,20 +217,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	// normalization as the dedicated PUT /api/accounts/{id}/tags endpoint
 	// (trim + dedupe + drop empties).
 	if body.Tags != nil {
-		seen := make(map[string]struct{}, len(*body.Tags))
-		normalizedTags := make([]string, 0, len(*body.Tags))
-		for _, tag := range *body.Tags {
-			tag = strings.TrimSpace(tag)
-			if tag == "" {
-				continue
-			}
-			if _, duplicate := seen[tag]; duplicate {
-				continue
-			}
-			seen[tag] = struct{}{}
-			normalizedTags = append(normalizedTags, tag)
-		}
-		updates["tags"] = encodeTagsJSON(normalizedTags)
+		updates["tags"] = store.EncodeTags(store.NormalizeTags(*body.Tags))
 	}
 	// Remark is a free-form human-readable note. An empty/whitespace string
 	// clears the column (NULL); otherwise the trimmed value is persisted.
@@ -405,7 +392,7 @@ func (h *accountsHandler) deleteAccount(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to delete account"})
 		return
 	}
-	service.RebuildRoutesBestEffort()
+	service.RebuildRoutesBestEffort(h.db)
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -497,7 +484,7 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if shouldRebuildRoutes {
-		service.RebuildRoutesBestEffort()
+		service.RebuildRoutesBestEffort(h.db)
 	} else if shouldInvalidateRoutes {
 		routing.InvalidateCache()
 	}

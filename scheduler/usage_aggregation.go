@@ -28,6 +28,7 @@ const (
 // site_day_usage, site_hour_usage, and model_day_usage tables.
 // Uses a database lease for multi-instance safety.
 type UsageAggregationScheduler struct {
+	db                 *store.DB
 	cfg                *config.Config
 	mu                 sync.Mutex
 	projectionInFlight bool
@@ -35,8 +36,8 @@ type UsageAggregationScheduler struct {
 }
 
 // NewUsageAggregationScheduler creates a new usage aggregation scheduler.
-func NewUsageAggregationScheduler(cfg *config.Config) *UsageAggregationScheduler {
-	return &UsageAggregationScheduler{cfg: cfg, runner: &intervalRunner{}}
+func NewUsageAggregationScheduler(db *store.DB, cfg *config.Config) *UsageAggregationScheduler {
+	return &UsageAggregationScheduler{db: db, cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *UsageAggregationScheduler) Name() string { return "usage-aggregation" }
@@ -101,7 +102,7 @@ func (s *UsageAggregationScheduler) runPass(ctx context.Context) *ProjectionPass
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return nil
 	}
@@ -791,7 +792,7 @@ func (s *UsageAggregationScheduler) applyRecompute(ctx context.Context, dbw *sto
 // When a recompute is already pending, the earlier (smaller) log id is kept so the
 // rewind window is never silently reduced.
 func (s *UsageAggregationScheduler) RequestRecompute(fromLogID int64) {
-	dbw := store.GetDB()
+	dbw := s.db
 	if dbw == nil {
 		return
 	}

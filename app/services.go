@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/deliciousbuding/metapi-go/store"
+
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
@@ -24,11 +26,11 @@ var (
 )
 
 // StartBackgroundServices creates and starts all 18 background schedulers.
-func StartBackgroundServices() {
+func StartBackgroundServices(db *store.DB) {
 	slog.Info("starting background schedulers")
 
 	cfg := config.Get()
-	newRegistry, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(cfg)
+	newRegistry, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(db, cfg)
 
 	// Start all
 	newRegistry.StartAll(context.Background())
@@ -52,7 +54,7 @@ func StartBackgroundServices() {
 // buildSchedulers constructs and registers every background scheduler without
 // starting them, so registration coverage can be asserted independently of the
 // runtime side effects of StartAll.
-func buildSchedulers(cfg *config.Config) (
+func buildSchedulers(db *store.DB, cfg *config.Config) (
 	*scheduler.Registry,
 	*scheduler.CheckinScheduler,
 	*scheduler.BalanceScheduler,
@@ -63,58 +65,58 @@ func buildSchedulers(cfg *config.Config) (
 	newRegistry := scheduler.NewRegistry()
 
 	// ---- Usage Aggregation ----
-	usageAgg := scheduler.NewUsageAggregationScheduler(cfg)
+	usageAgg := scheduler.NewUsageAggregationScheduler(db, cfg)
 	newRegistry.Register(usageAgg)
 
 	// ---- Scheduler 1: Checkin ----
-	checkin := scheduler.NewCheckinScheduler(cfg)
+	checkin := scheduler.NewCheckinScheduler(db, cfg)
 	newRegistry.Register(checkin)
 
 	// ---- Scheduler 2: Balance Refresh ----
-	balance := scheduler.NewBalanceScheduler(cfg)
+	balance := scheduler.NewBalanceScheduler(db, cfg)
 	newRegistry.Register(balance)
 
 	// ---- Scheduler 2b: Model Sync (#1005) ----
 	// Periodic upstream model-list refresh; cron from MODEL_SYNC_CRON or the
 	// model_sync_cron DB setting.
-	modelSync := scheduler.NewModelSyncScheduler()
+	modelSync := scheduler.NewModelSyncScheduler(db)
 	newRegistry.Register(modelSync)
 
 	// ---- Scheduler 3: Daily Summary ----
-	newRegistry.Register(scheduler.NewDailySummaryScheduler())
+	newRegistry.Register(scheduler.NewDailySummaryScheduler(db))
 
 	// ---- Scheduler 4: Log Cleanup ----
-	logCleanup := scheduler.NewLogCleanupScheduler(cfg)
+	logCleanup := scheduler.NewLogCleanupScheduler(db, cfg)
 	newRegistry.Register(logCleanup)
 
 	// ---- Scheduler 5: Backup WebDAV ----
-	webdav := scheduler.NewBackupWebdavScheduler(cfg)
+	webdav := scheduler.NewBackupWebdavScheduler(db, cfg)
 	newRegistry.Register(webdav)
 
 	// ---- Scheduler 6: Site Announcements ----
-	newRegistry.Register(scheduler.NewSiteAnnouncementScheduler(cfg))
+	newRegistry.Register(scheduler.NewSiteAnnouncementScheduler(db, cfg))
 
 	// ---- Scheduler 7: Model Probe ----
 	// Inject live ChannelHealthProbe + TokenRouter health recorder when the
 	// proxy upstream router is already configured.
-	modelProbe := scheduler.NewModelProbeScheduler(cfg)
+	modelProbe := scheduler.NewModelProbeScheduler(db, cfg)
 	WireModelProbeScheduler(modelProbe)
 	newRegistry.Register(modelProbe)
 
 	// ---- Scheduler 8: Channel Recovery ----
-	newRegistry.Register(scheduler.NewChannelRecoveryScheduler(cfg))
+	newRegistry.Register(scheduler.NewChannelRecoveryScheduler(db, cfg))
 
 	// ---- Scheduler 9: Sub2API Refresh ----
-	newRegistry.Register(scheduler.NewSub2APIRefreshScheduler(cfg))
+	newRegistry.Register(scheduler.NewSub2APIRefreshScheduler(db, cfg))
 
 	// ---- Scheduler 13b: Proxy Video Task Retention ----
-	newRegistry.Register(scheduler.NewProxyVideoTaskRetentionScheduler(cfg))
+	newRegistry.Register(scheduler.NewProxyVideoTaskRetentionScheduler(db, cfg))
 
 	// ---- Scheduler 13c: Admin Background Task Retention ----
 	// Prunes terminal admin_background_tasks rows older than 30 days so the
 	// table (queried via ORDER BY created_at DESC LIMIT on every /api/tasks
 	// list) cannot grow unboundedly.
-	newRegistry.Register(scheduler.NewAdminBackgroundTaskRetentionScheduler(cfg))
+	newRegistry.Register(scheduler.NewAdminBackgroundTaskRetentionScheduler(db, cfg))
 
 	// ---- Scheduler 13d: Model Probe Result Retention ----
 	// model_probe_results is the highest-volume table once probing is on (one
@@ -123,13 +125,13 @@ func buildSchedulers(cfg *config.Config) (
 	// reads the latest per (account_id, model_name), the history endpoint the
 	// latest N per channel/account — so the job prunes on age and exempts the
 	// latest-per-pair row outright.
-	newRegistry.Register(scheduler.NewModelProbeResultRetentionScheduler(cfg))
+	newRegistry.Register(scheduler.NewModelProbeResultRetentionScheduler(db, cfg))
 
 	// ---- Scheduler 14: Proxy Log Retention (legacy fallback) ----
-	newRegistry.Register(scheduler.NewProxyLogRetentionScheduler(cfg))
+	newRegistry.Register(scheduler.NewProxyLogRetentionScheduler(db, cfg))
 
 	// ---- Scheduler 15: OAuth Token Refresh ----
-	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(cfg))
+	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(db, cfg))
 
 	return newRegistry, checkin, balance, modelSync, logCleanup, webdav
 }

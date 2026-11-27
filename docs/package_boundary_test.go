@@ -54,8 +54,7 @@ import (
 //   - handler/* → platform (thin admin/verify actions)
 //   - handler/proxy → transform/* (one-way protocol wiring)
 //   - auth → internal/sharedcount
-//   - file-scoped legacy exceptions in legacyBoundaryExceptions (ratcheted:
-//     each entry must remain live; removing an edge requires deleting its entry)
+// There are zero file-scoped legacy cross-layer exceptions.
 
 // When this test fails: do NOT relax it. Either move the import to an
 // allowed edge, or document a new exception in docs/architecture.md + this
@@ -85,21 +84,9 @@ var storeAllowedInternalImports = map[string]string{
 	"internal/routecondition":         "persisted direct association condition AST",
 }
 
-type legacyEdgeKey struct {
-	file string
-	imp  string
-}
-
-// legacyBoundaryExceptions freezes pre-existing cross-layer edges so they
-// cannot grow. Every entry is checked for staleness: once refactored away, the
-// gate fails until the obsolete exemption is deleted here.
-var legacyBoundaryExceptions = map[legacyEdgeKey]string{
-	{file: "service/settingsmigration/service.go", imp: modulePath + "/scheduler"}: "uses scheduler.ScheduleSpec/CronToSchedule until schedule spec lives in a shared leaf",
-}
-
 func TestPackageBoundaries(t *testing.T) {
 	root := repoRoot(t)
-	violations, scanned, matchedLegacy, matchedStoreInternal, err := scanBoundaryViolations(root)
+	violations, scanned, matchedStoreInternal, err := scanBoundaryViolations(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +101,6 @@ func TestPackageBoundaries(t *testing.T) {
 			"The layout moved without updating ownerPackage/boundaryGroups in this file.", missing)
 	}
 	var stale []string
-	for key := range legacyBoundaryExceptions {
-		if !matchedLegacy[key] {
-			stale = append(stale, fmt.Sprintf("legacy exception %s -> %s", key.file, key.imp))
-		}
-	}
 	for imp := range storeAllowedInternalImports {
 		if !matchedStoreInternal[imp] {
 			stale = append(stale, fmt.Sprintf("store internal allowlist entry %s", imp))
@@ -440,10 +422,9 @@ func forbiddenImport(pkg, imp string) string {
 	return ""
 }
 
-func scanBoundaryViolations(root string) ([]violation, map[string]int, map[legacyEdgeKey]bool, map[string]bool, error) {
+func scanBoundaryViolations(root string) ([]violation, map[string]int, map[string]bool, error) {
 	var out []violation
 	scanned := map[string]int{}
-	matchedLegacy := map[legacyEdgeKey]bool{}
 	matchedStoreInternal := map[string]bool{}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -506,11 +487,6 @@ func scanBoundaryViolations(root string) ([]violation, map[string]int, map[legac
 				}
 			}
 			if rule := forbiddenImport(pkg, ipath); rule != "" {
-				key := legacyEdgeKey{file: relFile, imp: ipath}
-				if _, ok := legacyBoundaryExceptions[key]; ok {
-					matchedLegacy[key] = true
-					continue
-				}
 				out = append(out, violation{
 					pkg:  pkg,
 					file: relFile,
@@ -521,7 +497,7 @@ func scanBoundaryViolations(root string) ([]violation, map[string]int, map[legac
 		}
 		return nil
 	})
-	return out, scanned, matchedLegacy, matchedStoreInternal, err
+	return out, scanned, matchedStoreInternal, err
 }
 
 func TestPackageBoundaryScanIgnoresLocalDrafts(t *testing.T) {
@@ -535,7 +511,7 @@ func TestPackageBoundaryScanIgnoresLocalDrafts(t *testing.T) {
 			if err := os.WriteFile(path, []byte("package draft\nimport _ \"testing\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			violations, scanned, _, _, err := scanBoundaryViolations(root)
+			violations, scanned, _, err := scanBoundaryViolations(root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -597,7 +573,7 @@ func TestPackageBoundaryScanHandlesRawStringImportsAndSubpackages(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
-	violations, _, _, _, err := scanBoundaryViolations(root)
+	violations, _, _, err := scanBoundaryViolations(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -615,7 +591,7 @@ func TestPackageBoundaryScanFailsOnMalformedSource(t *testing.T) {
 	if err := os.WriteFile(badPath, []byte("package store\nimport (\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, _, err := scanBoundaryViolations(root); err == nil {
+	if _, _, _, err := scanBoundaryViolations(root); err == nil {
 		t.Fatal("expected parse error for malformed Go source, got nil")
 	}
 }

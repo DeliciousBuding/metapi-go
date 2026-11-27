@@ -65,7 +65,7 @@ func TestSub2APIRefreshScheduler_runPassLocked_EmptyDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openSub2APITestDB(t)
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(db, cfg)
 
 	// On an empty DB, the query returns no rows and the pass completes
 	// without calling balance.RefreshBalance (no HTTP calls).
@@ -82,7 +82,7 @@ func TestSub2APIRefreshScheduler_runPassLocked_NonSub2APISite(t *testing.T) {
 	insertSub2APITestAccount(t, db, siteID, "user1", "active")
 
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(db, cfg)
 
 	// The account is on a new-api site, not sub2api — the query filters it out.
 	s.runPassLocked(db)
@@ -100,7 +100,7 @@ func TestSub2APIRefreshScheduler_runPassLocked_Sub2APIAccountNotEligible(t *test
 	insertSub2APITestAccount(t, db, siteID, "sub2api-user", "active")
 
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(db, cfg)
 
 	// The account is on a sub2api site and active, so it is scanned.
 	// But extra_config is NULL, so isSub2APIRefreshCandidate returns false
@@ -108,17 +108,15 @@ func TestSub2APIRefreshScheduler_runPassLocked_Sub2APIAccountNotEligible(t *test
 	s.runPassLocked(db)
 }
 
-// TestSub2APIRefreshScheduler_runPass_WithOverrideDB exercises the full
-// runPass flow: inFlight guard, store.GetDB lookup, context creation, lease
+// TestSub2APIRefreshScheduler_runPass_WithDB exercises the full
+// runPass flow: inFlight guard, context creation, lease
 // acquisition, and runPassLocked.
-func TestSub2APIRefreshScheduler_runPass_WithOverrideDB(t *testing.T) {
+func TestSub2APIRefreshScheduler_runPass_WithDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openSub2APITestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(db, cfg)
 
 	s.runPass()
 
@@ -135,11 +133,9 @@ func TestSub2APIRefreshScheduler_runPass_WithOverrideDB(t *testing.T) {
 // nil DB gracefully (returns without panic).
 func TestSub2APIRefreshScheduler_runPass_NilDB(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(nil, cfg)
 
 	s.runPass()
 }
@@ -149,11 +145,9 @@ func TestSub2APIRefreshScheduler_runPass_NilDB(t *testing.T) {
 // registering the defer that resets the flag.
 func TestSub2APIRefreshScheduler_runPass_InFlightGuard(t *testing.T) {
 	ResetLeasePressureForTest()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(nil, cfg)
 
 	s.mu.Lock()
 	s.passInFlight = true
@@ -192,7 +186,7 @@ func TestIsSub2APIRefreshCandidate_NilAndEmpty(t *testing.T) {
 // runner wrapper.
 func TestSub2APIRefreshScheduler_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
-	s := NewSub2APIRefreshScheduler(cfg)
+	s := NewSub2APIRefreshScheduler(nil, cfg)
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
