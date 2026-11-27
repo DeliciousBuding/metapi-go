@@ -35,7 +35,7 @@
     "typecheck": "tsgo -b",
     "check": "bun run check:static && bun run test",
     "check:static": "bun run typecheck && bun run lint && bun run format:check && bun run knip",
-    "lint": "oxlint -c .oxlintrc.json . && bun run check:boundaries && bun run check:form-control",
+    "lint": "oxlint --deny-warnings -c .oxlintrc.json . && bun run check:boundaries && bun run check:form-control",
     "lint:fix": "oxlint -c .oxlintrc.json . --fix",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

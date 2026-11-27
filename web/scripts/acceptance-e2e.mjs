@@ -1096,11 +1096,12 @@ async function journeyRouteChannel(context) {
             channel?.account?.accessTokenMasked ||
             channel?.account?.apiTokenMasked
           )
-          const expected = channel?.tokenId
-            ? `Token #${channel.tokenId}`
-            : hasAccountCredential
-              ? 'Account credential'
-              : 'No credential'
+          let expected = 'No credential'
+          if (channel?.tokenId) {
+            expected = `Token #${channel.tokenId}`
+          } else if (hasAccountCredential) {
+            expected = 'Account credential'
+          }
           if (!text.includes(expected)) {
             throw new Error(
               `channel ${channel?.id} should read "${expected}" in the sheet`
