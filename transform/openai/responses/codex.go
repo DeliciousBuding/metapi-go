@@ -114,7 +114,7 @@ func (c *CodexResponseCollector) AddData(raw []byte) error {
 		var status string
 		_ = json.Unmarshal(response["status"], &status)
 		validTerminal := event.Type == "response.completed" && status == "completed"
-		if c.AllowIncomplete && event.Type == "response.incomplete" && status == "incomplete" {
+		if c.AllowIncomplete && status == "incomplete" {
 			var details struct{ Reason string }
 			if json.Unmarshal(response["incomplete_details"], &details) == nil {
 				validTerminal = details.Reason == "max_output_tokens" || details.Reason == "content_filter"

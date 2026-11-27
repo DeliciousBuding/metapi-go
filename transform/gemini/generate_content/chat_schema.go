@@ -134,7 +134,7 @@ func chatResponseFormat(value any, body []byte) (map[string]any, error) {
 		if legacy, ok := gc["responseSchema"].(map[string]any); ok {
 			preserveLegacyPropertyOrder(legacy, raw)
 			if description := definition["description"]; description != nil {
-				var fields map[string]any
+				var fields map[string]json.RawMessage
 				_ = json.Unmarshal(raw, &fields)
 				legacy["description"] = fields["description"]
 			}

@@ -95,6 +95,10 @@ func bridgeReasoningText(item bridgeObject) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if summary != "" && item["content"] == extractReasoningSummaryText(item["summary"]) {
+		// Native sanitization renders multiple summary parts on separate lines.
+		return summary, nil
+	}
 	if summary != "" && content != "" && summary != content {
 		return "", fmt.Errorf("Responses/Chat bridge: distinct reasoning summary and content cannot be represented")
 	}

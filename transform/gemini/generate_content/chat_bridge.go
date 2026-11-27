@@ -320,8 +320,7 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 	}
 	var system []string
 	var normalized []any
-	arguments := map[string]map[string]any{}
-	results := map[string]map[string]any{}
+	callIDs := map[string]bool{}
 	for _, raw := range msgs {
 		m, ok := raw.(map[string]any)
 		if !ok {
@@ -351,7 +350,7 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 			if err != nil {
 				obj = map[string]any{"result": text}
 			}
-			results[id] = obj
+			m["content"] = obj
 		}
 		if blocks, ok := m["content"].([]any); ok {
 			for _, raw := range blocks {
@@ -385,15 +384,14 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 					return nil, fmt.Errorf("invalid Chat function")
 				}
 				args, _ := fn["arguments"].(string)
-				parsed, err := bridgeObject([]byte(args))
-				if err != nil {
+				if !strings.HasPrefix(strings.TrimSpace(args), "{") || !json.Valid([]byte(args)) {
 					return nil, fmt.Errorf("Chat tool arguments must be a JSON object")
 				}
 				id, _ := call["id"].(string)
-				if id == "" || arguments[id] != nil {
+				if id == "" || callIDs[id] {
 					return nil, fmt.Errorf("Chat tool identity missing or duplicate")
 				}
-				arguments[id] = parsed
+				callIDs[id] = true
 			}
 		}
 	}
@@ -447,26 +445,6 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 		}
 		for key, value := range formatConfig {
 			gc[key] = value
-		}
-	}
-	// Preserve JSON integer arguments and object tool results across the legacy builder.
-	if contents, ok := out["contents"].([]map[string]any); ok {
-		for _, content := range contents {
-			parts, _ := content["parts"].([]map[string]any)
-			for _, part := range parts {
-				if fc, ok := part["functionCall"].(map[string]any); ok {
-					id, _ := fc["id"].(string)
-					if args := arguments[id]; args != nil {
-						fc["args"] = args
-					}
-				}
-				if fr, ok := part["functionResponse"].(map[string]any); ok {
-					id, _ := fr["id"].(string)
-					if result := results[id]; result != nil {
-						fr["response"] = result
-					}
-				}
-			}
 		}
 	}
 	if choice, ok := in["tool_choice"].(map[string]any); ok {

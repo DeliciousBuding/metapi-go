@@ -1,6 +1,7 @@
 package generate_content
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/transform/shared"
@@ -214,7 +215,7 @@ func BuildGeminiGenerateContentRequestFromOpenAi(openaiBody map[string]any, mode
 				if name == "" {
 					continue
 				}
-				args := shared.ParseJSONLike(shared.AsTrimmedString(fn["arguments"]))
+				args := parseToolArguments(shared.AsTrimmedString(fn["arguments"]))
 				fcPart := map[string]any{
 					"functionCall": map[string]any{
 						"name": name,
@@ -331,6 +332,20 @@ func BuildGeminiGenerateContentRequestFromOpenAi(openaiBody map[string]any, mode
 	}
 
 	return body
+}
+
+// Preserve exact JSON numbers and the compatibility builder's fallback for free-form arguments.
+func parseToolArguments(raw string) any {
+	if raw == "" {
+		return map[string]any{}
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if !json.Valid([]byte(raw)) || decoder.Decode(&value) != nil {
+		return map[string]any{"value": raw}
+	}
+	return value
 }
 
 // --- Thought signature helpers ---

@@ -21,6 +21,7 @@ type bridgePart struct {
 }
 type bridgeItem struct {
 	id, callID, name, kind string
+	callReasoning          string
 	arguments              strings.Builder
 	parts                  []*bridgePart
 	started, done          bool

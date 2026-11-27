@@ -401,3 +401,80 @@ func TestResponsesBridgeRejectsFalseTerminal(t *testing.T) {
 		})
 	}
 }
+
+func TestResponsesCreatedAtWire(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"1730000000.0", "1730000000"},
+		{"1.73e9", "1730000000"},
+		{"9007199254740993.00", "9007199254740993"},
+		{"-9223372036854775808.0", "-9223372036854775808"},
+		{"1.00000000000000001", ""},
+		{"9223372036854775808.0", ""},
+		{"1e10000000", ""},
+		{`"1730000000"`, ""},
+	} {
+		t.Run(tc.in, func(t *testing.T) {
+			frames := bridgeResponsesFixture(t)
+			src := bridgeMap(frames[len(frames)-1]["response"])
+			src["created_at"] = json.RawMessage(tc.in)
+			body, err := ToChatResponse(bridgeTestJSON(t, src))
+			stream := NewResponsesStream("m")
+			bridgeMap(frames[0]["response"])["created_at"] = json.RawMessage(tc.in)
+			frame, streamErr := stream.TransformEvent(bridgeTestFrame(t, frames[0]))
+			if tc.want == "" {
+				if err == nil || streamErr == nil {
+					t.Fatalf("invalid time accepted: %s %s", body, frame)
+				}
+				return
+			}
+			if err != nil || streamErr != nil {
+				t.Fatalf("time conversion: %v %v", err, streamErr)
+			}
+			for _, obj := range []bridgeObject{bridgeTestObject(t, body), bridgeTestFrames(t, frame)[0]} {
+				if obj["created"] != json.Number(tc.want) {
+					t.Errorf("created = %#v, want integer %s", obj["created"], tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestResponsesWrappedTerminalStatus(t *testing.T) {
+	for _, tc := range []struct{ event, status, reason, want string }{
+		{"completed", "incomplete", "content_filter", "content_filter"},
+		{"completed", "incomplete", "max_output_tokens", "length"},
+		{"incomplete", "incomplete", "content_filter", "content_filter"},
+		{"completed", "failed", "", ""},
+		{"incomplete", "completed", "", ""},
+	} {
+		t.Run(tc.event+"/"+tc.status+"/"+tc.reason, func(t *testing.T) {
+			frames := bridgeResponsesFixture(t)
+			terminal := frames[len(frames)-1]
+			terminal["type"] = "response." + tc.event
+			src := bridgeMap(terminal["response"])
+			src["status"] = tc.status
+			src["incomplete_details"] = bridgeObject{"reason": tc.reason}
+			stream := NewResponsesStream("m")
+			var tail []byte
+			var err error
+			for _, frame := range frames {
+				tail, err = stream.TransformEvent(bridgeTestFrame(t, frame))
+				if err != nil {
+					break
+				}
+			}
+			if tc.want == "" {
+				if err == nil || len(tail) != 0 {
+					t.Fatalf("false terminal: %s %v", tail, err)
+				}
+				return
+			}
+			body, bodyErr := ToChatResponse(bridgeTestJSON(t, src))
+			for _, wire := range [][]byte{body, tail} {
+				if !bytes.Contains(wire, []byte(`"finish_reason":"`+tc.want+`"`)) {
+					t.Fatalf("finish_reason: %s, errors %v %v", wire, err, bodyErr)
+				}
+			}
+		})
+	}
+}

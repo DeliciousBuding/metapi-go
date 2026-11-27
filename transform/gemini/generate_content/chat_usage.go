@@ -69,7 +69,11 @@ func geminiUsage(meta map[string]any) (map[string]any, error) {
 			return nil, err
 		}
 	}
-	return map[string]any{"prompt_tokens": c[0], "completion_tokens": completion, "total_tokens": total, "prompt_tokens_details": map[string]any{"cached_tokens": c[3]}, "completion_tokens_details": map[string]any{"reasoning_tokens": c[2]}}, nil
+	usage := map[string]any{"prompt_tokens": c[0], "completion_tokens": completion, "total_tokens": total, "completion_tokens_details": map[string]any{"reasoning_tokens": c[2]}}
+	if meta["cachedContentTokenCount"] != nil {
+		usage["prompt_tokens_details"] = map[string]any{"cached_tokens": c[3]}
+	}
+	return usage, nil
 }
 
 func chatUsage(usage map[string]any) (map[string]any, error) {
@@ -86,5 +90,17 @@ func chatUsage(usage map[string]any) (map[string]any, error) {
 			return nil, err
 		}
 	}
-	return map[string]any{"promptTokenCount": c[0], "candidatesTokenCount": max(c[1]-c[2], 0), "thoughtsTokenCount": c[2], "totalTokenCount": total, "cachedContentTokenCount": c[3]}, nil
+	meta := map[string]any{"promptTokenCount": c[0], "candidatesTokenCount": max(c[1]-c[2], 0), "thoughtsTokenCount": c[2], "totalTokenCount": total}
+	cached := c[3]
+	if cached == 0 {
+		inputDetails, _ := usage["input_tokens_details"].(map[string]any)
+		cached, err = tokenCount(inputDetails["cached_tokens"])
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cached > 0 {
+		meta["cachedContentTokenCount"] = cached
+	}
+	return meta, nil
 }
