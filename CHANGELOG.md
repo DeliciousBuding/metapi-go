@@ -21,66 +21,56 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
-- 页头与移动侧栏共用单一外观入口，设置精简为浅色、深色、跟随系统和显示大小；统一配色、字体、圆角及自动内容宽度，保留已保存的模式与字号。移除多轴主题状态、配色覆盖和仅供主题选择使用的衬线字体依赖。
+## [v0.29.0] — 2026-11-28
 
-- 视频 provider：可显式声明 `deleteTask` / `remix`，复用原任务程序、授权与累计用量；删除保留原生 204，remix 创建独立任务且写操作不重放。回退前处理含新 hook 的模块及持久任务（#1589）。
+### 安全
 
-- 升级开发和 CI 工具链至 Go 1.27、Bun 1.4、Node 26 LTS 与 golangci-lint v2，统一构建镜像和配置 schema，保留完整检查及既有例外。
-
-- 渠道图片 provider：逐槽显式 `imageTasks.stream` 支持生成/编辑 SSE 预览与完成，复用原请求取消/用量/网络边界；旧模块不自动启用，回退前需替换含新声明的模块（#1589）。
-
-- 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅在线回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与遗留捕获使用显式停机维护，见插件合同（#1589）。
-
-- 渠道插件增加历史任务程序索引与精确源码恢复入口：缺失档案按原指纹恢复，保留当前渠道权限，不以最新版替代旧媒体任务程序。
-
-- 渠道新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 的自定义路径与 raw URL 按源构造合同导入，不借用生成协议权限。
-- 模型目录刷新：OAuth 凭据与转发共用当前状态解析和刷新，预览后应用复用有效 token；拒绝或撤权后不再尝试旧缓存 token，发现的新模型仍不自动授予访问权。
-- OAuth 刷新：同一签发方/client 的账号与 direct 副本共享持久消费保护；`credential_refresh_families` / `credential_refresh_aliases` 随备份迁移保留。结果未知或退休 token 需重新授权，不重新兑换；回退旧版须先停用 OAuth 并换新凭据（#1589）。
+- 媒体下载与目录鉴权：拦截媒体下载中的 SSRF 风险与无认证目录请求头泄漏，收紧视频任务归属校验，阻止普通用户绕过配额限制（#1627）。
 
 ### 修复
 
+- 代理转发与计费：上游已执行或 WebSocket 已写出后不再跨渠道重放；保留原生 Responses `response.incomplete`、64 位大整数与 Gemini 模态明细；修正显式零价目录计费、超长 SSE 帧后用量保留与 OAuth 成员归因（#1632）。
+- Direct 跨协议与流式生命周期：修正跨协议超时预算、客户端取消早退、异常响应导致的预算冻结与压缩流竞争（#1629）。
+- OAuth 配额与凭据状态：修复配额刷新覆盖并发更新凭据、并发重绑回滚、跨库备份及刷新族状态机边界（#1628）。
 - 对话重试：正数 `PROXY_FIRST_BYTE_TIMEOUT_SEC` 超时后不再反复等待完整首包窗口；快速 401 不消耗备用窗口，耗尽后保留真实上游错误。请求原因保留首个失败的安全分类（#1562）。
-
 - 前端交互：输入法组词按回车保留草稿文本，并为模型移除和表格滚动补充键盘无障碍支持。
 - 前端动效：取消表格行进入延迟，并将减弱动态效果收口至各组件自身处理。
 - 构建运行时：升级 Go 1.27.4，修复 HTTP/1 请求体限制与响应头并发导致的崩溃（GO-2026-6859）。
 - 关于页：许可证显示为仓库声明的 `AGPL-3.0-only`。
-
 - OAuth 派发：HTTP/WS 在凭据解析后重验当前授权，兑换期间撤权、来源/端点或请求配置变化不使用旧准入派发；拒绝不追加上游尝试或重复预算准入（#1589）。
-
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。
 - AxonHub 导入：有效条件关联按请求筛选候选并保留源优先级与协议边界；Responses WS 的原生尝试与 HTTP 回退共用每 turn 的条件上下文；缺少请求上下文的解释标为未评估，重新导入保留同一成员身份（#1561）。
-
 - OAuth 账户：刷新后仍能读取规范化存储的 refresh token、到期时间与会话状态，连续刷新可使用轮换后的凭据，账户身份继续以独立列为准。
 - 客户端接入：管理员配置与检查共用所选客户端和公共模型，切换后清理旧结果；个人模型页创建 Key 后保留同模型的接入说明，一次性密钥仅留当前对话框（#1568）。
 
 ### 变更
 
+- `proxy_logs.conversion_details` 与 `proxy_logs.stream_timing`：自动新增可空列并随跨库迁移保留；`/api/stats/requests/:id` 与 `/api/stats/proxy-logs/:id` 返回分段流式测速、协议桥接轨迹及分层缓存与托管工具计费明细（#1632）。
+- 可观测接口：新增 `GET /api/stats/flow` 聚合流量流向；`/api/monitor/health`、`/api/stats/overview` 与 `/api/stats/slow-requests` 补齐站点名、冷却原因、首字节延迟与 24h 样本（#1632）。
+- `POST /api/admin/test-channel`：探针响应补齐 `basis`、`firstByteLatencyMs` 与 `upstreamReportedModel` 诊断字段（#1632）。
+- 控制台：日志详情新增分段流式瀑布、桥接轨迹、分层计费、键盘翻页与一键复现；可观测页新增流量流向图与静默刷新；渠道页新增内联探针、四协议可达性矩阵与静态插件清单预览；多页面统一双通道状态徽章并收紧密度（#1632）。
+- 外观设置：页头与移动侧栏共用单一外观入口，设置精简为浅色、深色、跟随系统和显示大小；统一配色、字体、圆角及自动内容宽度，保留已保存的模式与字号，移除多轴主题覆盖与衬线字体依赖（#1611）。
+- 视频 provider：可显式声明 `deleteTask` / `remix`，复用原任务程序、授权与累计用量；删除保留原生 204，remix 创建独立任务且写操作不重放。回退前处理含新 hook 的模块及持久任务（#1589）。
+- 渠道图片 provider：逐槽显式 `imageTasks.stream` 支持生成/编辑 SSE 预览与完成，复用原请求取消/用量/网络边界；旧模块不自动启用，回退前需替换含新声明的模块（#1589）。
+- 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅在线回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与遗留捕获使用显式停机维护，见插件合同（#1589）。
+- 渠道插件档案恢复：增加历史任务程序索引与精确源码恢复入口，缺失档案按原指纹恢复并保留当前渠道权限，不以最新版替代旧媒体任务程序。
+- 渠道 Decisions：新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 按源构造合同导入，不借用生成协议权限。
+- 模型目录刷新：OAuth 凭据与转发共用当前状态解析和刷新，预览后应用复用有效 token；拒绝或撤权后不再尝试旧缓存 token，发现的新模型仍不自动授予访问权。
+- OAuth 刷新：同一签发方/client 的账号与 direct 副本共享持久消费保护；`credential_refresh_families` / `credential_refresh_aliases` 随备份迁移保留。结果未知或退休 token 需重新授权，不重新兑换；回退旧版须先停用 OAuth 并换新凭据（#1589）。
 - 代理设置：移除没有 session 租约或队列执行机制的并发/等待编辑项，保留 API、环境变量与已存值兼容。模型测试场明确为“渠道诊断”，保留原地址、对比工具与深链接，并区分管理审计和普通调用账本。
-
 - 使用日志：按模型请求展示结果、用量与费用，协议/接口移入详情；普通 API 访问与管理操作进入审计日志，模型完成率排除普通访问。
-
-- 依赖：更新 RelayKit 协议转换、pgx 数据库驱动及 JSON/SQLite 修复，保留新增 moego 依赖的 MIT notice；构建链同步更新 Node 安装、registry 登录和 cosign 工具。
-
+- 依赖：升级 RelayKit 至 v0.3.8，同步更新 pgx 数据库驱动与 JSON/SQLite 修复，保留新增 moego 依赖的 MIT notice（#1612、#1626）。
 - 渠道 provider：四个图片槽可显式声明异步 submit/query/taskResult，分别保存查询模板与认证；单次提交不重放，逐次复核当前权限并保留原始累计用量。URL/base64/data URI 复用无凭据媒体下载，流式门面明确拒绝；回退前替换模块与查询配置（#1589）。
 - 渠道 provider：新增自定义 Key 头与 HS256 JWT 宿主认证声明，密钥不进入 JS，显式 none 与 CDN 保持无凭据。转发材料非法时派发前返回 503，目录返回 400；回退前需替换模块并处理其持久任务（#1589）。
-
 - 渠道 provider：接通其余原生同步 JSON 与图片/音频 multipart，按已选端点槽绑定共享路径；非 JSON 音频/字幕原样转发，不执行 JS 解码。原始用量及错误仍优先，异步媒体不隐式借内置 profile 轮询（#1589）。
-
 - 渠道 provider：三个视频槽可显式启用 multipart；插件只接收字段/文件引用，宿主编码并保留文件限制。旧模块仍仅 JSON，未声明格式返回 415；回退前须替换声明 `requestKinds` 的模块（#1589）。
-
 - 渠道 provider：接入视频 JSON 提交、查询与内容 hooks，持久任务升级后恢复原程序；原始任务用量在解码失败时仍计累计差额，CDN 下载隔离渠道凭据并固定公网 IP。multipart 尚未接入，回退限制见插件合同（#1589）。
 - 渠道 provider：接入现有 Ollama 匿名身份与显式无认证目录，仍校验当前凭据/端点资格；空 Key 或失败解析不放行，回退前需替换声明 `none` 的模块与配置（#1589）。
 - 渠道 provider：新增原生 JSON/SSE/WS 与聚合的响应 decoder；按 manifest 观测原始 token 字段，解码失败仍记已收到的用量、不重放请求。使用新字段的模块回退前需替换（#1589）。
-
 - 渠道 provider：新增 API v2 独立绑定与模型目录 hooks，快捷接入/高级编辑支持选项和自定义目录；默认端点仅新建时补缺，升级不移动目标。回退旧版须移除绑定并替换或卸载 v2 模块（#1589）。
-
 - 渠道插件：新增独立 `responsesCompact` / `responsesWebsocket` 绑定；WS 每轮固定版本、原始用量先于事件投影，失败不重放。回退旧版须移除新绑定并替换或卸载含新协议声明的插件（#1589）。
-
 - 渠道高级设置：可编辑流式策略、RPM/实测 TPM、并发与排队；修改单项保留其余策略，全部归零显式清除限流；界面区分本进程硬限制和 TPM 选路偏好（#1589）。
-
 - 渠道插件：新增 `/api/channel-plugins` 管理与有序 HTTP wire hooks；`channel_plugins` 保存本地可信代码，备份导入不安装插件；停用已绑定插件使新请求返回 503（#1589）。
-
 - `upstream_channels.stream_policy`：自动新增并默认 `unlimited`；导入与管理 API 支持 `require` / `forbid`，文本非流请求仅在无原生候选时聚合所需流，完整备份保留策略（#1561）。
 - Key 路由：支持 `accessPolicy.routingStrategy` 与 `traceStickyMode`；`token_routes.trace_sticky_mode` 默认禁用，成功会话偏好按 Key/模型隔离；源评分差异继续在导入预览说明（#1561）。
 - AxonHub 导入：原生 Responses 压缩与 direct WebSocket 使用独立授权，支持逐轮凭据刷新、撤权和有界连接生命周期（#1561）。
@@ -88,6 +78,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 渠道限流：AxonHub 正数 RPM/TPM/并发与 FIFO 队列可导入；`upstream_channels.rate_limit` 默认 `{}`，管理 API 支持整份替换。计数仅在本进程生效，重启清零（#1561）。
 - AxonHub 导入：支持 Antigravity 项目 OAuth 与 Gemini JSON/SSE 转发及协议转换；多源回退仍明确列为残留，测试用 fake providers 不生成供应渠道（#1560）。
 - `ANTIGRAVITY_CLIENT_SECRET`：启用 Antigravity token 兑换或刷新前须注入签发客户端的 secret；没有内置默认值，未配置时拒绝兑换。
+
+### 开发者可见
+
+- 工具链与工作流：升级开发和 CI 工具链至 Go 1.27、Bun 1.4、Node 26 LTS 与 golangci-lint v2，分离 PR 影响面与主线全量验证，新增跨平台 `vet`、双语字典与移动布局防回归检查（#1624、#1631、#1632）。
 
 ## [v0.28.0] — 2026-11-01
 
