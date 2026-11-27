@@ -146,9 +146,6 @@ describe('request list navigation and read states', () => {
       '/proxy-logs?downstreamKeyId=7&from=2026-10-16T00%3A00&to=2026-10-17T00%3A00&pageSize=50&requestStatus=output_interrupted&q=synthetic',
       true
     )
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'About these records' })
-    )
     const attempts = await screen.findByRole('link', {
       name: 'Attempt records',
     })
@@ -163,9 +160,7 @@ describe('request list navigation and read states', () => {
       requestStatus: 'all',
     })
     expect(router.state.location.search.q).toBeUndefined()
-    fireEvent.click(
-      await screen.findByRole('link', { name: 'Back to usage logs' })
-    )
+    fireEvent.click(await screen.findByRole('link', { name: 'Requests' }))
     await waitFor(() =>
       expect(router.state.location.search.view).toBe('requests')
     )
@@ -174,9 +169,11 @@ describe('request list navigation and read states', () => {
       pageSize: 50,
     })
     router.history.back()
-    expect(
-      await screen.findByRole('link', { name: 'Back to usage logs' })
-    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen.getByRole('link', { name: 'Attempt records' })
+      ).toHaveAttribute('aria-current', 'page')
+    )
   })
 
   it('keeps legacy attempt deep links honest and clears their filters when switching to requests', async () => {
@@ -184,9 +181,7 @@ describe('request list navigation and read states', () => {
       '/proxy-logs?siteId=3&status=failed&latencyMin=2000&downstreamKeyId=7',
       true
     )
-    fireEvent.click(
-      await screen.findByRole('link', { name: 'Back to usage logs' })
-    )
+    fireEvent.click(await screen.findByRole('link', { name: 'Requests' }))
     await waitFor(() => expect(api.getGatewayRequests).toHaveBeenCalled())
     expect(router.state.location.search).not.toHaveProperty('siteId')
     expect(router.state.location.search).not.toHaveProperty('latencyMin')
@@ -195,6 +190,44 @@ describe('request list navigation and read states', () => {
       status: 'all',
       downstreamKeyId: 7,
     })
+  })
+
+  it('keeps existing rows visible during quiet manual refresh and shows freshness status', async () => {
+    renderPage()
+    expect(await screen.findByText('Output interrupted')).toBeInTheDocument()
+    expect(await screen.findByTestId('quiet-refresh-status')).toHaveTextContent(
+      'Updated just now'
+    )
+    let resolveRefetch!: (
+      value: Awaited<ReturnType<typeof api.getGatewayRequests>>
+    ) => void
+    vi.mocked(api.getGatewayRequests).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRefetch = resolve
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(screen.getByText('Output interrupted')).toBeInTheDocument()
+    resolveRefetch({
+      items: [
+        gatewayRequestFixture({
+          terminalStatus: 'completed',
+          httpStatus: 200,
+        }),
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      summary: {
+        totalCount: 1,
+        completedCount: 1,
+        failedCount: 0,
+        cancelledCount: 0,
+        rejectedCount: 0,
+      },
+      coverageStartedAt: '2026-10-16T00:00:00Z',
+    })
+    expect(await screen.findByText('Completed')).toBeInTheDocument()
   })
 
   it('explains attempts on demand without permanently occupying a banner', async () => {

@@ -42,9 +42,18 @@ export function ModelTesterPage() {
   // The `/model-tester` route validates `?model=` via validateSearch, so the
   // deep-link param comes from `useSearch()` (typed) rather than a raw
   // `window.location.search` read.
-  const { model } = useSearch({ from: '/_authenticated/model-tester' })
+  const { model, targetFormat, channelId } = useSearch({
+    from: '/_authenticated/model-tester',
+  })
   const modelParam = asStringParam(model)
   const defaultModel = modelParam?.trim() ? modelParam : undefined
+  const defaultTargetFormat = targetFormat
+  const defaultChannelId =
+    typeof channelId === 'number' &&
+    Number.isInteger(channelId) &&
+    channelId > 0
+      ? channelId
+      : undefined
 
   const testModel = useTestModel()
   const channelsQuery = useChannels()
@@ -55,6 +64,7 @@ export function ModelTesterPage() {
   const [isDisablingFailed, setIsDisablingFailed] = useState(false)
   const queryClient = useQueryClient()
   const [comparison, setComparison] = useState<BatchProbeResult[] | null>(null)
+  const [comparisonTotal, setComparisonTotal] = useState(0)
   const [isComparing, setIsComparing] = useState(false)
   // Channels whose single-row re-run probe is in flight (per-row spinner in
   // the comparison table; a Set so independent rows never cross-talk).
@@ -104,7 +114,8 @@ export function ModelTesterPage() {
 
       if (values.compareChannels) {
         lastComparisonRef.current = { values, history }
-        setComparison(null)
+        setComparison([])
+        setComparisonTotal(comparisonChannelIds.length)
         setIsComparing(true)
         try {
           const probes = comparisonChannelIds.map((channelId) => ({
@@ -117,6 +128,16 @@ export function ModelTesterPage() {
           }))
           const results = await runBatchComparison(probes, {
             signal: controller.signal,
+            onResult: (result) => {
+              setComparison((prev) =>
+                sortBatchResults([
+                  ...(prev ?? []).filter(
+                    (row) => row.channelId !== result.channelId
+                  ),
+                  result,
+                ])
+              )
+            },
           })
           setComparison(sortBatchResults(results))
           const succeeded = results.filter(
@@ -349,10 +370,15 @@ export function ModelTesterPage() {
         }
         isRunning={isRunning}
         defaultModel={defaultModel}
+        defaultTargetFormat={defaultTargetFormat}
+        defaultChannelId={defaultChannelId}
         onSubmit={handleSubmit}
         onStop={handleStop}
         onCompareChange={(enabled) => {
-          if (!enabled) setComparison(null)
+          if (!enabled) {
+            setComparison(null)
+            setComparisonTotal(0)
+          }
         }}
       >
         {comparison || isComparing ? (
@@ -360,6 +386,7 @@ export function ModelTesterPage() {
             results={comparison ?? []}
             channels={channelsQuery.data ?? []}
             isRunning={isComparing}
+            totalCount={comparisonTotal}
             rerunningChannelIds={rerunningChannelIds}
             onRerunRow={handleRerunRow}
             onDisableFailed={() => setDisableFailedDialogOpen(true)}

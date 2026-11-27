@@ -1,15 +1,21 @@
+import { TriangleAlert } from 'lucide-react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 
+import { detectPolicyIntersectionWarnings } from '../lib/key-policy-presets'
 import {
   locateKeyScopeField,
   type CreateKeyFormValues,
 } from './key-form-shared'
 
 // Quick navigation reads the same form values; it never evaluates permissions.
-export function KeyRestrictionSummary() {
+export function KeyRestrictionSummary({
+  routeGrantCount = 0,
+}: {
+  routeGrantCount?: number
+}) {
   const { t } = useTranslation()
   const form = useFormContext<CreateKeyFormValues>()
   const values = useWatch({ control: form.control })
@@ -22,6 +28,15 @@ export function KeyRestrictionSummary() {
       (key) => policy[key as keyof typeof policy] !== undefined
     ).length
   }
+  const warnings = detectPolicyIntersectionWarnings({
+    supportedModels: values.supportedModels,
+    routeGrantCount,
+    allowedCredentialRefs: values.allowedCredentialRefs,
+    excludedCredentialRefs: values.excludedCredentialRefs,
+    accessPolicy: policy,
+    maxRequests: values.maxRequests,
+    maxCost: values.maxCost,
+  })
   const dimensions = [
     {
       field: 'supportedModels',
@@ -50,26 +65,47 @@ export function KeyRestrictionSummary() {
     },
   ]
   return (
-    <nav
-      className='bg-background sticky top-0 z-10 flex flex-wrap gap-1 border-b pt-1 pb-2'
-      aria-label={t('settings.downstream.keys.columns.scope')}
-    >
-      {dimensions.map((dimension) => (
-        <Button
-          key={dimension.field}
-          type='button'
-          variant={
-            dimension.count !== null && dimension.count > 0
-              ? 'secondary'
-              : 'outline'
-          }
-          size='xs'
-          onClick={() => locateKeyScopeField(dimension.field)}
+    <div className='bg-background sticky top-0 z-10 space-y-2 border-b pt-1 pb-2'>
+      <nav
+        className='flex flex-wrap gap-1'
+        aria-label={t('settings.downstream.keys.columns.scope')}
+      >
+        {dimensions.map((dimension) => (
+          <Button
+            key={dimension.field}
+            type='button'
+            variant={
+              dimension.count !== null && dimension.count > 0
+                ? 'secondary'
+                : 'outline'
+            }
+            size='xs'
+            onClick={() => locateKeyScopeField(dimension.field)}
+          >
+            {dimension.label} ·{' '}
+            {dimension.count ?? t('settings.downstream.keys.picker.unknown')}
+          </Button>
+        ))}
+      </nav>
+      {warnings.length > 0 && (
+        <div
+          role='status'
+          data-testid='key-policy-intersection-warnings'
+          className='border-warning/40 bg-warning/10 space-y-1 rounded-md border px-2.5 py-2 text-xs'
         >
-          {dimension.label} ·{' '}
-          {dimension.count ?? t('settings.downstream.keys.picker.unknown')}
-        </Button>
-      ))}
-    </nav>
+          <p className='text-warning-soft-fg flex items-center gap-1.5 font-medium'>
+            <TriangleAlert className='size-3.5 shrink-0' aria-hidden='true' />
+            {t('settings.downstream.keys.warnings.title')}
+          </p>
+          <ul className='text-muted-foreground list-disc space-y-0.5 pl-5'>
+            {warnings.map((code) => (
+              <li key={code}>
+                {t(`settings.downstream.keys.warnings.${code}`)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }

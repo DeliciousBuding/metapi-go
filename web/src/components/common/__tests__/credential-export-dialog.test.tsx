@@ -480,4 +480,43 @@ describe('shared connection context', () => {
     expect(screen.getByPlaceholderText('Paste the admin token')).toHaveValue('')
     expect(screen.queryByText('gpt-5.5')).toBeNull()
   })
+
+  it('renders segmented client cards with /v1 vs root path info and keeps preview masked until revealed', async () => {
+    await unlockWithModels()
+    fireEvent.click(screen.getByRole('tab', { name: 'Client setup' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Update configuration' })
+    )
+    await screen.findByText('Set the API key')
+
+    const cardsGroup = screen.getByRole('group', {
+      name: 'Choose client profile',
+    })
+    expect(screen.getByText('Endpoint includes /v1 prefix')).toBeInTheDocument()
+    expect(screen.getByText(/\.codex\/config\.toml/)).toBeInTheDocument()
+    expect(
+      screen.getAllByTestId('masked-preview-placeholder').length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/wire_api = "responses"/)).toBeNull()
+
+    const claudeCard = Array.from(cardsGroup.querySelectorAll('button')).find(
+      (btn) => btn.textContent?.includes('Claude Code')
+    )
+    if (!claudeCard) throw new Error('Missing Claude Code card')
+    fireEvent.click(claudeCard)
+    expect(
+      screen.getByText('Root gateway URL (no /v1 suffix)')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/\.claude\/settings\.json/)).toBeInTheDocument()
+
+    // Copy still works while masked, and Reveal shows the preview
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    await waitFor(() =>
+      expect(copyText).toHaveBeenCalledWith(
+        expect.stringContaining('ANTHROPIC_BASE_URL')
+      )
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal API key' }))
+    expect(screen.getByText(/ANTHROPIC_BASE_URL/)).toBeInTheDocument()
+  })
 })

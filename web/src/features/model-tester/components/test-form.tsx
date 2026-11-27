@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ModelPicker } from '@/components/common/model-picker'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -64,10 +65,13 @@ import {
   testerSchema,
   type TesterFormValues,
 } from '../lib/tester-schema'
+import type { TestTargetFormat } from '../types'
 
 type TestFormProps = {
   isRunning: boolean
   defaultModel?: string
+  defaultTargetFormat?: TestTargetFormat
+  defaultChannelId?: number
   onSubmit: (
     values: TesterFormValues
   ) => void | boolean | Promise<void | boolean>
@@ -109,6 +113,8 @@ function rememberModel(model: string): void {
 export function TestForm({
   isRunning,
   defaultModel,
+  defaultTargetFormat,
+  defaultChannelId,
   onSubmit,
   onStop,
   children,
@@ -133,6 +139,8 @@ export function TestForm({
     if (invalid) form.setFocus(invalid)
   }, [settingsOpen, form])
   const appliedDeepLink = useRef<string | null>(null)
+  const appliedTargetFormat = useRef<TestTargetFormat | null>(null)
+  const appliedChannelId = useRef<number | null>(null)
   const promptRef = useRef<HTMLTextAreaElement | null>(null)
   const wasRunning = useRef(isRunning)
   useEffect(() => {
@@ -142,10 +150,41 @@ export function TestForm({
 
   const compareChannels = form.watch('compareChannels')
   const selectedChannelIds = form.watch('channelIds') ?? []
+  const enabledParams = form.watch('enabledParams') ?? {
+    temperature: false,
+    topP: false,
+    maxTokens: false,
+  }
+  const activeParamCount =
+    Number(enabledParams.temperature) +
+    Number(enabledParams.topP) +
+    Number(enabledParams.maxTokens)
   const comparisonChannels = useMemo(
     () => filterEnabledComparisonChannels(channelsQuery.data ?? []),
     [channelsQuery.data]
   )
+
+  useEffect(() => {
+    if (
+      defaultTargetFormat &&
+      appliedTargetFormat.current !== defaultTargetFormat
+    ) {
+      form.setValue('targetFormat', defaultTargetFormat)
+      appliedTargetFormat.current = defaultTargetFormat
+    }
+  }, [defaultTargetFormat, form])
+
+  useEffect(() => {
+    const channels = channelsQuery.data ?? []
+    if (!defaultChannelId || channels.length === 0) return
+    if (
+      appliedChannelId.current !== defaultChannelId &&
+      channels.some((channel) => channel.id === defaultChannelId)
+    ) {
+      form.setValue('channelId', defaultChannelId)
+      appliedChannelId.current = defaultChannelId
+    }
+  }, [defaultChannelId, channelsQuery.data, form])
 
   // A deep link wins over local preference; once applied, a background model
   // refetch must not reset a model the user chose afterward. The saved model
@@ -211,12 +250,15 @@ export function TestForm({
       form.setValue('temperature', template.temperature, {
         shouldDirty: true,
       })
+      form.setValue('enabledParams.temperature', true, { shouldDirty: true })
     }
     if (template.topP !== undefined) {
       form.setValue('topP', template.topP, { shouldDirty: true })
+      form.setValue('enabledParams.topP', true, { shouldDirty: true })
     }
     if (template.maxTokens !== undefined) {
       form.setValue('maxTokens', template.maxTokens, { shouldDirty: true })
+      form.setValue('enabledParams.maxTokens', true, { shouldDirty: true })
     }
     setSelectedTemplateId('')
   }
@@ -509,12 +551,39 @@ export function TestForm({
                     name='temperature'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          {t('modelTester.form.temperature')}
-                          <span className='text-muted-foreground ml-1 tabular-nums'>
-                            {field.value.toFixed(2)}
-                          </span>
-                        </FormLabel>
+                        <div className='flex items-center justify-between gap-2'>
+                          <FormLabel>
+                            {t('modelTester.form.temperature')}
+                            <span className='text-muted-foreground ml-1 tabular-nums'>
+                              {enabledParams.temperature
+                                ? field.value.toFixed(2)
+                                : '—'}
+                            </span>
+                          </FormLabel>
+                          <FormField
+                            control={form.control}
+                            name='enabledParams.temperature'
+                            render={({ field: toggleField }) => (
+                              <FormItem className='space-y-0'>
+                                <FormControl>
+                                  <Switch
+                                    aria-label={t(
+                                      'modelTester.form.paramEnabled',
+                                      {
+                                        param: t(
+                                          'modelTester.form.temperature'
+                                        ),
+                                      }
+                                    )}
+                                    checked={Boolean(toggleField.value)}
+                                    disabled={isRunning}
+                                    onCheckedChange={toggleField.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         <FormControl>
                           <Slider
                             aria-label={t('modelTester.form.temperature')}
@@ -522,7 +591,7 @@ export function TestForm({
                             min={0}
                             max={2}
                             step={0.05}
-                            disabled={isRunning}
+                            disabled={isRunning || !enabledParams.temperature}
                             onValueChange={(values) => {
                               const next = Array.isArray(values)
                                 ? (values[0] ?? 0)
@@ -540,12 +609,37 @@ export function TestForm({
                     name='topP'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          {t('modelTester.form.topP')}
-                          <span className='text-muted-foreground ml-1 tabular-nums'>
-                            {field.value.toFixed(2)}
-                          </span>
-                        </FormLabel>
+                        <div className='flex items-center justify-between gap-2'>
+                          <FormLabel>
+                            {t('modelTester.form.topP')}
+                            <span className='text-muted-foreground ml-1 tabular-nums'>
+                              {enabledParams.topP
+                                ? field.value.toFixed(2)
+                                : '—'}
+                            </span>
+                          </FormLabel>
+                          <FormField
+                            control={form.control}
+                            name='enabledParams.topP'
+                            render={({ field: toggleField }) => (
+                              <FormItem className='space-y-0'>
+                                <FormControl>
+                                  <Switch
+                                    aria-label={t(
+                                      'modelTester.form.paramEnabled',
+                                      {
+                                        param: t('modelTester.form.topP'),
+                                      }
+                                    )}
+                                    checked={Boolean(toggleField.value)}
+                                    disabled={isRunning}
+                                    onCheckedChange={toggleField.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         <FormControl>
                           <Slider
                             aria-label={t('modelTester.form.topP')}
@@ -553,7 +647,7 @@ export function TestForm({
                             min={0}
                             max={1}
                             step={0.05}
-                            disabled={isRunning}
+                            disabled={isRunning || !enabledParams.topP}
                             onValueChange={(values) => {
                               const next = Array.isArray(values)
                                 ? (values[0] ?? 0)
@@ -573,7 +667,30 @@ export function TestForm({
                   name='maxTokens'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
+                      <div className='flex items-center justify-between gap-2'>
+                        <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
+                        <FormField
+                          control={form.control}
+                          name='enabledParams.maxTokens'
+                          render={({ field: toggleField }) => (
+                            <FormItem className='space-y-0'>
+                              <FormControl>
+                                <Switch
+                                  aria-label={t(
+                                    'modelTester.form.paramEnabled',
+                                    {
+                                      param: t('modelTester.form.maxTokens'),
+                                    }
+                                  )}
+                                  checked={Boolean(toggleField.value)}
+                                  disabled={isRunning}
+                                  onCheckedChange={toggleField.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormControl>
                         <Input
                           type='number'
@@ -590,16 +707,23 @@ export function TestForm({
                           onBlur={field.onBlur}
                           name={field.name}
                           ref={field.ref}
-                          disabled={isRunning}
+                          disabled={isRunning || !enabledParams.maxTokens}
                         />
                       </FormControl>
                       <FormDescription>
-                        {t('modelTester.form.maxTokensHint')}
+                        {enabledParams.maxTokens
+                          ? t('modelTester.form.maxTokensHint')
+                          : t('modelTester.form.paramDisabledHint')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {activeParamCount < 3 && (
+                  <p className='text-muted-foreground text-xs'>
+                    {t('modelTester.form.paramDisabledHint')}
+                  </p>
+                )}
               </div>
             </div>
           </SheetContent>
@@ -697,7 +821,7 @@ export function TestForm({
                   type='button'
                   variant='ghost'
                   size='sm'
-                  className='text-muted-foreground max-w-48 min-w-0'
+                  className='text-muted-foreground max-w-56 min-w-0'
                   aria-label={t('modelTester.form.settings')}
                   onClick={() => setSettingsOpen(true)}
                 >
@@ -709,6 +833,18 @@ export function TestForm({
                           (channel) => channel.id === form.watch('channelId')
                         )?.name || t('modelTester.form.channelNoneForced')}
                   </span>
+                  {activeParamCount > 0 && (
+                    <Badge
+                      variant='secondary'
+                      data-testid='active-params-badge'
+                      title={t('modelTester.form.activeParamsBadge', {
+                        count: activeParamCount,
+                      })}
+                      className='text-2xs h-4 px-1 tabular-nums'
+                    >
+                      {activeParamCount}
+                    </Badge>
+                  )}
                 </Button>
                 <span className='text-muted-foreground truncate text-xs'>
                   {compareChannels
@@ -719,7 +855,7 @@ export function TestForm({
                         TARGET_FORMAT_OPTIONS.find(
                           (option) =>
                             option.value === form.watch('targetFormat')
-                        )!.labelKey
+                        )?.labelKey ?? 'modelTester.form.targetFormat.openai'
                       )}
                 </span>
               </div>

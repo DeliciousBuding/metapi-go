@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -43,6 +44,7 @@ import type {
 import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import {
   CredentialVerifySection,
@@ -60,6 +62,20 @@ const PROFILE_PROTOCOL: Record<ExportProfileId, CredentialVerifyProtocol> = {
 const CC_SWITCH_APP: Partial<Record<ExportProfileId, string>> = {
   codex: 'codex',
   'claude-code': 'claude',
+}
+const CLIENT_CONFIG_META: Record<
+  ExportProfileId,
+  { requiresV1: boolean; pathKey: string }
+> = {
+  codex: { requiresV1: true, pathKey: 'connect.clientPaths.codex' },
+  'claude-code': {
+    requiresV1: false,
+    pathKey: 'connect.clientPaths.claude-code',
+  },
+  openai: { requiresV1: true, pathKey: 'connect.clientPaths.openai' },
+  cherry: { requiresV1: true, pathKey: 'connect.clientPaths.cherry' },
+  openwebui: { requiresV1: true, pathKey: 'connect.clientPaths.openwebui' },
+  generic: { requiresV1: true, pathKey: 'connect.clientPaths.generic' },
 }
 
 /** Clipboard write with a unified success toast. */
@@ -488,6 +504,57 @@ function OpenCredentialExportDialog({
             ) : null}
           </TabsContent>
           <TabsContent value='clients' className='space-y-4'>
+            <div
+              role='group'
+              aria-label={t('connect.clientCardsLabel')}
+              className='grid grid-cols-2 gap-2 sm:grid-cols-3'
+            >
+              {data.profiles.map((profile) => {
+                const selected = profile.id === client
+                const meta = CLIENT_CONFIG_META[profile.id]
+                return (
+                  <button
+                    key={profile.id}
+                    type='button'
+                    aria-pressed={selected}
+                    onClick={() => changeClient(profile.id)}
+                    className={cn(
+                      'focus-visible:ring-ring flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left text-xs transition-colors outline-none focus-visible:ring-2',
+                      selected
+                        ? 'border-primary bg-accent/60 text-foreground font-medium'
+                        : 'bg-background hover:bg-muted/50 text-muted-foreground'
+                    )}
+                  >
+                    <span className='text-foreground w-full truncate font-medium'>
+                      {profile.label}
+                    </span>
+                    <Badge
+                      variant={meta.requiresV1 ? 'outline' : 'secondary'}
+                      className='text-2xs h-4 px-1.5 font-mono'
+                    >
+                      {meta.requiresV1 ? '/v1' : 'root'}
+                    </Badge>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className='bg-muted/30 space-y-1 rounded-lg border px-3 py-2 text-xs'>
+              <p className='text-foreground font-medium'>
+                {t(
+                  CLIENT_CONFIG_META[client].requiresV1
+                    ? 'connect.endpointWithV1'
+                    : 'connect.endpointWithoutV1'
+                )}
+              </p>
+              <p className='text-muted-foreground break-words'>
+                {t('connect.configFilePath')}:{' '}
+                <code className='font-mono'>
+                  {t(CLIENT_CONFIG_META[client].pathKey)}
+                </code>
+              </p>
+            </div>
+
             <div className='space-y-2'>
               <p className='text-muted-foreground text-xs'>
                 {configurationHint}
@@ -693,7 +760,14 @@ function ProfileRow({
         <pre className='bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs'>
           {content}
         </pre>
-      ) : null}
+      ) : (
+        <div
+          data-testid='masked-preview-placeholder'
+          className='bg-muted/30 text-muted-foreground rounded-b-lg border-t px-3 py-2 font-mono text-xs'
+        >
+          •••••••••••• · {t('connect.maskedPreviewPlaceholder')}
+        </div>
+      )}
     </div>
   )
 }

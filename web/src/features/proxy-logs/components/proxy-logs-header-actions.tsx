@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
 
 type ProxyLogsHeaderActionsProps = {
   onExport: () => void
@@ -31,6 +32,7 @@ type ProxyLogsHeaderActionsProps = {
 
 export function ProxyLogsHeaderActions(props: ProxyLogsHeaderActionsProps) {
   const { t } = useTranslation()
+  const showSpin = useDelayedSpin(props.isRefreshing)
 
   return (
     <div className='flex items-center gap-2'>
@@ -53,9 +55,7 @@ export function ProxyLogsHeaderActions(props: ProxyLogsHeaderActionsProps) {
           onClick={props.onRefresh}
           disabled={props.isRefreshing}
         >
-          <RefreshCw
-            className={props.isRefreshing ? 'animate-spin' : undefined}
-          />
+          <RefreshCw className={showSpin ? 'animate-spin' : undefined} />
           {t('proxyLogs.page.refresh')}
         </Button>
       </div>
@@ -88,9 +88,7 @@ export function ProxyLogsHeaderActions(props: ProxyLogsHeaderActionsProps) {
               onClick={props.onRefresh}
               disabled={props.isRefreshing}
             >
-              <RefreshCw
-                className={props.isRefreshing ? 'animate-spin' : undefined}
-              />
+              <RefreshCw className={showSpin ? 'animate-spin' : undefined} />
               {t('proxyLogs.page.refresh')}
             </DropdownMenuItem>
           </DropdownMenuContent>

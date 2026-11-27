@@ -1,5 +1,6 @@
-import { Copy } from 'lucide-react'
-import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { ChevronDown, ChevronUp, Copy, FlaskConical } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
@@ -7,7 +8,7 @@ import { ExpandableText } from '@/components/common/expandable-text'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { ModelPill } from '@/components/common/model-pill'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -20,11 +21,14 @@ import { routeCheckEndpointFromPath } from '@/features/token-routes'
 import { toBcp47 } from '@/i18n/languages'
 import { copyText } from '@/lib/clipboard'
 import { formatCurrency, formatDateTime, formatLatency } from '@/lib/format'
+import { buildModelTesterSearch } from '@/lib/helpers/model-tester-link'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
 import { toast } from '@/lib/toast'
 
 import { useProxyLog } from '../api'
+import { useDetailSheetKeyboardNav } from '../lib/detail-navigation'
 import { useGatewayRequest } from '../lib/gateway-requests'
+import { AttemptWaterfall } from './attempt-waterfall'
 import { BillingSection, CurrentRouteDiagnosis } from './proxy-log-detail-sheet'
 import { RequestOutcome } from './request-outcome'
 import { TimingCell } from './timing-cell'
@@ -33,9 +37,17 @@ import { UsageCell } from './usage-cell'
 export function GatewayRequestDetailSheet({
   id,
   onClose,
+  hasPrev,
+  hasNext,
+  onNavigatePrev,
+  onNavigateNext,
 }: {
   id: string | null
   onClose: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
+  onNavigatePrev?: () => void
+  onNavigateNext?: () => void
 }) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language)
@@ -46,6 +58,34 @@ export function GatewayRequestDetailSheet({
     (attempt) => attempt.id === attemptId
   )
   const attemptQuery = useProxyLog(selectedAttempt?.id ?? null)
+
+  useDetailSheetKeyboardNav({
+    open: id !== null,
+    hasPrev,
+    hasNext,
+    onPrev: onNavigatePrev,
+    onNext: onNavigateNext,
+  })
+
+  const endpoint = routeCheckEndpointFromPath(detail?.downstreamPath)
+  const reproSearch = useMemo(
+    () =>
+      buildModelTesterSearch({
+        model: detail?.modelRequested,
+        endpoint,
+      }),
+    [detail?.modelRequested, endpoint]
+  )
+
+  const scaleMaxMs = useMemo(() => {
+    if (!detail) return 0
+    const values = [
+      detail.latencyMs,
+      ...detail.attempts.map((attempt) => attempt.latencyMs ?? 0),
+    ].filter((v) => typeof v === 'number' && Number.isFinite(v) && v > 0)
+    return values.length > 0 ? Math.max(...values) : 0
+  }, [detail])
+
   return (
     <Sheet
       open={id !== null}
@@ -55,8 +95,46 @@ export function GatewayRequestDetailSheet({
     >
       <SheetContent className='flex w-full flex-col gap-0 sm:max-w-xl'>
         <SheetHeader>
-          <SheetTitle>{t('requestLogs.detailTitle')}</SheetTitle>
+          <div className='flex items-center justify-between gap-2 pr-8'>
+            <SheetTitle>{t('requestLogs.detailTitle')}</SheetTitle>
+            {(onNavigatePrev || onNavigateNext) && (
+              <div className='flex items-center gap-1'>
+                <Button
+                  type='button'
+                  size='icon-xs'
+                  variant='outline'
+                  aria-label={t('requestLogs.prevRecord')}
+                  disabled={!hasPrev}
+                  onClick={onNavigatePrev}
+                >
+                  <ChevronUp className='size-3.5' />
+                </Button>
+                <Button
+                  type='button'
+                  size='icon-xs'
+                  variant='outline'
+                  aria-label={t('requestLogs.nextRecord')}
+                  disabled={!hasNext}
+                  onClick={onNavigateNext}
+                >
+                  <ChevronDown className='size-3.5' />
+                </Button>
+              </div>
+            )}
+          </div>
           <SheetDescription>{t('requestLogs.observedHint')}</SheetDescription>
+          {reproSearch && (
+            <div className='pt-1'>
+              <Link
+                to='/model-tester'
+                search={reproSearch}
+                className={buttonVariants({ size: 'xs', variant: 'outline' })}
+              >
+                <FlaskConical className='size-3.5' aria-hidden='true' />
+                {t('requestLogs.reproduceInTester')}
+              </Link>
+            </div>
+          )}
         </SheetHeader>
         <div className='flex-1 space-y-5 overflow-y-auto p-4'>
           {query.isLoading && <Skeleton className='h-44 w-full' />}
@@ -151,7 +229,7 @@ export function GatewayRequestDetailSheet({
               </dl>
               <CurrentRouteDiagnosis
                 model={detail.modelRequested}
-                endpoint={routeCheckEndpointFromPath(detail.downstreamPath)}
+                endpoint={endpoint}
                 keyId={detail.downstreamApiKeyId}
               />
               <section className='space-y-3 border-t pt-4'>
@@ -191,25 +269,36 @@ export function GatewayRequestDetailSheet({
                         }}
                       >
                         <summary className='focus-visible:ring-ring cursor-pointer rounded-lg p-3 outline-none focus-visible:ring-2'>
-                          <span className='ms-1 inline-flex max-w-full flex-wrap items-center gap-2 text-sm'>
-                            <span className='font-medium'>
-                              {t('requestLogs.attempt', {
-                                ordinal:
-                                  attempt.retryCount === null
-                                    ? t('requestLogs.unknown')
-                                    : attempt.retryCount + 1,
-                              })}
+                          <div className='space-y-2'>
+                            <span className='ms-1 inline-flex max-w-full flex-wrap items-center gap-2 text-sm'>
+                              <span className='font-medium'>
+                                {t('requestLogs.attempt', {
+                                  ordinal:
+                                    attempt.retryCount === null
+                                      ? t('requestLogs.unknown')
+                                      : attempt.retryCount + 1,
+                                })}
+                              </span>
+                              <HttpStatusBadge
+                                status={attempt.status}
+                                httpStatus={attempt.httpStatus}
+                              />
+                              <span className='text-muted-foreground'>
+                                {attempt.latencyMs === null
+                                  ? t('requestLogs.unknown')
+                                  : formatLatency(attempt.latencyMs)}
+                              </span>
                             </span>
-                            <HttpStatusBadge
-                              status={attempt.status}
-                              httpStatus={attempt.httpStatus}
+                            <AttemptWaterfall
+                              latencyMs={attempt.latencyMs}
+                              firstByteLatencyMs={attempt.firstByteLatencyMs}
+                              firstOutputLatencyMs={
+                                attempt.firstOutputLatencyMs
+                              }
+                              isStream={attempt.isStream}
+                              scaleMaxMs={scaleMaxMs}
                             />
-                            <span className='text-muted-foreground'>
-                              {attempt.latencyMs === null
-                                ? t('requestLogs.unknown')
-                                : formatLatency(attempt.latencyMs)}
-                            </span>
-                          </span>
+                          </div>
                         </summary>
                         <div className='space-y-3 border-t p-3'>
                           {attempt.modelActual && (

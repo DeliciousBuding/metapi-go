@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +13,12 @@ import { ModelPill } from '@/components/common/model-pill'
 import { useReauthReplay } from '@/components/common/reauth-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -36,6 +42,10 @@ import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 import { parseIdArray, serializeCredentialRefs } from '../lib/credential-refs'
+import {
+  KEY_POLICY_PRESETS,
+  type KeyPolicyPreset,
+} from '../lib/key-policy-presets'
 import {
   downstreamKeysQueryKeys,
   type CreateDownstreamKeyResponse,
@@ -313,6 +323,32 @@ export function KeySheetForm({
     })
   }
 
+  function applyPreset(preset: KeyPolicyPreset) {
+    form.setValue('supportedModels', [...preset.supportedModels], {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    if (preset.maxRequests !== undefined) {
+      form.setValue('maxRequests', preset.maxRequests, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+    if (preset.maxCost !== undefined) {
+      form.setValue('maxCost', preset.maxCost, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+    toast.success(
+      t('settings.downstream.keys.presets.applied', {
+        name: t(preset.labelKey),
+      })
+    )
+  }
+
+  const routeGrantCount = parseIdArray(editingKey?.allowedRouteIds).length
+
   const submitMutation = useMutation({
     mutationFn: async (input: {
       values: CreateKeyFormValues
@@ -447,7 +483,32 @@ export function KeySheetForm({
           onSubmit={form.handleSubmit(onSubmit)}
           className='min-h-0 flex-1 space-y-4 overflow-y-auto px-4'
         >
-          <KeyRestrictionSummary />
+          <KeyRestrictionSummary routeGrantCount={routeGrantCount} />
+          <div className='bg-muted/20 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2'>
+            <p className='text-muted-foreground text-xs'>
+              {t('settings.downstream.keys.presets.hint')}
+            </p>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button type='button' variant='outline' size='xs'>
+                    <Sparkles className='size-3.5' aria-hidden='true' />
+                    {t('settings.downstream.keys.presets.label')}
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align='end'>
+                {KEY_POLICY_PRESETS.map((preset) => (
+                  <DropdownMenuItem
+                    key={preset.id}
+                    onClick={() => applyPreset(preset)}
+                  >
+                    {t(preset.labelKey)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <FormField
             control={form.control}
             name='name'

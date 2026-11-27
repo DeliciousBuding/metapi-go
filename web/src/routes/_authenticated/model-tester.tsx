@@ -23,6 +23,11 @@ import { stringSearchParam } from '@/lib/helpers/searchParams'
 // stale `?model=123` arrives as a number and must not throw a route error.
 export const modelTesterSearchSchema = z.object({
   model: stringSearchParam,
+  targetFormat: z
+    .enum(['openai', 'claude', 'responses', 'gemini'])
+    .optional()
+    .catch(undefined),
+  channelId: z.coerce.number().int().positive().optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_authenticated/model-tester')({

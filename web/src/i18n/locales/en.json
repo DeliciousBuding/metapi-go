@@ -442,7 +442,7 @@
       "title": "Usage logs",
       "description": "One record per model invocation, including failures, cancellations and admission rejections. Retries, protocols and endpoints are in the details. Other API access is in Audit logs.",
       "history": "Attempt records",
-      "requestView": "Model calls",
+      "requestView": "Requests",
       "viewsLabel": "Log views",
       "viewHelp": "About these records",
       "historyHint": "Attempt records are not request outcomes. Unlinked historical records have an unknown request outcome.",
@@ -507,6 +507,16 @@
         "rejected_no_route": "No available route",
         "rejected_policy": "Admission rejected",
         "gateway_failed": "Gateway failed"
+      },
+      "reproduceInTester": "Reproduce in Model Tester",
+      "prevRecord": "Previous record",
+      "nextRecord": "Next record",
+      "waterfall": {
+        "ttfb": "TTFB (headers)",
+        "firstOutput": "First output",
+        "generation": "Stream / body",
+        "unknownBoundary": "Timing boundary unknown or inconsistent",
+        "unknownTotal": "Total latency unknown"
       }
     },
     "platforms": {
@@ -704,7 +714,13 @@
       "sessionExpired": "Session expired!",
       "tokenInvalid": "The admin token is no longer valid. Sign in again.",
       "requestFailed": "Request failed",
-      "requestTimeout": "Request timeout ({{seconds}}s)"
+      "requestTimeout": "Request timeout ({{seconds}}s)",
+      "freshness": {
+        "justNow": "Updated just now",
+        "secondsAgo": "Updated {{count}}s ago",
+        "minutesAgo": "Updated {{count}}m ago",
+        "hoursAgo": "Updated {{count}}h ago"
+      }
     },
     "about": {
       "title": "About",
@@ -908,7 +924,10 @@
         "channelHintForced": "Choose the upstream channel for this test.",
         "advanced": "Settings · templates, system prompt and sampling",
         "settings": "Chat settings",
-        "settingsHint": "Choose a channel and protocol, or adjust the system prompt and sampling."
+        "settingsHint": "Choose a channel and protocol, or adjust the system prompt and sampling.",
+        "paramEnabled": "Enable {{param}}",
+        "paramDisabledHint": "Disabled — omitted from request payload (safe for reasoning models).",
+        "activeParamsBadge": "{{count}} sampling params"
       },
       "toast": {
         "empty": "The response is empty.",
@@ -966,7 +985,15 @@
         "statusFailure": "Failed",
         "statusAborted": "Stopped",
         "rerunRow": "Re-run probe for {{channel}}",
-        "disableFailed": "Disable failed channels"
+        "disableFailed": "Disable failed channels",
+        "progress": "Settled {{completed}} / {{total}} channels",
+        "details": "Details",
+        "detailsAria": "View details for {{channel}}",
+        "detailTitle": "Probe details · {{channel}}",
+        "detailDescription": "Read-only diagnostic snapshot held in current session memory.",
+        "httpStatus": "HTTP status",
+        "responseSummary": "Response summary",
+        "rawEvents": "Raw events"
       },
       "page": {
         "title": "Channel diagnostics",
@@ -2324,6 +2351,23 @@
               "ip": "IP",
               "rate": "rate"
             }
+          },
+          "presets": {
+            "label": "Policy presets",
+            "hint": "Fill recommended model rules & quota drafts without touching the secret key.",
+            "claudeCode": "Claude Code (Messages)",
+            "codexCli": "Codex CLI (Responses)",
+            "geminiCli": "Gemini CLI",
+            "sandbox": "Restricted sandbox",
+            "applied": "Applied preset: {{name}}"
+          },
+          "warnings": {
+            "title": "Potential empty-intersection / deny-all policy",
+            "emptyModels": "Model access list is empty (all models denied unless route grants exist).",
+            "emptyDirectChannels": "Direct channel scope is set to selected channels with 0 channels selected.",
+            "credentialConflict": "Every allowed credential reference is also listed in excluded credentials.",
+            "modelIntersectionEmpty": "No exact model in Access Policy matches any rule in Model access.",
+            "zeroQuota": "Quota limit is set to 0, which blocks requests immediately."
           }
         }
       },
@@ -3310,7 +3354,10 @@
         "routeResult": "Route and candidates",
         "openRoute": "Open route",
         "openLogs": "View key logs",
-        "editKey": "Edit key"
+        "editKey": "Edit key",
+        "admissionHeading": "① Downstream admission",
+        "topologyHeading": "② Candidate routing topology",
+        "adminAdmissionNote": "Skipped in administrator preview mode (no downstream key selected)."
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -3478,7 +3525,17 @@
           "priority": "Configured priority: {{value}}",
           "weight": "Configured weight: {{value}}",
           "editRoute": "Edit route configuration",
-          "showMore": "Show {{count}} more candidates"
+          "showMore": "Show {{count}} more candidates",
+          "bucketEligible": "Eligible ({{count}})",
+          "bucketCooling": "Cooling ({{count}})",
+          "bucketBlocked": "Blocked ({{count}})",
+          "bucketNotEvaluated": "Not evaluated ({{count}})",
+          "expandBucket": "Show {{count}} candidates",
+          "collapseBucket": "Collapse",
+          "blockedCollapsedHint": "Collapsed by default — click to inspect {{count}} blocked candidates",
+          "siblingGroup": "{{platform}} · {{count}} {{state}} siblings",
+          "expandGroup": "Expand",
+          "collapseGroup": "Collapse"
         },
         "probability": "Calculated probability",
         "kind": {
@@ -3502,7 +3559,8 @@
           "credential_excluded": "Credential is excluded by downstream policy.",
           "credential_not_allowed": "Credential is outside the downstream allow-list.",
           "site_excluded": "Site is excluded by downstream policy."
-        }
+        },
+        "cooldownRemaining": "{{remaining}} remaining"
       },
       "detail": {
         "badgeGroup": "Group",
@@ -4093,7 +4151,8 @@
         "label": "Auto-refresh",
         "interval15s": "15s",
         "interval30s": "30s",
-        "intervalOff": "Off"
+        "intervalOff": "Off",
+        "refreshNow": "Refresh now"
       },
       "error": {
         "loadFailed": "Failed to load data.",
@@ -4121,7 +4180,9 @@
           "colFirstByte": "First byte",
           "colHttp": "HTTP",
           "colStatus": "Status",
-          "colTime": "Time"
+          "colTime": "Time",
+          "colActions": "Logs",
+          "viewInLogs": "View in logs"
         },
         "heatmap": {
           "title": "Usage heatmap",
@@ -4150,7 +4211,12 @@
           "colSite": "Site",
           "colModel": "Model",
           "colLevel": "Level",
-          "colUntil": "Until"
+          "colUntil": "Until",
+          "colPenalty": "Penalty",
+          "colActions": "Actions",
+          "inspectLogs": "Logs",
+          "inspectRoute": "Routes",
+          "levelTooltip": "Circuit breaker trip level {{level}}, penalty score {{score}}"
         },
         "cooldown": {
           "title": "Channel cooldown",
@@ -4162,7 +4228,9 @@
           "colSite": "Site",
           "colChannel": "Channel",
           "colFailCount": "Fails",
-          "colUntil": "Until"
+          "colUntil": "Until",
+          "colActions": "Actions",
+          "remaining": "{{remaining}} left"
         },
         "inventory": {
           "title": "Inventory",
@@ -4425,7 +4493,28 @@
         "sourceDescription": "Code is validated and isolated. Updates use the revision you loaded and reject incompatible saved bindings. Only install code you trust.",
         "sourceLimits": "Synchronous ESM, no imports or ambient I/O. Source limit: 256 KiB. The module meta.key must match the plugin key.",
         "invalidKey": "Use a lowercase letter followed by letters, numbers or hyphens (up to 64 characters).",
-        "requiredSource": "Enter a JavaScript module."
+        "requiredSource": "Enter a JavaScript module.",
+        "preview": {
+          "title": "Static manifest & permissions preview",
+          "subtitle": "Parsed statically without executing user code.",
+          "apiVersion": "API version",
+          "apiWire": "v1 · Wire hook",
+          "apiProvider": "v2 · Provider driver",
+          "protocols": "Declared protocols",
+          "hooks": "Declared hooks",
+          "credentialKinds": "Credential kinds",
+          "authentication": "Custom authentication header",
+          "endpoints": "Outbound endpoint paths",
+          "catalog": "Model catalog path",
+          "imageQueries": "Image task query paths",
+          "options": "Plugin options ({{count}})",
+          "noneDeclared": "None declared",
+          "valid": "Manifest schema valid",
+          "keyMismatch": "meta.key (\"{{metaKey}}\") does not match plugin key (\"{{pluginKey}}\")",
+          "notFound": "No static export const meta = { ... } object literal found.",
+          "dynamicMeta": "Manifest contains dynamic expressions or unsupported syntax and cannot be statically previewed.",
+          "schemaInvalid": "Manifest schema validation failed"
+        }
       },
       "group": {
         "title": "Route groups",
@@ -5032,7 +5121,20 @@
       "updateConfig": "Update configuration",
       "setupStep": "Set the API key",
       "setupHint": "Set this environment variable before starting the client.",
-      "providerImportHint": "Import links configure the provider address and Key only. Set {{model}} in the client, or copy the complete configuration below."
+      "providerImportHint": "Import links configure the provider address and Key only. Set {{model}} in the client, or copy the complete configuration below.",
+      "clientCardsLabel": "Choose client profile",
+      "endpointWithV1": "Endpoint includes /v1 prefix",
+      "endpointWithoutV1": "Root gateway URL (no /v1 suffix)",
+      "configFilePath": "Config file",
+      "maskedPreviewPlaceholder": "Preview hidden until you click Reveal API key above. Copy still exports the full configuration.",
+      "clientPaths": {
+        "codex": "~/.codex/config.toml (plus METAPI_API_KEY env)",
+        "claude-code": "~/.claude/settings.json",
+        "openai": "Shell environment (.env / ~/.zshrc)",
+        "cherry": "Cherry Studio -> Provider Settings",
+        "openwebui": "Open WebUI -> Admin Settings -> Connections",
+        "generic": "Custom client JSON config"
+      }
     },
     "search": {
       "trigger": "Search…",
@@ -5121,7 +5223,8 @@
       "placeholder": "Choose a model",
       "search": "Search models or providers…",
       "other": "Other models",
-      "empty": "No matching models. Try another model or provider."
+      "empty": "No matching models. Try another model or provider.",
+      "useCustom": "Use custom model / pattern \"{{value}}\""
     }
   }
 }

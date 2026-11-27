@@ -18,14 +18,16 @@ import { gatewayRequestFixture } from './gateway-request-fixture'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
+    to,
     children,
     search,
   }: {
+    to?: string
     children: ReactNode
     search?: Record<string, string | number>
   }) => (
     <a
-      href={`/token-routes?${new URLSearchParams(Object.entries(search ?? {}).map(([key, value]) => [key, String(value)]))}`}
+      href={`${to ?? '/token-routes'}?${new URLSearchParams(Object.entries(search ?? {}).map(([key, value]) => [key, String(value)]))}`}
     >
       {children}
     </a>
@@ -155,5 +157,79 @@ describe('gateway request detail', () => {
     renderDetail()
     expect(await screen.findByText('Attempt Unknown')).toBeInTheDocument()
     expect(screen.queryByText('Attempt 1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('attempt-waterfall-unknown')).toBeInTheDocument()
+  })
+
+  it('renders an honest multi-segment waterfall when boundaries are valid and marks inverted boundaries unknown', async () => {
+    vi.mocked(api.getGatewayRequest).mockResolvedValue(
+      gatewayRequestFixture({
+        latencyMs: 500,
+        attempts: [
+          {
+            ...gatewayRequestFixture().attempts[0],
+            id: 17,
+            retryCount: 0,
+            latencyMs: 300,
+            firstByteLatencyMs: 60,
+            firstOutputLatencyMs: 150,
+            isStream: true,
+          },
+          {
+            ...gatewayRequestFixture().attempts[0],
+            id: 18,
+            retryCount: 1,
+            latencyMs: 200,
+            firstByteLatencyMs: 120,
+            firstOutputLatencyMs: 80,
+            isStream: true,
+          },
+        ],
+      })
+    )
+    renderDetail()
+    expect(
+      await screen.findByText(/TTFB \(headers\): 60ms/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/First output: 150ms/)).toBeInTheDocument()
+    expect(screen.getByText(/Stream \/ body: 150ms/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Timing boundary unknown or inconsistent/)
+    ).toBeInTheDocument()
+  })
+
+  it('links to Model Tester without credentials and handles prev/next keyboard navigation', async () => {
+    const onPrev = vi.fn()
+    const onNext = vi.fn()
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <GatewayRequestDetailSheet
+          id='synthetic-request-1'
+          onClose={vi.fn()}
+          hasPrev
+          hasNext
+          onNavigatePrev={onPrev}
+          onNavigateNext={onNext}
+        />
+      </QueryClientProvider>
+    )
+    const reproLink = await screen.findByRole('link', {
+      name: 'Reproduce in Model Tester',
+    })
+    expect(reproLink.getAttribute('href')).toContain(
+      '/model-tester?model=synthetic-model&targetFormat=responses'
+    )
+    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    expect(onPrev).toHaveBeenCalledTimes(1)
+    expect(onNext).toHaveBeenCalledTimes(1)
+
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(onNext).toHaveBeenCalledTimes(1)
+    input.remove()
   })
 })

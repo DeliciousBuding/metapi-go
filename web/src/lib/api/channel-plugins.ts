@@ -259,7 +259,7 @@ const manifestFields = {
   version: z.string().min(1),
   options: z.array(option).max(32).optional(),
 }
-const wireManifest = z
+export const wireManifest = z
   .object({
     ...manifestFields,
     apiVersion: z.literal(1),
@@ -270,7 +270,7 @@ const wireManifest = z
       .max(3),
   })
   .strict()
-const providerManifest = z
+export const providerManifest = z
   .object({
     ...manifestFields,
     apiVersion: z.literal(2),
@@ -434,6 +434,9 @@ const itemSchema = z
       : !!item.loadError
   )
 
+export type ChannelPluginManifest =
+  | z.infer<typeof wireManifest>
+  | z.infer<typeof providerManifest>
 export type ChannelPlugin = z.infer<typeof itemSchema>
 export type ChannelPluginOption = z.infer<typeof option>
 export const pluginBindingSchema = z.object({

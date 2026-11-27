@@ -28,6 +28,7 @@ type ModelPickerProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   value: string
   onValueChange: (model: string) => void
   placeholder?: string
+  allowCustom?: boolean
 }
 
 /** Search and provider grouping use the existing model identity registry. */
@@ -36,11 +37,13 @@ export function ModelPicker({
   value,
   onValueChange,
   placeholder,
+  allowCustom = false,
   className,
   ...restProps
 }: ModelPickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const groups = useMemo(() => {
     const grouped = new Map<string, Array<{ name: string }>>()
     for (const model of models) {
@@ -49,8 +52,24 @@ export function ModelPicker({
     }
     return [...grouped].sort(([a], [b]) => a.localeCompare(b))
   }, [models, t])
+  const trimmedSearch = search.trim()
+  const showCustomOption =
+    allowCustom &&
+    trimmedSearch.length > 0 &&
+    !models.some((model) => model.name === trimmedSearch)
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen)
+    if (!nextOpen) setSearch('')
+  }
+
+  function selectModel(nextModel: string) {
+    onValueChange(nextModel)
+    handleOpenChange(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <Button
@@ -93,9 +112,22 @@ export function ModelPicker({
           <CommandInput
             aria-label={t('modelPicker.search')}
             placeholder={t('modelPicker.search')}
+            value={search}
+            onValueChange={setSearch}
           />
           <CommandList className='max-h-80'>
             <CommandEmpty>{t('modelPicker.empty')}</CommandEmpty>
+            {showCustomOption && (
+              <CommandGroup>
+                <CommandItem
+                  value={trimmedSearch}
+                  onSelect={() => selectModel(trimmedSearch)}
+                  className='min-h-10 gap-3 font-medium'
+                >
+                  {t('modelPicker.useCustom', { value: trimmedSearch })}
+                </CommandItem>
+              </CommandGroup>
+            )}
             {groups.map(([provider, items]) => (
               <CommandGroup
                 key={provider}
@@ -108,10 +140,7 @@ export function ModelPicker({
                     value={model.name}
                     keywords={[provider]}
                     data-checked={value === model.name}
-                    onSelect={() => {
-                      onValueChange(model.name)
-                      setOpen(false)
-                    }}
+                    onSelect={() => selectModel(model.name)}
                     className='min-h-10 gap-3'
                   >
                     <ModelPill

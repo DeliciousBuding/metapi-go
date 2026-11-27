@@ -15,8 +15,15 @@ import i18n from '@/i18n/config'
 import { ModelTesterPage } from '../components/model-tester-page'
 
 const network = vi.hoisted(() => ({ testChatSync: vi.fn() }))
+const searchState = vi.hoisted(() => ({
+  value: { model: 'test-model' } as {
+    model?: string
+    targetFormat?: 'openai' | 'claude' | 'responses' | 'gemini'
+    channelId?: number
+  },
+}))
 vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => ({ model: 'test-model' }),
+  useSearch: () => searchState.value,
 }))
 vi.mock('@/lib/api', () => ({ api: { testChatSync: network.testChatSync } }))
 vi.mock('@/features/models', () => ({
@@ -47,6 +54,7 @@ vi.mock('@/lib/toast', () => ({
 
 beforeEach(async () => {
   await i18n.changeLanguage('en')
+  searchState.value = { model: 'test-model' }
   network.testChatSync.mockReset()
   vi.stubGlobal(
     'ResizeObserver',
@@ -255,5 +263,50 @@ describe('chat playground', () => {
     await screen.findByRole('button', { name: 'Send' })
     expect(prompt).toHaveValue('中文测试')
     expect(prompt).toHaveFocus()
+  })
+
+  it('omits sampling params by default, sends them only when toggled on, and prefills targetFormat/channelId from URL', async () => {
+    searchState.value = {
+      model: 'test-model',
+      targetFormat: 'claude',
+      channelId: 1,
+    }
+    network.testChatSync.mockResolvedValue(success('ok'))
+    const prompt = await openChat(false)
+
+    fireEvent.change(prompt, { target: { value: 'hello reasoning' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('ok', { exact: true })
+
+    const firstPayload = network.testChatSync.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >
+    expect(firstPayload.targetFormat).toBe('claude')
+    expect(firstPayload.channelId).toBe(1)
+    expect(firstPayload).not.toHaveProperty('temperature')
+    expect(firstPayload).not.toHaveProperty('top_p')
+    expect(firstPayload).not.toHaveProperty('max_tokens')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }))
+    fireEvent.click(
+      await screen.findByRole('switch', { name: 'Enable Temperature' })
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: /^Close$/ })[0])
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId('active-params-badge')).toHaveTextContent('1')
+
+    fireEvent.change(prompt, { target: { value: 'with temp' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(network.testChatSync).toHaveBeenCalledTimes(2))
+    const secondPayload = network.testChatSync.mock.calls[1][0] as Record<
+      string,
+      unknown
+    >
+    expect(secondPayload.temperature).toBe(0.7)
+    expect(secondPayload).not.toHaveProperty('top_p')
+    expect(secondPayload).not.toHaveProperty('max_tokens')
   })
 })

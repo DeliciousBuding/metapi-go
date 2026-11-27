@@ -93,4 +93,29 @@ describe('searchable model picker', () => {
     ).toBeInTheDocument()
     expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
+
+  it('offers a custom/wildcard entry when allowCustom is enabled', async () => {
+    const onValueChange = vi.fn()
+    render(
+      <ModelPicker
+        aria-label='Model'
+        models={models}
+        value=''
+        allowCustom
+        onValueChange={onValueChange}
+      />
+    )
+    fireEvent.click(screen.getByRole('combobox', { name: 'Model' }))
+    fireEvent.change(
+      await screen.findByRole('combobox', {
+        name: 'Search models or providers…',
+      }),
+      { target: { value: 'gpt-4*' } }
+    )
+    const custom = await screen.findByRole('option', {
+      name: /Use custom model \/ pattern "gpt-4\*"/,
+    })
+    fireEvent.click(custom)
+    expect(onValueChange).toHaveBeenCalledWith('gpt-4*')
+  })
 })

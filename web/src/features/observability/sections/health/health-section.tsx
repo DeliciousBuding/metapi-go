@@ -4,9 +4,12 @@
 
 import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Server, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ModelPill } from '@/components/common/model-pill'
+import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -30,6 +33,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  formatRemainingCooldown,
+  useCooldownClock,
+} from '@/hooks/use-cooldown-clock'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt } from '@/lib/format'
 
@@ -37,7 +44,10 @@ import { useMonitorHealth } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
 import type { CooldownChannel, RuntimeHealthBreaker } from '../../types'
 
-type Translate = (key: string) => string
+type Translate = (
+  key: string,
+  options?: Record<string, string | number>
+) => string
 
 function resolveToneClass(tone: 'neutral' | 'warning' | 'success'): string {
   if (tone === 'warning') return 'text-warning-soft-fg'
@@ -72,6 +82,14 @@ export function HealthSection() {
   const data = health.data
   const runtime = data?.runtimeHealth
   const cooldown = data?.cooldown
+  const deadlines = useMemo(
+    () => [
+      ...(runtime?.openBreakers ?? []).map((b) => b.breakerUntilMs),
+      ...(cooldown?.cooling ?? []).map((c) => c.cooldownUntil),
+    ],
+    [runtime?.openBreakers, cooldown?.cooling]
+  )
+  const now = useCooldownClock(deadlines)
 
   // Surface a load failure explicitly instead of rendering dashes / empty
   // tables that read as "no open breakers" rather than "request failed".
@@ -119,7 +137,8 @@ export function HealthSection() {
               health.isLoading,
               runtime?.openBreakers ?? [],
               t,
-              locale
+              locale,
+              now
             )}
           </CardContent>
         </Card>
@@ -135,7 +154,7 @@ export function HealthSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderCooldownBody(health.isLoading, cooldown, t, locale)}
+            {renderCooldownBody(health.isLoading, cooldown, t, locale, now)}
           </CardContent>
         </Card>
       </div>
@@ -222,7 +241,8 @@ function renderBreakersBody(
   loading: boolean,
   breakers: RuntimeHealthBreaker[],
   t: Translate,
-  locale: string
+  locale: string,
+  now: number
 ) {
   if (loading) {
     return <Skeleton className='h-40 w-full rounded-md' />
@@ -251,36 +271,91 @@ function renderBreakersBody(
             {t('observability.health.breakers.colLevel')}
           </TableHead>
           <TableHead className='text-right'>
+            {t('observability.health.breakers.colPenalty')}
+          </TableHead>
+          <TableHead className='text-right'>
             {t('observability.health.breakers.colUntil')}
+          </TableHead>
+          <TableHead className='text-right'>
+            {t('observability.health.breakers.colActions')}
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {breakers.map((breaker) => (
-          <TableRow key={`${breaker.siteId}:${breaker.model}`}>
-            <TableCell className='tabular-nums'>
-              {/* The breaker projection carries no site name, so the cell
-                  keeps the raw id but deep-links into the sites page edit
-                  dialog (one-shot `edit` param). */}
-              <Link
-                to='/sites'
-                search={{ edit: breaker.siteId }}
-                className='text-primary hover:underline'
+        {breakers.map((breaker) => {
+          const remaining = formatRemainingCooldown(breaker.breakerUntilMs, now)
+          return (
+            <TableRow key={`${breaker.siteId}:${breaker.model}`}>
+              <TableCell className='tabular-nums'>
+                <Link
+                  to='/sites'
+                  search={{ edit: breaker.siteId }}
+                  className='text-primary font-medium hover:underline'
+                >
+                  #{breaker.siteId}
+                </Link>
+              </TableCell>
+              <TableCell className='truncate'>
+                {breaker.model ? <ModelPill model={breaker.model} /> : '—'}
+              </TableCell>
+              <TableCell
+                className='text-right tabular-nums'
+                title={t('observability.health.breakers.levelTooltip', {
+                  level: breaker.breakerLevel,
+                  score: breaker.penaltyScore,
+                })}
               >
-                {breaker.siteId}
-              </Link>
-            </TableCell>
-            <TableCell className='truncate'>
-              {breaker.model ? <ModelPill model={breaker.model} /> : '—'}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {breaker.breakerLevel}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {formatDateTime(breaker.breakerUntilMs, locale)}
-            </TableCell>
-          </TableRow>
-        ))}
+                <Badge variant='warning'>L{breaker.breakerLevel}</Badge>
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {formatInt(breaker.penaltyScore, locale)}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                <div className='flex flex-col items-end gap-0.5'>
+                  <span>{formatDateTime(breaker.breakerUntilMs, locale)}</span>
+                  {remaining && (
+                    <span className='text-warning-soft-fg text-2xs'>
+                      {t('observability.health.cooldown.remaining', {
+                        remaining,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className='text-right'>
+                <div className='flex flex-wrap justify-end gap-1'>
+                  <Link
+                    to='/proxy-logs'
+                    search={{
+                      view: 'attempts',
+                      siteId: breaker.siteId,
+                      status: 'failed',
+                      ...(breaker.model ? { q: breaker.model } : {}),
+                    }}
+                    className={buttonVariants({
+                      size: 'xs',
+                      variant: 'outline',
+                    })}
+                  >
+                    {t('observability.health.breakers.inspectLogs')}
+                  </Link>
+                  {breaker.model && (
+                    <Link
+                      to='/token-routes'
+                      search={{ workspaceModel: breaker.model }}
+                      className={buttonVariants({
+                        size: 'xs',
+                        variant: 'ghost',
+                      })}
+                    >
+                      {t('observability.health.breakers.inspectRoute')}
+                    </Link>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )
@@ -297,7 +372,8 @@ function renderCooldownBody(
       }
     | undefined,
   t: Translate,
-  locale: string
+  locale: string,
+  now: number
 ) {
   if (loading) {
     return <Skeleton className='h-40 w-full rounded-md' />
@@ -319,7 +395,7 @@ function renderCooldownBody(
           value={formatInt(cooldown?.channelsRecentlyFailed)}
         />
       </div>
-      {renderCoolingTable(cooldown?.cooling ?? [], t, locale)}
+      {renderCoolingTable(cooldown?.cooling ?? [], t, locale, now)}
     </>
   )
 }
@@ -327,7 +403,8 @@ function renderCooldownBody(
 function renderCoolingTable(
   channels: CooldownChannel[],
   t: Translate,
-  locale: string
+  locale: string,
+  now: number
 ) {
   if (channels.length === 0) {
     return (
@@ -354,31 +431,59 @@ function renderCoolingTable(
           <TableHead className='text-right'>
             {t('observability.health.cooldown.colUntil')}
           </TableHead>
+          <TableHead className='text-right'>
+            {t('observability.health.cooldown.colActions')}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {channels.map((channel) => (
-          <TableRow key={channel.channelId}>
-            <TableCell className='truncate'>
-              {channel.siteName || channel.siteId}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              <Link
-                to='/channels'
-                search={{ channelId: channel.channelId }}
-                className='text-primary hover:underline'
-              >
-                {channel.channelId}
-              </Link>
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {channel.failCount}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {formatDateTime(channel.cooldownUntil, locale)}
-            </TableCell>
-          </TableRow>
-        ))}
+        {channels.map((channel) => {
+          const remaining = formatRemainingCooldown(channel.cooldownUntil, now)
+          return (
+            <TableRow key={channel.channelId}>
+              <TableCell className='truncate'>
+                {channel.siteName || `#${channel.siteId}`}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                <Link
+                  to='/channels'
+                  search={{ channelId: channel.channelId }}
+                  className='text-primary hover:underline'
+                >
+                  #{channel.channelId}
+                </Link>
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {channel.failCount}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                <div className='flex flex-col items-end gap-0.5'>
+                  <span>{formatDateTime(channel.cooldownUntil, locale)}</span>
+                  {remaining && (
+                    <span className='text-warning-soft-fg text-2xs'>
+                      {t('observability.health.cooldown.remaining', {
+                        remaining,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className='text-right'>
+                <Link
+                  to='/proxy-logs'
+                  search={{
+                    view: 'attempts',
+                    channelId: channel.channelId,
+                    status: 'failed',
+                  }}
+                  className={buttonVariants({ size: 'xs', variant: 'outline' })}
+                >
+                  {t('observability.health.breakers.inspectLogs')}
+                </Link>
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )

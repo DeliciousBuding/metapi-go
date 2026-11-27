@@ -2,7 +2,13 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import { Link } from '@tanstack/react-router'
-import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy as CopyIcon,
+  Check as CheckIcon,
+  FlaskConical,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -29,10 +35,12 @@ import {
   formatDateTime,
   formatInt,
 } from '@/lib/format'
+import { buildModelTesterSearch } from '@/lib/helpers/model-tester-link'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
 import { toast } from '@/lib/toast'
 
 import { useProxyLog } from '../api'
+import { useDetailSheetKeyboardNav } from '../lib/detail-navigation'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
 import { TimingCell } from './timing-cell'
 import { UsageCell } from './usage-cell'
@@ -50,6 +58,10 @@ type ProxyLogDetailSheetProps = {
   onOpenChange: (open: boolean) => void
   /** Switch the sheet to another attempt of the same request. */
   onViewAttempt?: (attempt: ProxyLogAttempt) => void
+  hasPrev?: boolean
+  hasNext?: boolean
+  onNavigatePrev?: () => void
+  onNavigateNext?: () => void
 }
 
 export function ProxyLogDetailSheet({
@@ -57,6 +69,10 @@ export function ProxyLogDetailSheet({
   open,
   onOpenChange,
   onViewAttempt,
+  hasPrev,
+  hasNext,
+  onNavigatePrev,
+  onNavigateNext,
 }: ProxyLogDetailSheetProps) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -66,6 +82,23 @@ export function ProxyLogDetailSheet({
   const pathMeta = useMemo(
     () => parseProxyLogPathMeta(detail?.errorMessage ?? undefined),
     [detail?.errorMessage]
+  )
+  useDetailSheetKeyboardNav({
+    open: open && log !== null,
+    hasPrev,
+    hasNext,
+    onPrev: onNavigatePrev,
+    onNext: onNavigateNext,
+  })
+  const endpoint = routeCheckEndpointFromPath(detail?.downstreamPath)
+  const reproSearch = useMemo(
+    () =>
+      buildModelTesterSearch({
+        model: detail?.modelRequested,
+        endpoint,
+        channelId: detail?.channelId,
+      }),
+    [detail?.modelRequested, endpoint, detail?.channelId]
   )
 
   if (!log) {
@@ -85,21 +118,59 @@ export function ProxyLogDetailSheet({
         className='flex w-full flex-col gap-0 sm:max-w-lg'
       >
         <SheetHeader>
-          <SheetTitle className='flex items-center gap-2 pr-6'>
-            <span className='truncate'>
-              {log.modelRequested || log.modelActual || `#${log.id}`}
-            </span>
-            <HttpStatusBadge
-              status={log.status}
-              httpStatus={detail?.httpStatus ?? null}
-            />
-          </SheetTitle>
+          <div className='flex items-center justify-between gap-2 pr-8'>
+            <SheetTitle className='flex min-w-0 items-center gap-2'>
+              <span className='truncate'>
+                {log.modelRequested || log.modelActual || `#${log.id}`}
+              </span>
+              <HttpStatusBadge
+                status={log.status}
+                httpStatus={detail?.httpStatus ?? null}
+              />
+            </SheetTitle>
+            {(onNavigatePrev || onNavigateNext) && (
+              <div className='flex shrink-0 items-center gap-1'>
+                <Button
+                  type='button'
+                  size='icon-xs'
+                  variant='outline'
+                  aria-label={t('requestLogs.prevRecord')}
+                  disabled={!hasPrev}
+                  onClick={onNavigatePrev}
+                >
+                  <ChevronUp className='size-3.5' />
+                </Button>
+                <Button
+                  type='button'
+                  size='icon-xs'
+                  variant='outline'
+                  aria-label={t('requestLogs.nextRecord')}
+                  disabled={!hasNext}
+                  onClick={onNavigateNext}
+                >
+                  <ChevronDown className='size-3.5' />
+                </Button>
+              </div>
+            )}
+          </div>
           <SheetDescription className='truncate'>
             {t('proxyLogs.detail.description', {
               id: log.id,
               time: formatDateTime(log.createdAt, locale),
             })}
           </SheetDescription>
+          {reproSearch && (
+            <div className='pt-1'>
+              <Link
+                to='/model-tester'
+                search={reproSearch}
+                className={buttonVariants({ size: 'xs', variant: 'outline' })}
+              >
+                <FlaskConical className='size-3.5' aria-hidden='true' />
+                {t('requestLogs.reproduceInTester')}
+              </Link>
+            </div>
+          )}
         </SheetHeader>
 
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>

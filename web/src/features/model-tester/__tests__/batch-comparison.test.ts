@@ -52,8 +52,15 @@ describe('runBatchComparison', () => {
           Promise.resolve(response({ latencyMs: 100, error: 'upstream' })),
       },
     ])
-    expect(results).toEqual([
-      { channelId: 1, status: 'success', statusCode: 200, latencyMs: 300 },
+    expect(results).toMatchObject([
+      {
+        channelId: 1,
+        status: 'success',
+        statusCode: 200,
+        latencyMs: 300,
+        content: 'ok',
+        rawEvents: [],
+      },
       { channelId: 2, status: 'failure', error: 'boom' },
       {
         channelId: 3,
@@ -63,6 +70,38 @@ describe('runBatchComparison', () => {
         error: 'upstream',
       },
     ])
+  })
+
+  it('invokes onResult incrementally as each probe settles', async () => {
+    const settled: number[] = []
+    await runBatchComparison(
+      [
+        {
+          channelId: 1,
+          run: () => Promise.resolve(response({ latencyMs: 50 })),
+        },
+        {
+          channelId: 2,
+          run: () =>
+            Promise.resolve(
+              response({
+                latencyMs: 20,
+                content: 'second',
+                rawEvents: ['{"ok":true}'],
+                totalTokens: 15,
+              })
+            ),
+        },
+      ],
+      {
+        onResult: (result) => {
+          settled.push(result.channelId)
+        },
+      }
+    )
+    expect(settled).toHaveLength(2)
+    expect(settled).toContain(1)
+    expect(settled).toContain(2)
   })
 
   it('preserves input order regardless of settle timing', async () => {

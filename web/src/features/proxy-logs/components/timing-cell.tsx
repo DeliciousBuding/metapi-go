@@ -80,15 +80,17 @@ export function TimingCell(props: TimingCellProps) {
           : ariaLabel
       }
       className={cn(
-        'flex min-w-0 items-baseline gap-1.5 border-s-2 ps-2 text-xs leading-4 tabular-nums',
+        'flex min-w-0 flex-col justify-center gap-0.5 border-s-2 ps-2 text-xs leading-4 tabular-nums',
         timingTone,
         props.className
       )}
     >
-      <span className='font-medium whitespace-nowrap'>{totalLabel}</span>
+      <span className='text-foreground font-medium whitespace-nowrap'>
+        {totalLabel}
+      </span>
       {secondaryValue !== '—' && (
         <span
-          className='text-muted-foreground text-2xs whitespace-nowrap'
+          className='bg-muted/80 text-foreground/85 text-2xs inline-flex w-fit items-center rounded px-1.5 py-0.5 leading-none font-medium whitespace-nowrap'
           title={
             props.isStream
               ? t('proxyLogs.timing.outputHint')

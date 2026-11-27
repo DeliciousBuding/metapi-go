@@ -2,12 +2,14 @@
 // + usage heatmap. Both consume existing /api/stats endpoints (no new
 // backend surface) so the Overview reads like a curated lens over proxy data.
 
-import { BarChart3, Flame } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowUpRight, BarChart3, Flame } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { ModelPill } from '@/components/common/model-pill'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -197,51 +199,77 @@ function renderSlowRequestsBody(
           <TableHead className='text-right'>
             {t('observability.overview.slowRequests.colTime')}
           </TableHead>
+          <TableHead className='text-right'>
+            {t('observability.overview.slowRequests.colActions')}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell
-              className='max-w-56 truncate font-medium'
-              title={item.model || undefined}
-            >
-              {item.model ? <ModelPill model={item.model} /> : '—'}
-            </TableCell>
-            <TableCell
-              className='max-w-40 truncate'
-              title={item.siteName || undefined}
-            >
-              {item.siteName || '—'}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {formatLatency(item.latencyMs, {
-                autoSeconds: true,
-                secondsDigits: 1,
-                spaced: true,
-              })}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {formatLatency(item.firstByteLatencyMs, {
-                autoSeconds: true,
-                secondsDigits: 1,
-                spaced: true,
-              })}
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {item.httpStatus || '—'}
-            </TableCell>
-            <TableCell>
-              <HttpStatusBadge
-                httpStatus={item.httpStatus ?? null}
-                status={item.status ?? null}
-              />
-            </TableCell>
-            <TableCell className='text-right tabular-nums'>
-              {formatDateTime(item.createdAt, locale)}
-            </TableCell>
-          </TableRow>
-        ))}
+        {items.map((item) => {
+          const queryTerm = item.requestId?.trim() || item.model?.trim() || ''
+          const logSearch = {
+            view: 'attempts' as const,
+            ...(queryTerm ? { q: queryTerm } : {}),
+            ...(item.siteId && item.siteId > 0 ? { siteId: item.siteId } : {}),
+          }
+          return (
+            <TableRow key={item.id}>
+              <TableCell
+                className='max-w-56 truncate font-medium'
+                title={item.model || undefined}
+              >
+                {item.model ? <ModelPill model={item.model} /> : '—'}
+              </TableCell>
+              <TableCell
+                className='max-w-40 truncate'
+                title={item.siteName || undefined}
+              >
+                {item.siteName || '—'}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {formatLatency(item.latencyMs, {
+                  autoSeconds: true,
+                  secondsDigits: 1,
+                  spaced: true,
+                })}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {formatLatency(item.firstByteLatencyMs, {
+                  autoSeconds: true,
+                  secondsDigits: 1,
+                  spaced: true,
+                })}
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {item.httpStatus || '—'}
+              </TableCell>
+              <TableCell>
+                <HttpStatusBadge
+                  httpStatus={item.httpStatus ?? null}
+                  status={item.status ?? null}
+                />
+              </TableCell>
+              <TableCell className='text-right tabular-nums'>
+                {formatDateTime(item.createdAt, locale)}
+              </TableCell>
+              <TableCell className='text-right'>
+                <Link
+                  to='/proxy-logs'
+                  search={logSearch}
+                  aria-label={t(
+                    'observability.overview.slowRequests.viewInLogs'
+                  )}
+                  className={buttonVariants({
+                    size: 'icon-xs',
+                    variant: 'ghost',
+                  })}
+                >
+                  <ArrowUpRight className='size-3.5' aria-hidden='true' />
+                </Link>
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )

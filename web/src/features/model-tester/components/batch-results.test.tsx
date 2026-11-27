@@ -102,6 +102,44 @@ describe('BatchResults', () => {
       screen.getByText('0 succeeded / 0 failed / 1 stopped')
     ).toBeInTheDocument()
   })
+
+  it('shows incremental settlement progress while running and opens a read-only detail drawer per row', () => {
+    render(
+      <BatchResults
+        channels={channels}
+        isRunning
+        totalCount={3}
+        results={[
+          {
+            channelId: 1,
+            status: 'failure',
+            statusCode: 502,
+            latencyMs: 345,
+            error: 'detailed upstream timeout error',
+            content: 'partial output summary',
+            rawEvents: ['{"error":"gateway timeout"}'],
+            totalTokens: 42,
+            promptTokens: 30,
+            completionTokens: 12,
+          },
+        ]}
+      />
+    )
+    expect(screen.getByText('Settled 1 / 3 channels')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '1'
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View details for Primary channel' })
+    )
+    expect(
+      screen.getByRole('dialog', { name: 'Probe details · Primary channel' })
+    ).toBeInTheDocument()
+    expect(screen.getByText('partial output summary')).toBeInTheDocument()
+    expect(screen.getByText('{"error":"gateway timeout"}')).toBeInTheDocument()
+  })
 })
 
 describe('BatchResults bulk disable of failed channels', () => {

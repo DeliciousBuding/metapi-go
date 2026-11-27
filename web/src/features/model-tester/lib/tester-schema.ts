@@ -47,6 +47,13 @@ export const testerSchema = z
       .int('modelTester.form.errors.maxTokensInteger')
       .min(0, 'modelTester.form.errors.maxTokensMin')
       .max(128000, 'modelTester.form.errors.maxTokensMax'),
+    enabledParams: z
+      .object({
+        temperature: z.boolean(),
+        topP: z.boolean(),
+        maxTokens: z.boolean(),
+      })
+      .optional(),
   })
   .superRefine((values, ctx) => {
     if (!values.compareChannels && !values.channelId) {
@@ -78,4 +85,9 @@ export const TESTER_FORM_DEFAULT_VALUES: TesterFormValues = {
   temperature: 0.7,
   topP: 1,
   maxTokens: 1024,
+  enabledParams: {
+    temperature: false,
+    topP: false,
+    maxTokens: false,
+  },
 }

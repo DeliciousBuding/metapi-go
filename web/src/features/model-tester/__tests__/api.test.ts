@@ -80,6 +80,40 @@ describe('buildChatPayload', () => {
     expect(payload.targetFormat).toBe('openai')
   })
 
+  it('omits sampling params from the wire when disabled in enabledParams (safe for reasoning models)', () => {
+    const payload = buildChatPayload(
+      formValues({
+        temperature: 0.7,
+        topP: 1,
+        maxTokens: 1024,
+        enabledParams: {
+          temperature: false,
+          topP: false,
+          maxTokens: false,
+        },
+      })
+    )
+    expect(payload).not.toHaveProperty('temperature')
+    expect(payload).not.toHaveProperty('top_p')
+    expect(payload).not.toHaveProperty('max_tokens')
+
+    const partial = buildChatPayload(
+      formValues({
+        temperature: 0.3,
+        topP: 0.9,
+        maxTokens: 512,
+        enabledParams: {
+          temperature: false,
+          topP: true,
+          maxTokens: true,
+        },
+      })
+    )
+    expect(partial).not.toHaveProperty('temperature')
+    expect(partial.top_p).toBe(0.9)
+    expect(partial.max_tokens).toBe(512)
+  })
+
   it('forwards channelId when a channel is targeted', () => {
     const payload = buildChatPayload(formValues({ channelId: 42 }))
     expect(payload.channelId).toBe(42)
