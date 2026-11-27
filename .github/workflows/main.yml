@@ -171,7 +171,9 @@ jobs:
           jq -er '.[]' <<< "$SELECTED_PACKAGES" > "$RUNNER_TEMP/vet-packages"
           mapfile -t packages < "$RUNNER_TEMP/vet-packages"
           [[ ${#packages[@]} -gt 0 ]]
-          go vet "${packages[@]}"
+          GOOS=linux go vet "${packages[@]}"
+          GOOS=windows go vet "${packages[@]}"
+          GOOS=darwin go vet "${packages[@]}"
 
   vulncheck:
     if: ${{ needs.scope.outputs.full == 'true' }}
@@ -256,6 +258,8 @@ jobs:
       # transient-fault retry policy, and scripts/bun_install_wiring_test.go
       # fails if a bare call reappears.
       - run: sh ../scripts/bun-install.sh
+      - name: Check both locale dictionaries
+        run: bunx vitest run src/i18n/__tests__/i18n-keys.test.ts
       - name: Frontend rules and affected behavior
         env:
           FULL: ${{ needs.scope.outputs.full }}
@@ -343,8 +347,6 @@ jobs:
         run: bunx playwright install --with-deps chromium
         working-directory: web
       - name: Serve SPA and run browser gates
-        env:
-          FULL: ${{ needs.scope.outputs.full }}
         run: |
           set -euo pipefail
           AUTH_TOKEN=dev-admin-token-123 \
@@ -368,11 +370,31 @@ jobs:
             exit 1
           fi
           cd web
-          BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
-          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bun run ui:smoke
-          if [[ "$FULL" == true ]]; then
-            BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs model-playground.spec.mjs
-          fi
+          export BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123
+          {
+            bun run a11y:scan
+            bun run ui:smoke
+            bunx playwright test --config playwright.visual.config.mjs --trace retain-on-failure catalog-sources-responsive.spec.mjs model-playground.spec.mjs
+          } > >(tee /tmp/metapi-a11y-browser.log) 2>&1
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a11y-failure
+          path: |
+            /tmp/metapi-a11y-server.log
+            /tmp/metapi-a11y-browser.log
+            web/test-results/**/*.png
+            web/test-results/**/trace.zip
+          retention-days: 3
+      - name: Upload model playground previews
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: model-playground-preview
+          path: web/test-results/**/normal-conversation.png
+          if-no-files-found: error
+          retention-days: 3
 
   test-sqlite-shard:
     if: ${{ needs.scope.outputs.backend == 'true' }}

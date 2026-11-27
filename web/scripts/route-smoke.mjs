@@ -132,12 +132,12 @@ const MOBILE_ROUTES = [
 const ERROR_TEXT =
   /(服务器错误|服务器内部错误|internal server error|something went wrong|application error|chunkloaderror)/i
 
-async function seedAuth(context) {
+async function seedAuth(context, locale = 'zh-CN') {
   await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
-  await context.addInitScript(() => {
-    localStorage.setItem('i18nextLng', 'zh-CN')
+  await context.addInitScript((language) => {
+    localStorage.setItem('i18nextLng', language)
     document.cookie = 'vite-ui-theme=light; path=/'
-  })
+  }, locale)
 }
 
 async function seedInteractionData(request) {
@@ -224,8 +224,8 @@ async function scanLegacyRedirects(context, redirects, failures) {
   }
 }
 
-async function scanRoute(context, route, failures, mobile = false) {
-  const label = `${mobile ? 'mobile' : 'desktop'} ${route}`
+async function scanRoute(context, route, failures, mobileLocale) {
+  const label = `${mobileLocale ? `mobile ${mobileLocale}` : 'desktop'} ${route}`
   const page = await context.newPage()
   collectPageFailures(page, failures, label)
   try {
@@ -266,7 +266,7 @@ async function scanRoute(context, route, failures, mobile = false) {
     // the TanStack Link render bridge must forward both to the real anchor.
     // Previously every page looked unselected despite the URL matcher being
     // correct; a primitive-only unit test could not see that bridge defect.
-    const expectedNav = !mobile && CURRENT_NAV_ROUTES[route]
+    const expectedNav = !mobileLocale && CURRENT_NAV_ROUTES[route]
     if (expectedNav) {
       const current = await page.locator(
         '[data-sidebar=menu-button][aria-current=page][data-active]'
@@ -281,15 +281,23 @@ async function scanRoute(context, route, failures, mobile = false) {
       }
     }
 
-    if (mobile) {
+    if (mobileLocale) {
+      await page
+        .locator(`html[lang="${mobileLocale}"] #content`)
+        .getByRole('heading')
+        .first()
+        .waitFor({ timeout: 5_000 })
       const overflow = await page.evaluate(() => ({
         viewport: document.documentElement.clientWidth,
         document: document.documentElement.scrollWidth,
       }))
       // One CSS pixel of tolerance avoids fractional-rounding false positives.
-      if (overflow.document > overflow.viewport + 1) {
+      if (
+        overflow.viewport !== 375 ||
+        overflow.document > overflow.viewport + 1
+      ) {
         failures.push(
-          `${label}: document horizontal overflow ${overflow.document}px > ${overflow.viewport}px`
+          `${label}: expected 375px layout, document ${overflow.document}px, viewport ${overflow.viewport}px`
         )
       }
     }
@@ -299,6 +307,76 @@ async function scanRoute(context, route, failures, mobile = false) {
     )
   } finally {
     await page.close().catch(() => {})
+  }
+}
+
+async function checkLogAlignment(context, failures) {
+  const page = await context.newPage()
+  collectPageFailures(page, failures, 'log alignment')
+  try {
+    const model = 'gpt-4o'
+    await page.route(/\/api\/stats\/proxy-logs\?/, (route) => {
+      if (new URL(route.request().url()).searchParams.get('view') !== 'query')
+        return route.continue()
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              id: 1,
+              createdAt: '2026-01-01T00:00:00Z',
+              modelRequested: model,
+              modelActual: model,
+              status: 'success',
+              httpStatus: 200,
+              latencyMs: 16,
+              totalTokens: 2,
+              retryCount: 0,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        },
+      })
+    })
+    await page.goto(`${BASE_URL}/proxy-logs?view=attempts`)
+    const row = page
+      .getByRole('row')
+      .filter({ has: page.getByTitle(model, { exact: true }) })
+    const pill = row.getByTitle(model, { exact: true })
+    const status = row.getByText('200', { exact: true })
+    for (const [name, badge] of [
+      ['model', pill],
+      ['status', status],
+    ]) {
+      await badge.waitFor({ timeout: 5_000 })
+      const offset = await badge.evaluate(async (element, name) => {
+        await document.fonts.ready
+        const icon = element.querySelector(
+          name === 'model'
+            ? ':scope > [aria-hidden] > :first-child'
+            : ':scope > [aria-hidden]'
+        )
+        const label = element.lastChild
+        if (!icon || !label?.textContent?.trim())
+          throw new Error(`missing ${name} icon or label`)
+        const range = document.createRange()
+        range.selectNodeContents(label)
+        const text =
+          label.nodeType === Node.TEXT_NODE
+            ? range.getBoundingClientRect()
+            : label.getBoundingClientRect()
+        const box = icon.getBoundingClientRect()
+        if (!box.height || !text.height)
+          throw new Error(`empty ${name} icon or label`)
+        return Math.abs(box.y + box.height / 2 - (text.y + text.height / 2))
+      }, name)
+      // Allow font metrics and subpixel rounding while catching a shifted glyph.
+      if (offset > 2)
+        failures.push(`log ${name}: vertical center offset ${offset}px > 2px`)
+    }
+  } finally {
+    await page.close()
   }
 }
 
@@ -416,22 +494,25 @@ async function main() {
       await scanRoute(desktop, route, failures)
     }
     await scanLegacyRedirects(desktop, LEGACY_REDIRECT_ROUTES, failures)
+    await checkLogAlignment(desktop, failures)
     await exerciseAccounts(desktop, failures)
     for (const route of ['/checkin', '/proxy-logs', '/token-routes']) {
       await exerciseUrlOwnedPage(desktop, route, failures)
     }
     await desktop.close()
 
-    const mobile = await browser.newContext({
-      viewport: { width: 375, height: 812 },
-      locale: 'zh-CN',
-      isMobile: true,
-    })
-    await seedAuth(mobile)
-    for (const route of MOBILE_ROUTES) {
-      await scanRoute(mobile, route, failures, true)
+    for (const locale of ['zh-CN', 'en']) {
+      const mobile = await browser.newContext({
+        viewport: { width: 375, height: 812 },
+        locale,
+        isMobile: true,
+      })
+      await seedAuth(mobile, locale)
+      for (const route of MOBILE_ROUTES) {
+        await scanRoute(mobile, route, failures, locale)
+      }
+      await mobile.close()
     }
-    await mobile.close()
   } finally {
     await browser.close()
   }
@@ -443,7 +524,7 @@ async function main() {
   }
 
   console.log(
-    `[ui-smoke] clean — ${DESKTOP_ROUTES.length} desktop routes + ${MOBILE_ROUTES.length} mobile routes + accounts interaction + checkin/proxy-logs/token-routes url-state interactions.`
+    `[ui-smoke] clean — ${DESKTOP_ROUTES.length} desktop routes + ${MOBILE_ROUTES.length} mobile routes per locale (zh-CN, en) + log icon alignment + accounts interaction + checkin/proxy-logs/token-routes url-state interactions.`
   )
 }
 
