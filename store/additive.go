@@ -716,6 +716,16 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_group_items", "last_selected_at", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "proxy_attempt_telemetry_v1",
+		Description: "nullable protocol conversion and stream timing observations",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "proxy_logs", "conversion_details", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "proxy_logs", "stream_timing", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

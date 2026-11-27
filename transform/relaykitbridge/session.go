@@ -40,6 +40,7 @@ type Session struct {
 	streamCreated bool
 	quality       relayconvert.RequestConverterQuality
 	steps         []relayconvert.RequestStep
+	responseSteps []relayconvert.ResponseStep
 	diagnostics   []Diagnostic
 }
 
@@ -152,6 +153,7 @@ func (s *Session) Response(ctx context.Context, raw []byte) ([]byte, error) {
 	if err != nil {
 		return nil, s.conversionError("response", err, nil)
 	}
+	s.responseSteps = result.Steps
 	if err := s.checkDiagnostics("response", result.Diagnostics); err != nil {
 		return nil, err
 	}
@@ -163,6 +165,25 @@ func (s *Session) Response(ctx context.Context, raw []byte) ([]byte, error) {
 func (s *Session) Quality() relayconvert.RequestConverterQuality { return s.quality }
 func (s *Session) Steps() []relayconvert.RequestStep             { return slices.Clone(s.steps) }
 func (s *Session) DiagnosticsSummary() []Diagnostic              { return slices.Clone(s.diagnostics) }
+
+// ConversionDetails projects only library-owned route labels and reviewed
+// diagnostic classes. Return detached slices for asynchronous log writers.
+func (s *Session) ConversionDetails() any {
+	if s == nil || s.from == s.to {
+		return nil
+	}
+	const maxSteps = 8
+	request := make([]string, 0, min(len(s.steps), maxSteps))
+	for _, step := range s.steps[:min(len(s.steps), maxSteps)] {
+		request = append(request, step.Converter)
+	}
+	response := make([]string, 0, min(len(s.responseSteps), maxSteps))
+	for _, step := range s.responseSteps[:min(len(s.responseSteps), maxSteps)] {
+		response = append(response, step.Converter)
+	}
+	diagnostics := append([]Diagnostic{}, s.diagnostics[:min(len(s.diagnostics), 16)]...)
+	return map[string]any{"owner": "relaykit", "sourceProtocol": s.from, "upstreamProtocol": s.to, "quality": s.quality, "requestSteps": request, "responseSteps": response, "diagnostics": diagnostics}
+}
 
 func decode(format Format, phase string, raw []byte) (any, error) {
 	var value any

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/deliciousbuding/metapi-go/internal/toolusage"
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
 
@@ -18,16 +19,21 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
-	upstreamTaskID        string // original media identity only; never inferred from decoder output
-	invalidForUserBudget  bool
-	videoAccounting       *directVideoAccounting
-	UpstreamReportedModel *string
-	FirstOutputLatencyMs  *int64
-	PromptTokens          int64
-	CompletionTokens      int64
-	TotalTokens           int64
-	CacheReadTokens       int64
-	CacheCreationTokens   int64
+	upstreamTaskID         string // original media identity only; never inferred from decoder output
+	invalidForUserBudget   bool
+	videoAccounting        *directVideoAccounting
+	UpstreamReportedModel  *string
+	FirstOutputLatencyMs   *int64
+	PromptTokens           int64
+	CompletionTokens       int64
+	TotalTokens            int64
+	CacheReadTokens        int64
+	CacheCreationTokens    int64
+	CacheCreation5mTokens  int64
+	CacheCreation1hTokens  int64
+	CacheCreation12hTokens int64
+	ToolUsage              []toolusage.ToolUsageItem
+	geminiSeparateThoughts bool
 	// ReasoningTokens captures Gemini thoughtsTokenCount / OpenAI reasoning_tokens
 	// when reported separately. Not persisted as its own proxy_logs column; it is
 	// folded into CompletionTokens / TotalTokens when total is missing.
@@ -55,16 +61,24 @@ func (u ParsedUsage) ToUsageSummary() *proxy.UsageSummary {
 
 // Does not invent usage when upstream omitted token fields.
 func ParseUsageFromBody(body []byte) ParsedUsage {
+	var tracker toolusage.Tracker
+	out := parseUsageWithTracker(body, &tracker)
+	out.ToolUsage = tracker.Snapshot()
+	return out
+}
+
+func parseUsageWithTracker(body []byte, tracker *toolusage.Tracker) ParsedUsage {
 	body = trimJSONNoise(body)
 	if len(body) == 0 {
 		return ParsedUsage{Source: usageSourceUnknown}
 	}
-	var payload any
+	var payload map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	if decoder.Decode(&payload) != nil || decoder.Decode(new(any)) != io.EOF {
 		return ParsedUsage{Source: usageSourceUnknown}
 	}
+	tracker.ObserveObject(payload)
 	out := extractUsageFromValue(payload)
 	out.UpstreamReportedModel = extractReportedModel(payload)
 	return out
@@ -72,9 +86,8 @@ func ParseUsageFromBody(body []byte) ParsedUsage {
 
 // Only protocol-owned model metadata is observed. Do not search tool results,
 // user content or errors, and never infer an upstream identity from our request.
-func extractReportedModel(payload any) *string {
-	obj, ok := payload.(map[string]any)
-	if !ok || obj["error"] != nil {
+func extractReportedModel(obj map[string]any) *string {
+	if obj["error"] != nil {
 		return nil
 	}
 	for _, field := range []string{"response", "message"} {
@@ -102,6 +115,7 @@ func reportedModelString(value any) *string {
 // Later events win when they carry usage so stream-end payloads (message_delta,
 // response.completed, final chat.completion.chunk) override partial early values.
 func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
+	var tracker toolusage.Tracker
 	var best ParsedUsage
 	best.Source = usageSourceUnknown
 	for _, ev := range events {
@@ -111,9 +125,10 @@ func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
 		if !looksLikeJSONObject(ev.Data) {
 			continue
 		}
-		got := ParseUsageFromBody([]byte(ev.Data))
+		got := parseUsageWithTracker([]byte(ev.Data), &tracker)
 		best = mergeUsagePreferLater(best, got)
 	}
+	best.ToolUsage = tracker.Snapshot()
 	return best
 }
 
@@ -147,11 +162,18 @@ func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
 	}
 	if next.CacheCreationTokens > 0 {
 		out.CacheCreationTokens = next.CacheCreationTokens
+		// Some terminal usage objects repeat the aggregate without its earlier TTL split.
+		if next.CacheCreation5mTokens+next.CacheCreation1hTokens+next.CacheCreation12hTokens > 0 || next.CacheCreationTokens < prev.CacheCreationTokens {
+			out.CacheCreation5mTokens = next.CacheCreation5mTokens
+			out.CacheCreation1hTokens = next.CacheCreation1hTokens
+			out.CacheCreation12hTokens = next.CacheCreation12hTokens
+		}
 	} else if !prev.Found {
 		out.CacheCreationTokens = next.CacheCreationTokens
 	}
 	if next.ReasoningTokens > 0 {
 		out.ReasoningTokens = next.ReasoningTokens
+		out.geminiSeparateThoughts = next.geminiSeparateThoughts
 	} else if !prev.Found {
 		out.ReasoningTokens = next.ReasoningTokens
 	}
@@ -170,12 +192,8 @@ func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
 	return out
 }
 
-func extractUsageFromValue(v any) ParsedUsage {
+func extractUsageFromValue(obj map[string]any) ParsedUsage {
 	out := ParsedUsage{Source: usageSourceUnknown}
-	obj, ok := v.(map[string]any)
-	if !ok {
-		return out
-	}
 
 	// Direct usage object (OpenAI / Anthropic / Responses).
 	applyUsageContainer(&out, obj, "usage")
@@ -258,7 +276,19 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any, gemini bool) {
 		out.Found = true
 		sawAnthropicCacheKeys = true
 	}
-	if sawAnthropicCacheKeys {
+	cache := toolusage.ExtractCacheUsageObject(usage)
+	if cache.CacheCreationTokens > 0 {
+		out.CacheCreationTokens = cache.CacheCreationTokens
+		out.CacheCreation5mTokens = cache.CacheCreation5mTokens
+		out.CacheCreation1hTokens = cache.CacheCreation1hTokens
+		out.CacheCreation12hTokens = cache.CacheCreation12hTokens
+		out.Found = true
+	}
+	if cache.CacheReadTokens > 0 {
+		out.CacheReadTokens = cache.CacheReadTokens
+		out.Found = true
+	}
+	if sawAnthropicCacheKeys || cache.CacheCreation5mTokens+cache.CacheCreation1hTokens > 0 {
 		// input_tokens (if present) is non-cached; expand prompt to include cache
 		// so total_tokens and billing breakdown billable-prompt math stay correct.
 		// When input_tokens was omitted (0) and only cache fields exist, this still
@@ -326,6 +356,8 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any, gemini bool) {
 		out.Found = true
 		if _, hasTotal := asInt64(usage["totalTokenCount"]); !hasTotal && n > 0 {
 			out.CompletionTokens += n
+		} else {
+			out.geminiSeparateThoughts = hasTotal
 		}
 	}
 }

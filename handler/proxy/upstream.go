@@ -1000,6 +1000,9 @@ func dispatchEndpointAttemptWithContinue(
 	// Allocate the observed attempt before dispatch, independent of whether a
 	// log writer succeeds or this endpoint falls back to another protocol.
 	r = r.WithContext(beginGatewayAttempt(r.Context()))
+	if effectiveStream && ctx.IsStream {
+		r = r.WithContext(startAttemptStreamTiming(r.Context(), upstreamPath, startedAt))
+	}
 	req = req.WithContext(r.Context())
 	var resp *http.Response
 	wire := directProviderWireFromContext(r.Context())
@@ -1043,6 +1046,10 @@ func dispatchEndpointAttemptWithContinue(
 		resp, err = sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
 	}
 	if err == nil && resp != nil {
+		if timing := streamTimingFromContext(r.Context()); timing != nil {
+			timing.arrival = time.Now()
+			timing.observer.MarkHeader()
+		}
 		if wire := directProviderWireFromContext(r.Context()); wire != nil {
 			switch wire.Profile {
 			case "cline":
@@ -1256,6 +1263,9 @@ func dispatchEndpointAttemptWithContinue(
 				streamUsage, streamEnd = handleMediaByteStream(w, r, resp)
 			} else {
 				streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()); ctx.lifecycle.firstOutput() }, selected.Direct != nil)
+			}
+			if timing := streamTimingFromContext(r.Context()); timing != nil {
+				timing.interrupted = streamEnd != streamEndedNormally
 			}
 			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()

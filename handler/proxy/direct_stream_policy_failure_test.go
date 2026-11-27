@@ -121,6 +121,9 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 			if out.Code < 400 || strings.Contains(out.Body.String(), "private-partial") || strings.Contains(out.Body.String(), "data:") || calls.Load() != 1 || len(logs) != 1 || logs[0].Status == "success" {
 				t.Fatalf("partial success status=%d calls=%d logs=%d body=%s", out.Code, calls.Load(), len(logs), out.Body.String())
 			}
+			if logs[0].StreamTiming != nil {
+				t.Fatal("aggregated response reported a downstream stream measurement")
+			}
 			if limiter.ActiveCount(credentialID) != 0 {
 				t.Fatal("aggregate failure leaked credential slot")
 			}

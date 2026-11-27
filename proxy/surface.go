@@ -26,6 +26,8 @@ type ProxyLogEntry struct {
 	TotalTokens           *int64
 	EstimatedCost         float64
 	BillingDetails        any
+	ConversionDetails     any
+	StreamTiming          any
 	ClientFamily          string
 	ClientAppID           string
 	ClientAppName         string

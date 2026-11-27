@@ -172,6 +172,13 @@ Earlier builds recorded header latency as total latency on successful responses;
 
 Get a single proxy log entry by ID.
 
+此详情与 `GET /api/stats/requests/:id` 的 `attempts[]` 共用以下字段。历史记录或无法解析的观测值返回 `null`。
+
+- `conversion` 记录 RelayKit 的 `sourceProtocol`、`upstreamProtocol`、`owner`、`quality`，以及按转换顺序排列的 `requestSteps`、`responseSteps` 转换器名称。`diagnostics` 只含 `phase`、`code`、`severity` 和 `fieldClass`。原生直通返回 `null`。
+- `streamTiming` 使用网关收到上游 SSE 帧的时间。`headerMs`、`firstReasoningMs`、`firstTextMs`、`lastContentMs` 相对本次尝试开始计时，`maxContentGapMs` 为相邻内容帧间的最大间隔。非流式响应和强制聚合返回 `null`。
+- `decodeStatus` 为 `measured` 时，`decodeTps` 为 `decodeTokens` 在 `decodeWindowMs` 内的每秒生成量。`bufferedBurst`、`hiddenReasoning`、`insufficientEvidence` 和 `interrupted` 均返回 `decodeTps: null`。`reasoningEvidence` 区分 `none`、`visible`、`summaryOnly` 和 `hidden`。
+- `billingDetails.usage` 可包含 `cacheCreation5mTokens`、`cacheCreation1hTokens`、`cacheCreation12hTokens`，均计入 `cacheCreationTokens`。`breakdown` 的同名 `Cost` 分项已包含在 `cacheCreationCost` 中。`breakdown.toolSurcharges[]` 记录工具类别、单位、数量、来源和金额。供应商上报的调用数优先于响应推算。没有单价时省略 `unitPrice`，金额为零。搜索词、工具参数和模型正文不进入这些字段。
+
 记录不存在返回 `404`；数据库读取失败返回 `500` / `resourceLoadFailed`。
 
 `requestAttempts` 对新记录优先关联同一 `gatewayRequestId`，历史缺少内部关联时

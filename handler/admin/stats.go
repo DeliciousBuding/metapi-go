@@ -829,6 +829,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, row := range items {
 			normalizeProxyLogRow(row)
+			omitProxyAttemptDetail(row)
 		}
 		queryPayload["items"] = normalizeSlice(items)
 
@@ -971,11 +972,7 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if raw, ok := row["billingDetails"]; ok {
-		parsed := decodeProxyLogBilling(raw)
-		row["billingDetails"] = parsed
-	}
-	normalizeProxyLogRow(row)
+	projectProxyAttemptDetail(row)
 	row["requestAttempts"] = h.buildRequestAttempts(row)
 
 	writeJSON(w, http.StatusOK, row)

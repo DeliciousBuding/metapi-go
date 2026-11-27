@@ -497,6 +497,8 @@ type ProxyLog struct {
 	TotalTokens           *int64   `db:"total_tokens" json:"totalTokens"`
 	EstimatedCost         *float64 `db:"estimated_cost" json:"estimatedCost"`
 	BillingDetails        *string  `db:"billing_details" json:"billingDetails"`
+	ConversionDetails     *string  `db:"conversion_details" json:"conversionDetails"`
+	StreamTiming          *string  `db:"stream_timing" json:"streamTiming"`
 	ClientFamily          *string  `db:"client_family" json:"clientFamily"`
 	ClientAppID           *string  `db:"client_app_id" json:"clientAppId"`
 	ClientAppName         *string  `db:"client_app_name" json:"clientAppName"`

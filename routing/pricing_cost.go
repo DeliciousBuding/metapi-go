@@ -22,6 +22,8 @@ import (
 // Non-Claude models keep the original Metapi fallback of 1.0 so we do not
 // invent vendor-specific multipliers without evidence.
 const (
+	cacheWrite1hWeight  = 1.6
+	cacheWrite12hWeight = 2
 	// DefaultCacheRatio is the historical Metapi fallback when cache_ratio is
 	// missing for non-Claude models (input × 1.0).
 	DefaultCacheRatio = 1.0
@@ -299,13 +301,23 @@ func (b *ProxyBillingBreakdown) priceCacheWrites(u ProxyBillingUsage, model Pric
 		return roundCost(modelRatio * ratio * 2 * multiplier)
 	}
 	five := price(u.CacheCreation5mTokens, b.CacheCreationPerMillion)
-	hour := price(u.CacheCreation1hTokens, tierRate(model.CacheCreation1hRatio, baseRatio*1.6))
-	long := price(u.CacheCreation12hTokens, tierRate(model.CacheCreation12hRatio, baseRatio*2))
+	hour := price(u.CacheCreation1hTokens, tierRate(model.CacheCreation1hRatio, baseRatio*cacheWrite1hWeight))
+	long := price(u.CacheCreation12hTokens, tierRate(model.CacheCreation12hRatio, baseRatio*cacheWrite12hWeight))
 	b.CacheCreation5mCost = roundCost(five)
 	b.CacheCreation1hCost = roundCost(hour)
 	b.CacheCreation12hCost = roundCost(long)
 	// Round the aggregate once, including sub-microcurrency tier quantities.
 	b.CacheCreationCost = roundCost(price(ordinary, b.CacheCreationPerMillion) + five + hour + long)
+}
+
+// PriceCatalogCacheWrites applies an absolute write rate (including free use)
+// to the normalized token split using the same TTL weights as ratio pricing.
+func (b *ProxyBillingBreakdown) PriceCatalogCacheWrites(u ProxyBillingUsage, rate float64) {
+	ordinary := u.CacheCreationTokens - u.CacheCreation5mTokens - u.CacheCreation1hTokens - u.CacheCreation12hTokens
+	b.CacheCreation5mCost = float64(u.CacheCreation5mTokens) * rate / 1e6
+	b.CacheCreation1hCost = float64(u.CacheCreation1hTokens) * rate * cacheWrite1hWeight / 1e6
+	b.CacheCreation12hCost = float64(u.CacheCreation12hTokens) * rate * cacheWrite12hWeight / 1e6
+	b.CacheCreationCost = float64(ordinary)*rate/1e6 + b.CacheCreation5mCost + b.CacheCreation1hCost + b.CacheCreation12hCost
 }
 
 func (b *ProxyBillingBreakdown) addToolSurcharges(model PricingModel, items []ToolUsageChargeInput, multiplier float64) {

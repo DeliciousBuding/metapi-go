@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -207,6 +208,15 @@ func (b *proxyLogBatchWriter) flushBatch(ctx context.Context, entries []proxy.Pr
 		}
 		return
 	}
+	// SQLite allows 32766 bind parameters, PostgreSQL 65535. Retry only the
+	// failed chunk so a later failure cannot duplicate committed attempts.
+	maxRows := 32766 / strings.Count(proxyLogSingleRowPlaceholders, "?")
+	for chunk := range slices.Chunk(entries, maxRows) {
+		flushAttemptChunk(ctx, db, chunk)
+	}
+}
+
+func flushAttemptChunk(ctx context.Context, db *store.DB, entries []proxy.ProxyLogEntry) {
 	if err := batchInsertProxyLogs(ctx, db, entries); err != nil {
 		slog.Warn("proxy_log batch insert failed, falling back to per-row", "err", err, "count", len(entries))
 		for _, entry := range entries {

@@ -156,7 +156,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	// clients carry no whole-request timeout for streams precisely so this
 	// per-chunk timer — not total elapsed time — governs stream liveness.
 	idleTimeout := streamIdleTimeout()
-	idleBody := &streamIdleBody{ReadCloser: resp.Body}
+	timing := streamTimingFromContext(r.Context())
+	idleBody := &streamIdleBody{ReadCloser: resp.Body, timing: timing}
 	idleBody.guard = newStreamIdleGuard(idleTimeout, idleBody.closeUnderlying)
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
@@ -236,6 +237,18 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		} else {
 			messageBridge.outputAnalysis = analyzer
 		}
+	}
+	if timing != nil && bodyReadable {
+		original := analyzer
+		if messageBridge != nil {
+			original = messageBridge.original
+		} else if native, ok := resp.Body.(*nativeTerminalBody); ok {
+			if native.original == nil {
+				native.original = newIncrementalSseAnalyzer()
+			}
+			original = native.original
+		}
+		original.timing = timing
 	}
 	sawStreamBytes := false
 	var streamedBytes int64
@@ -718,6 +731,7 @@ func isDownstreamWriteTimeout(err error) bool {
 // the guard's fired flag.
 type streamIdleBody struct {
 	io.ReadCloser
+	timing    *attemptStreamTiming
 	guard     *streamIdleGuard
 	closeOnce sync.Once
 	closeErr  error
@@ -726,6 +740,9 @@ type streamIdleBody struct {
 func (b *streamIdleBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if n > 0 {
+		if b.timing != nil {
+			b.timing.arrival = time.Now()
+		}
 		b.guard.reset()
 	}
 	return n, err

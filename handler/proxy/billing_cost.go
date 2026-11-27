@@ -99,12 +99,16 @@ func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usag
 		},
 		"usage_source": usage.Source,
 	}
-	if !usage.Found {
+	if !usage.Found && len(usage.ToolUsage) == 0 {
 		return BillingCostResult{cost, details}
 	}
 	u := routing.UsageForCost{
 		PromptTokens: usage.PromptTokens, CompletionTokens: usage.CompletionTokens, TotalTokens: total,
 		CacheReadTokens: usage.CacheReadTokens, CacheCreationTokens: usage.CacheCreationTokens,
+		CacheCreation5mTokens:  usage.CacheCreation5mTokens,
+		CacheCreation1hTokens:  usage.CacheCreation1hTokens,
+		CacheCreation12hTokens: usage.CacheCreation12hTokens,
+		ToolUsage:              usage.ToolUsage,
 	}
 	pm := routing.PricingModel{ModelName: billingModel, ModelRatio: 1, CompletionRatio: 1}
 	entry, found := snapshot.Lookup(billingModel)
@@ -153,7 +157,7 @@ func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usag
 		b.InputCost = float64(detail.Usage.BillablePromptTokens) * input / 1e6
 		b.OutputCost = float64(detail.Usage.CompletionTokens) * output / 1e6
 		b.CacheReadCost = float64(detail.Usage.CacheReadTokens) * read / 1e6
-		b.CacheCreationCost = float64(detail.Usage.CacheCreationTokens) * write / 1e6
+		b.PriceCatalogCacheWrites(detail.Usage, write)
 		b.TotalCost = b.InputCost + b.OutputCost + b.CacheReadCost + b.CacheCreationCost
 	} else {
 		pricing["model_ratio"], pricing["completion_ratio"] = detail.Pricing.ModelRatio, detail.Pricing.CompletionRatio
@@ -164,10 +168,28 @@ func EstimateBillingCostFromUsageWithCatalog(billingModel, platform string, usag
 	billingUsage := details["usage"].(map[string]any)
 	billingUsage["billable_prompt_tokens"] = detail.Usage.BillablePromptTokens
 	billingUsage["prompt_tokens_include_cache"] = detail.Usage.PromptTokensIncludeCache
-	details["breakdown"] = map[string]any{
+	breakdown := map[string]any{
 		"input_cost": b.InputCost, "output_cost": b.OutputCost,
 		"cache_read_cost": b.CacheReadCost, "cache_creation_cost": b.CacheCreationCost,
 		"total_cost": b.TotalCost, "fallback_total_cost": cost,
 	}
+	for _, tier := range []struct {
+		label  string
+		tokens int64
+		cost   float64
+	}{
+		{"5m", detail.Usage.CacheCreation5mTokens, b.CacheCreation5mCost},
+		{"1h", detail.Usage.CacheCreation1hTokens, b.CacheCreation1hCost},
+		{"12h", detail.Usage.CacheCreation12hTokens, b.CacheCreation12hCost},
+	} {
+		if tier.tokens > 0 {
+			billingUsage["cacheCreation"+tier.label+"Tokens"] = tier.tokens
+			breakdown["cacheCreation"+tier.label+"Cost"] = tier.cost
+		}
+	}
+	if len(b.ToolSurcharges) > 0 {
+		breakdown["toolSurcharges"] = b.ToolSurcharges
+	}
+	details["breakdown"] = breakdown
 	return BillingCostResult{EstimatedCost: b.TotalCost, BillingDetails: details}
 }

@@ -247,6 +247,8 @@ func TestBillingCatalogRates(t *testing.T) {
 		source string
 	}{
 		{"m", pricingcatalog.SiteClassOfficial, ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 100, CacheReadTokens: 200, CacheCreationTokens: 50}, .00535, "catalog"},
+		{"m", pricingcatalog.SiteClassOfficial, ParseUsageFromBody([]byte(`{"usage":{"input_tokens":100,"output_tokens":10,"input_tokens_details":{"cached_creation_tokens":50,"cache_write_tokens_details":{"ttl_12h_tokens":20}}}}`)), .00093, "catalog"},
+		{"free", pricingcatalog.SiteClassOfficial, ParsedUsage{Found: true, PromptTokens: 100, CacheCreationTokens: 100, CacheCreation12hTokens: 100}, 0, "catalog"},
 		{"m", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 100}, .0052, "catalog_estimate"},
 		{"m", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, PromptTokens: 1000, CacheReadTokens: 1000}, 0, "catalog_estimate"},
 		{"free", pricingcatalog.SiteClassOfficial, ParsedUsage{Found: true, PromptTokens: 1000}, 0, "catalog"},

@@ -183,6 +183,9 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	for _, row := range accounts {
 		redactSearchAccountSecrets(row)
 	}
+	for _, row := range proxyLogs {
+		omitProxyAttemptDetail(row)
+	}
 	for _, row := range sites {
 		service.RedactSiteCredentials(row)
 	}

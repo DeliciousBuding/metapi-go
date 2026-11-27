@@ -140,6 +140,8 @@ var jsonColumnSet = map[string]bool{
 	"accounts.extra_config":                        true,
 	"token_routes.model_mapping":                   true,
 	"token_routes.decision_snapshot":               true,
+	"proxy_logs.conversion_details":                true,
+	"proxy_logs.stream_timing":                     true,
 	"proxy_logs.billing_details":                   true,
 	"proxy_video_tasks.direct_identity":            true,
 	"proxy_video_tasks.accounting_state":           true,
@@ -1134,7 +1136,7 @@ func buildRouteGroupSources(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "route_id", "channel_id", "upstream_channel_id", "upstream_grant_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "first_output_latency_ms", "upstream_reported_model", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at", "downstream_path", "gateway_request_id"}
+	cols := []string{"id", "route_id", "channel_id", "upstream_channel_id", "upstream_grant_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "first_output_latency_ms", "upstream_reported_model", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "conversion_details", "stream_timing", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at", "downstream_path", "gateway_request_id"}
 	cols = append(cols, "owner_user_id", "user_group_id")
 	var stmts []insertStmt
 	for _, row := range rows {
@@ -1165,6 +1167,8 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "total_tokens"), nil),
 				asNumber(v(row, "estimated_cost"), nil),
 				serializeColumnValue("proxy_logs", "billing_details", v(row, "billing_details")),
+				serializeColumnValue("proxy_logs", "conversion_details", v(row, "conversion_details")),
+				serializeColumnValue("proxy_logs", "stream_timing", v(row, "stream_timing")),
 				asNullableString(v(row, "client_family")),
 				asNullableString(v(row, "client_app_id")),
 				asNullableString(v(row, "client_app_name")),

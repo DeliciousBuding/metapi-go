@@ -85,7 +85,11 @@ func response(o object) object {
 // ExtractCacheUsage reads one JSON/SSE frame or a standalone usage object.
 // Malformed counters are ignored individually, preserving valid sibling fields.
 func ExtractCacheUsage(raw []byte) CacheUsage {
-	r := response(payload(raw))
+	return ExtractCacheUsageObject(response(payload(raw)))
+}
+
+// ExtractCacheUsageObject accepts an already decoded response or usage container (UseNumber).
+func ExtractCacheUsageObject(r map[string]any) CacheUsage {
 	u := child(r, "usage")
 	if u == nil {
 		u = r
@@ -176,7 +180,11 @@ func (t *Tracker) observeCall(item object, index int64) {
 // Observe consumes one response object or SSE event. Tool declarations and
 // client functions supply no evidence of a hosted invocation.
 func (t *Tracker) Observe(raw []byte) {
-	event := payload(raw)
+	t.ObserveObject(payload(raw))
+}
+
+// ObserveObject accepts an already decoded upstream event (UseNumber).
+func (t *Tracker) ObserveObject(event map[string]any) {
 	r := response(event)
 	switch event["type"] {
 	case "response.output_item.done":

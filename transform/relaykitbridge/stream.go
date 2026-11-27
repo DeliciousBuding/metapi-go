@@ -40,6 +40,7 @@ func (s *Session) NewResponseStream() (*Stream, error) {
 	if err != nil {
 		return nil, s.conversionError("stream", err, nil)
 	}
+	s.responseSteps = state.Steps
 	s.streamCreated = true
 	return &Stream{session: s, state: state}, nil
 }
