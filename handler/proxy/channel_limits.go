@@ -19,7 +19,7 @@ type queuedChannelRevalidator interface {
 
 func revalidateQueuedChannel(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, policy *routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, int, error) {
 	if ctx.Auth != nil && ctx.Auth.KeyID != nil {
-		current := auth.RevalidateQueuedRequest(r, ctx.Auth)
+		current := auth.RevalidateQueuedRequest(ctx.db, r, ctx.Auth)
 		if !current.OK {
 			return nil, current.StatusCode, fmt.Errorf("Queued request authorization is no longer valid")
 		}

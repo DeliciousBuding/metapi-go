@@ -60,7 +60,7 @@ func BenchmarkGatewayLifecycleSQLite(b *testing.B) {
 					if async {
 						store.OverrideDB(db)
 						defer store.OverrideDB(nil)
-						writer = newProxyLogBatchWriter(50, 1000)
+						writer = newProxyLogBatchWriter(db, 50, 1000)
 						writer.start()
 						defer writer.shutdown(context.Background())
 						writeAttempt = writer.enqueue
@@ -78,7 +78,7 @@ func BenchmarkGatewayLifecycleSQLite(b *testing.B) {
 					})
 					var handler http.Handler = next
 					if enabled {
-						handler = requestLifecycleMiddleware(next, func(ctx context.Context, entry store.GatewayRequest) error {
+						handler = requestLifecycleMiddleware(db, next, func(ctx context.Context, entry store.GatewayRequest) error {
 							err := writeRequest(ctx, entry)
 							if err != nil {
 								b.Error(err)

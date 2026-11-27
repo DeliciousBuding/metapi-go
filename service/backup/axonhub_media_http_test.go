@@ -100,6 +100,7 @@ func installAxonHubHTTPFixture(t *testing.T, provider, base, format, path, kind 
 		},
 	})
 	router := chi.NewRouter()
+	router.Use(proxyhandler.RequestLifecycle(db))
 	router.Route("/v1", proxyhandler.RegisterProxyRoutes)
 	proxyhandler.RegisterNonV1ProxyRoutes(router)
 	return router

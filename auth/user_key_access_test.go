@@ -32,7 +32,7 @@ func TestUserKeyAdmissionFailClosedAndScopedDiagnosis(t *testing.T) {
 	if err := db.Get(&keyID, `INSERT INTO downstream_api_keys (name,key,key_owner_type,owner_user_id,supported_models) VALUES ('fixture','sk-user-fixture','user',?,'["*"]') RETURNING id`, user.ID); err != nil {
 		t.Fatal(err)
 	}
-	result := AuthorizeDownstreamToken("sk-user-fixture", nil)
+	result := AuthorizeDownstreamToken(db, "sk-user-fixture", nil)
 	if !result.OK || result.Policy.UserRouteIDs == nil || len(*result.Policy.UserRouteIDs) != 0 {
 		t.Fatalf("empty group widened: %+v", result)
 	}
@@ -52,14 +52,14 @@ func TestUserKeyAdmissionFailClosedAndScopedDiagnosis(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer sk-user-fixture")
 	w := httptest.NewRecorder()
-	ProxyAuth()(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("disabled user admitted") })).ServeHTTP(w, req)
+	ProxyAuth(db)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("disabled user admitted") })).ServeHTTP(w, req)
 	if w.Code != 403 {
 		t.Fatalf("disabled user status=%d %s", w.Code, w.Body.String())
 	}
 	if _, err := db.Exec(`DELETE FROM gateway_users WHERE id=?`, user.ID); err != nil {
 		t.Fatal(err)
 	}
-	if result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-user-fixture", "", 1); result.OK || result.StatusCode != 403 {
+	if result := ReauthorizeManagedKeyForTurn(context.Background(), db, "sk-user-fixture", "", 1); result.OK || result.StatusCode != 403 {
 		t.Fatalf("missing owner became system Key: %+v", result)
 	}
 }

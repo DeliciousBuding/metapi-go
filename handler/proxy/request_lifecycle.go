@@ -22,7 +22,20 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-type requestLifecycleKey struct{}
+type proxyScopeKey struct{}
+
+// The database belongs to the router even when this path has no request record.
+// Each WebSocket turn inherits that database and starts its own lifecycle.
+type proxyRequestScope struct {
+	db        *store.DB
+	lifecycle *requestLifecycle
+}
+
+func proxyScopeFromContext(ctx context.Context) proxyRequestScope {
+	scope, _ := ctx.Value(proxyScopeKey{}).(proxyRequestScope)
+	return scope
+}
+
 type gatewayAttemptKey struct{}
 type gatewayRequestWriter func(context.Context, store.GatewayRequest) error
 
@@ -53,11 +66,13 @@ type requestLifecycle struct {
 	protocolFailed     bool
 }
 
-func defaultGatewayRequestWriter(ctx context.Context, entry store.GatewayRequest) error {
-	return EnqueueGatewayRequest(ctx, entry)
+func defaultGatewayRequestWriter(db *store.DB) gatewayRequestWriter {
+	return func(ctx context.Context, entry store.GatewayRequest) error {
+		return EnqueueGatewayRequest(ctx, db, entry)
+	}
 }
 
-func newRequestLifecycle(r *http.Request, transport string, writer gatewayRequestWriter) (*requestLifecycle, *http.Request) {
+func newRequestLifecycle(db *store.DB, r *http.Request, transport string, writer gatewayRequestWriter) (*requestLifecycle, *http.Request) {
 	var id [16]byte
 	if _, err := rand.Read(id[:]); err != nil {
 		// No client-derived fallback: request identities must never merge calls.
@@ -70,12 +85,11 @@ func newRequestLifecycle(r *http.Request, transport string, writer gatewayReques
 		DownstreamPath:    canonicalRequestPath(r.URL.Path),
 		ExternalRequestID: safeExternalRequestID(r.Header.Get("X-Request-Id")),
 	}}
-	return state, r.WithContext(context.WithValue(r.Context(), requestLifecycleKey{}, state))
+	return state, r.WithContext(context.WithValue(r.Context(), proxyScopeKey{}, proxyRequestScope{db: db, lifecycle: state}))
 }
 
 func requestLifecycleFromContext(ctx context.Context) *requestLifecycle {
-	state, _ := ctx.Value(requestLifecycleKey{}).(*requestLifecycle)
-	return state
+	return proxyScopeFromContext(ctx).lifecycle
 }
 
 func safeExternalRequestID(value string) *string {
@@ -122,17 +136,19 @@ func requestResourceSuffix(path string) string {
 // RequestLifecycle runs before recovery, body limits and authentication, but
 // records only known proxy surfaces. Successful WS upgrades have turn owners;
 // an unsuccessful upgrade is still an ordinary HTTP rejection.
-func RequestLifecycle(next http.Handler) http.Handler {
-	return requestLifecycleMiddleware(next, defaultGatewayRequestWriter)
+func RequestLifecycle(db *store.DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return requestLifecycleMiddleware(db, next, defaultGatewayRequestWriter(db))
+	}
 }
 
-func requestLifecycleMiddleware(next http.Handler, writer gatewayRequestWriter) http.Handler {
+func requestLifecycleMiddleware(db *store.DB, next http.Handler, writer gatewayRequestWriter) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions || canonicalRequestPath(r.URL.Path) == nil {
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), proxyScopeKey{}, proxyRequestScope{db: db})))
 			return
 		}
-		state, request := newRequestLifecycle(r, "http", writer)
+		state, request := newRequestLifecycle(db, r, "http", writer)
 		wrapped := &requestResponseWriter{ResponseWriter: w, state: state}
 		defer state.finish(request.Context())
 		next.ServeHTTP(wrapped, request)

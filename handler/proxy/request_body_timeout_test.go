@@ -29,7 +29,7 @@ func TestRequestBodyReadDeadlinePreservesAdmissionReason(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			records := make(chan store.GatewayRequest, 1)
-			handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				r = r.WithContext(auth.WithProxyAuth(r.Context(), &auth.ProxyAuthContext{
 					Token: "synthetic-key", Source: "global", Policy: auth.EmptyDownstreamRoutingPolicy,
 				}))

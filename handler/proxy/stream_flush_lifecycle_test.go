@@ -13,7 +13,7 @@ import (
 
 func TestStreamFlushFailureReachesRelayAndRequestTerminal(t *testing.T) {
 	var records []store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		body := []byte("data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
 		if err := writeDownstreamChunk(w, body, time.Second); !errors.Is(err, errFlushSentinel) {
@@ -38,7 +38,7 @@ type writeOnlyStreamWriter struct{ http.ResponseWriter }
 
 func TestStreamUnsupportedFlushDoesNotMarkWriteFailure(t *testing.T) {
 	var records []store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		body := []byte("data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
 		if err := writeDownstreamChunk(w, body, time.Second); err != nil {

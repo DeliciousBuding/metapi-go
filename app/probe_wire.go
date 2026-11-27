@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
@@ -40,7 +39,7 @@ func (a proxyChannelHealthProbeAdapter) ProbeChannel(ctx context.Context, target
 var (
 	probeWireMu       sync.RWMutex
 	activeProbeRouter *routing.TokenRouter
-	activeProbeCfg    *config.Config
+	activeProbe       *proxy.ChannelHealthProbeExecutor
 )
 
 // tokenRouterHealthRecorder adapts routing.TokenRouter to scheduler.ChannelHealthRecorder.
@@ -81,10 +80,10 @@ func (r *tokenRouterHealthRecorder) RecordProbeFailure(
 }
 
 // rememberProbeRouter stores the live TokenRouter for model-probe wiring.
-func rememberProbeRouter(cfg *config.Config, router *routing.TokenRouter) {
+func rememberProbeRouter(probe *proxy.ChannelHealthProbeExecutor, router *routing.TokenRouter) {
 	probeWireMu.Lock()
 	defer probeWireMu.Unlock()
-	activeProbeCfg = cfg
+	activeProbe = probe
 	activeProbeRouter = router
 }
 
@@ -97,18 +96,14 @@ func WireModelProbeScheduler(s *scheduler.ModelProbeScheduler) {
 	}
 	probeWireMu.RLock()
 	router := activeProbeRouter
-	cfg := activeProbeCfg
+	probe := activeProbe
 	probeWireMu.RUnlock()
 
 	if router == nil {
 		slog.Debug("model-probe wire: TokenRouter not ready; probe executor deferred")
 		return
 	}
-	if cfg == nil {
-		cfg = config.Get()
-	}
 
-	probe := proxy.NewChannelHealthProbeExecutor(cfg)
 	s.SetProbeExecutor(proxyChannelHealthProbeAdapter{exec: probe})
 	s.SetHealthRecorder(&tokenRouterHealthRecorder{router: router})
 	slog.Info("model-probe: probe executor and health recorder wired")

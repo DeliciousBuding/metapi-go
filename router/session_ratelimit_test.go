@@ -26,7 +26,7 @@ func TestFailedAuthIsRateLimited(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	sawTooMany := false
 	sawAuthFailure := false
@@ -80,7 +80,7 @@ func TestLoginEndpointIsRateLimited(t *testing.T) {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	sawTooMany := false
 	for i := 0; i < 5; i++ {

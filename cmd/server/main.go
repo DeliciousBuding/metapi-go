@@ -122,7 +122,7 @@ func main() {
 	}
 
 	// ---- 12. Create HTTP router ----
-	r := router.New(cfg, web.Dist)
+	r := router.New(db, cfg, web.Dist)
 
 	// Override /health handler with actual implementation
 	// (router.New registers a placeholder; in production we'd pass the handler in)
@@ -170,7 +170,8 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		return fmt.Errorf("ensure runtime database: %w", err)
 	}
-	if err := store.LoadRuntimeSettings(cfg, rt); err != nil {
+	db := store.GetDB()
+	if err := store.LoadRuntimeSettings(db, cfg, rt); err != nil {
 		return fmt.Errorf("load runtime settings: %w", err)
 	}
 	// Hydration may have replaced the env token with the settings row; the
@@ -184,7 +185,6 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 	// it here means the next boot authenticates with the same token without
 	// requiring the operator to edit the environment.
 	if generatedAuthToken != "" && rt.AuthToken == generatedAuthToken {
-		db := store.GetDB()
 		if db == nil {
 			return fmt.Errorf("persist generated admin token: database unavailable")
 		}

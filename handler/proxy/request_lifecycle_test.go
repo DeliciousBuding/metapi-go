@@ -48,7 +48,7 @@ func TestGatewayLifecycleDispatchResults(t *testing.T) {
 				return nil
 			}})
 			var records []store.GatewayRequest
-			handler := requestLifecycleMiddleware(http.HandlerFunc(HandleChatCompletions), func(ctx context.Context, entry store.GatewayRequest) error {
+			handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(HandleChatCompletions), func(ctx context.Context, entry store.GatewayRequest) error {
 				records = append(records, entry)
 				return nil
 			})
@@ -78,7 +78,7 @@ func TestGatewayLifecycleNoDispatchAndRepeatedExternalID(t *testing.T) {
 	t.Cleanup(func() { config.Set(previous); SetUpstreamConfig(nil) })
 	SetUpstreamConfig(&UpstreamConfig{Router: &allFailedAlertRouter{}})
 	var records []store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error {
 		records = append(records, entry)
 		return nil
 	})
@@ -108,7 +108,7 @@ func TestGatewayLifecycleCancellationWriteFailureAndIdempotency(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		req := httptest.NewRequestWithContext(ctx, "POST", "/v1/responses", nil)
 		var records []store.GatewayRequest
-		state, request := newRequestLifecycle(req, "http", func(writeCtx context.Context, entry store.GatewayRequest) error {
+		state, request := newRequestLifecycle(store.GetDB(), req, "http", func(writeCtx context.Context, entry store.GatewayRequest) error {
 			if writeCtx.Err() != nil {
 				t.Error("completion writer inherited cancellation")
 			}
@@ -136,7 +136,7 @@ func TestGatewayLifecycleCancellationWriteFailureAndIdempotency(t *testing.T) {
 
 func TestGatewayLifecycleAuthRejectionAndScope(t *testing.T) {
 	var records []store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.(interface{ ObserveProxyKey(int64) }).ObserveProxyKey(17)
 		w.(interface{ ObserveProxyRejection(string) }).ObserveProxyRejection("key_expired")
 		w.WriteHeader(403)
@@ -180,7 +180,7 @@ func TestGatewayLifecycleCredentialNeverExternalID(t *testing.T) {
 	config.UpdateRuntime(func(cfg *config.RuntimeSettings) { cfg.ProxyToken = "synthetic-nonstandard-token" })
 	t.Cleanup(func() { config.SetRuntime(previous) })
 	var record store.GatewayRequest
-	handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+	handler := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 	for _, token := range []string{"synthetic-nonstandard-token", "synthetic-invalid-token"} {
 		req := httptest.NewRequest("POST", "/v1/responses", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -196,7 +196,7 @@ func TestGatewayLifecycleKnownFailureSurvivesLaterCancellation(t *testing.T) {
 	for _, policy := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(context.Background())
 		var record store.GatewayRequest
-		state, request := newRequestLifecycle(httptest.NewRequestWithContext(ctx, "POST", "/v1/responses", nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+		state, request := newRequestLifecycle(store.GetDB(), httptest.NewRequestWithContext(ctx, "POST", "/v1/responses", nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 		w := &requestResponseWriter{ResponseWriter: httptest.NewRecorder(), state: state}
 		if policy {
 			w.ObserveProxyRejection("key_expired")
@@ -223,7 +223,7 @@ func TestGatewayLifecycleWebsocketNoRoute(t *testing.T) {
 	t.Cleanup(func() { config.Set(previous); SetUpstreamConfig(nil) })
 	SetUpstreamConfig(&UpstreamConfig{Router: &allFailedAlertRouter{}})
 	completed := make(chan store.GatewayRequest, 2)
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pac := &auth.ProxyAuthContext{Source: "global", Token: "synthetic", Policy: auth.EmptyDownstreamRoutingPolicy}
 		HandleResponsesWebsocket(w, r.WithContext(auth.WithProxyAuth(r.Context(), pac)))
 	}), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil })
@@ -261,7 +261,7 @@ func TestGatewayLifecycleWebsocketTurnNotHandshake(t *testing.T) {
 		mu.Unlock()
 		return nil
 	}
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pac := &auth.ProxyAuthContext{Source: "global", Token: "synthetic", Policy: auth.EmptyDownstreamRoutingPolicy}
 		HandleResponsesWebsocket(w, r.WithContext(auth.WithProxyAuth(r.Context(), pac)))
 	}), writer)
@@ -402,7 +402,7 @@ func TestGatewayLifecycleNativeWSTurns(t *testing.T) {
 	attempts := make(chan proxy.ProxyLogEntry, 3)
 	selected := &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: upstream.URL, Platform: "codex", Status: "active"}, TokenValue: "synthetic", ActualModel: "m"}}
 	SetUpstreamConfig(&UpstreamConfig{Router: selected, LogProxy: func(_ context.Context, entry proxy.ProxyLogEntry) error { attempts <- entry; return nil }})
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pac := &auth.ProxyAuthContext{Source: "global", Policy: auth.EmptyDownstreamRoutingPolicy}
 		HandleResponsesWebsocket(w, r.WithContext(auth.WithProxyAuth(r.Context(), pac)))
 	}), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil })

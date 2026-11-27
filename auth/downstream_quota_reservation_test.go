@@ -31,7 +31,7 @@ func insertQuotaKey(t *testing.T, key string, quota store.DownstreamQuota) int64
 }
 
 func admissionReservationResult(key string) DownstreamTokenAuthResult {
-	return authorizeDownstreamToken(key, &config.RuntimeSettings{}, "", admissionOptions{reserveQuota: true})
+	return authorizeDownstreamToken(store.GetDB(), key, &config.RuntimeSettings{}, "", admissionOptions{reserveQuota: true})
 }
 
 // TestQuotaReservationConcurrentAdmission proves that concurrent live
@@ -88,7 +88,7 @@ func TestQuotaReservationConcurrentAdmission(t *testing.T) {
 	// Settlement removes the hold and records the attempt in one transaction.
 	tokens := int64(7)
 	cost := 0.25
-	RecordManagedKeyQuotaUsage(id, winner, &tokens, &cost)
+	RecordManagedKeyQuotaUsage(db, id, winner, &tokens, &cost)
 	var usageRows int
 	if err := db.Get(&usageRows, `SELECT COUNT(*) FROM downstream_quota_usage WHERE key_id=?`, id); err != nil || usageRows != 1 {
 		t.Fatalf("usage rows=%d err=%v, want 1", usageRows, err)
@@ -102,7 +102,7 @@ func TestQuotaReservationConcurrentAdmission(t *testing.T) {
 
 	// A retry that reuses an already-settled reservation still records usage:
 	// billing must not depend on admission bookkeeping.
-	RecordManagedKeyQuotaUsage(id, winner, &tokens, &cost)
+	RecordManagedKeyQuotaUsage(db, id, winner, &tokens, &cost)
 	if err := db.Get(&usageRows, `SELECT COUNT(*) FROM downstream_quota_usage WHERE key_id=?`, id); err != nil || usageRows != 2 {
 		t.Fatalf("usage rows after retry=%d err=%v, want 2", usageRows, err)
 	}
@@ -155,7 +155,7 @@ func TestQuotaReservationTokenHoldAndUnknownSettlement(t *testing.T) {
 		TotalTokens: &tokensMax,
 		Period:      store.DownstreamQuotaPeriod{Type: "all_time"},
 	})
-	result := authorizeDownstreamToken("sk-quota-tokens", &config.RuntimeSettings{}, "", admissionOptions{
+	result := authorizeDownstreamToken(db, "sk-quota-tokens", &config.RuntimeSettings{}, "", admissionOptions{
 		reserveQuota:   true,
 		estimateTokens: func() int64 { return 10 },
 	})
@@ -168,14 +168,14 @@ func TestQuotaReservationTokenHoldAndUnknownSettlement(t *testing.T) {
 	}
 	// The hold alone exhausts the token limit, so a concurrent request cannot
 	// overrun it.
-	if next := authorizeDownstreamToken("sk-quota-tokens", &config.RuntimeSettings{}, "", admissionOptions{
+	if next := authorizeDownstreamToken(db, "sk-quota-tokens", &config.RuntimeSettings{}, "", admissionOptions{
 		reserveQuota:   true,
 		estimateTokens: func() int64 { return 1 },
 	}); next.OK || next.Reason != "over_quota" {
 		t.Fatalf("second token admission OK=%v reason=%q, want over_quota", next.OK, next.Reason)
 	}
 	// Completion without observed tokens: hold removed, usage stays NULL.
-	RecordManagedKeyQuotaUsage(id, result.QuotaReservationID, nil, nil)
+	RecordManagedKeyQuotaUsage(db, id, result.QuotaReservationID, nil, nil)
 	var reservations int
 	if err := db.Get(&reservations, `SELECT COUNT(*) FROM downstream_quota_reservations WHERE key_id=?`, id); err != nil || reservations != 0 {
 		t.Fatalf("reservation rows=%d err=%v, want 0", reservations, err)
@@ -242,7 +242,7 @@ func TestQuotaReservationConcurrentAdmissionPostgres(t *testing.T) {
 	}
 	tokens := int64(5)
 	cost := 0.1
-	RecordManagedKeyQuotaUsage(id, winner, &tokens, &cost)
+	RecordManagedKeyQuotaUsage(db, id, winner, &tokens, &cost)
 	var reservations, usageRows int
 	if err := db.Get(&reservations, `SELECT COUNT(*) FROM downstream_quota_reservations WHERE key_id=?`, id); err != nil || reservations != 0 {
 		t.Fatalf("reservation rows=%d err=%v, want 0", reservations, err)
@@ -265,7 +265,7 @@ func TestQuotaReservationReleaseFreesSlot(t *testing.T) {
 	if !first.OK {
 		t.Fatalf("first admission denied: %s", first.Reason)
 	}
-	ReleaseManagedKeyQuotaReservation(first.QuotaReservationID)
+	ReleaseManagedKeyQuotaReservation(testDB(t), first.QuotaReservationID)
 	if second := admissionReservationResult("sk-quota-release"); !second.OK {
 		t.Fatalf("admission after release denied: %s", second.Reason)
 	}

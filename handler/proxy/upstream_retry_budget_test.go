@@ -63,7 +63,7 @@ func TestFirstByteTimeoutSharesRemainingBudgetAcrossChannels(t *testing.T) {
 				body = `{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}`
 			}
 			req := makeProxyReq(http.MethodPost, "/v1/chat/completions", body)
-			state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
+			state, req := newRequestLifecycle(store.GetDB(), req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
 			rec := httptest.NewRecorder()
 			started := time.Now()
 			HandleChatCompletions(&requestResponseWriter{ResponseWriter: rec, state: state}, req)
@@ -114,15 +114,12 @@ func TestFirstFailureSurvivesLaterExhaustion(t *testing.T) {
 		selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 1, Enabled: true}, Account: store.Account{ID: 1, Status: "active"}, Site: store.Site{ID: 1, URL: unauthorized.URL, Status: "active"}, TokenValue: "first", ActualModel: "gpt-4o"},
 		next:     &routing.SelectedChannel{Channel: store.RouteChannel{ID: 2, Enabled: true}, Account: store.Account{ID: 2, Status: "active"}, Site: store.Site{ID: 2, URL: stalled.URL, Status: "active"}, TokenValue: "second", ActualModel: "gpt-4o"},
 	}
-	var gateway store.GatewayRequest
-	SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(5 * time.Second), LogProxy: EnqueueProxyLog})
-	t.Cleanup(func() { SetUpstreamConfig(nil) })
 	db := sqlitetest.Open(t)
-	previousDB := store.GetDB()
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(previousDB) })
+	var gateway store.GatewayRequest
+	SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(5 * time.Second), LogProxy: func(ctx context.Context, e proxy.ProxyLogEntry) error { return EnqueueProxyLog(ctx, db, e) }})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
 	req := makeProxyReq(http.MethodPost, "/v1/chat/completions", `{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
-	state, req := newRequestLifecycle(req, "http", defaultGatewayRequestWriter)
+	state, req := newRequestLifecycle(db, req, "http", defaultGatewayRequestWriter(db))
 	rec := httptest.NewRecorder()
 	HandleChatCompletions(&requestResponseWriter{ResponseWriter: rec, state: state}, req)
 	state.finish(req.Context())
@@ -186,7 +183,7 @@ func TestFirstByteTimeoutRearmsForCrossProtocolFallback(t *testing.T) {
 	SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(5 * time.Second), LogProxy: func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 	req := makeProxyReq(http.MethodPost, "/v1/messages", `{"model":"test-model","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`)
-	state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
+	state, req := newRequestLifecycle(store.GetDB(), req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
 	rec := httptest.NewRecorder()
 	HandleClaudeMessages(&requestResponseWriter{ResponseWriter: rec, state: state}, req)
 	state.finish(req.Context())
@@ -234,7 +231,7 @@ func TestFastFailureAllowsHealthyFallbackAndPreservesFirstCause(t *testing.T) {
 	SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(5 * time.Second), LogProxy: func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 	req := makeProxyReq(http.MethodPost, "/v1/chat/completions", `{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
-	state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
+	state, req := newRequestLifecycle(store.GetDB(), req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
 	rec := httptest.NewRecorder()
 	HandleChatCompletions(&requestResponseWriter{ResponseWriter: rec, state: state}, req)
 	state.finish(req.Context())

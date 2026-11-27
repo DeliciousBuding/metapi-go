@@ -465,8 +465,6 @@ func TestChannelRetry(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDownstreamAuth(t *testing.T) {
-	// Set up in-memory SQLite DB via EnsureRuntimeDatabase so the auth middleware's
-	// getManagedKeyByToken() can find the DB singleton via store.GetDB().
 	cfg := makeTestConfig()
 	cfg.DataDir = ""
 	config.Set(cfg)
@@ -542,7 +540,7 @@ func TestDownstreamAuth(t *testing.T) {
 	proxyhandler.SetUpstreamConfig(wired)
 
 	r := chi.NewRouter()
-	r.Use(auth.ProxyAuth())
+	r.Use(auth.ProxyAuth(db))
 	proxyhandler.RegisterProxyRoutes(r)
 
 	// Test 1: Valid managed key should pass.

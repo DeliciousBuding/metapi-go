@@ -20,7 +20,7 @@ func TestTaskProgramRecoveryIsAdminOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
-	mux := New(cfg, web.Dist)
+	mux := New(store.GetDB(), cfg, web.Dist)
 	for _, endpoint := range []struct{ method, path string }{{"GET", "/api/channel-plugin-versions"}, {"POST", "/api/channel-plugin-versions/restore"}} {
 		for _, token := range []string{"", "fixture-proxy"} {
 			rec := httptest.NewRecorder()

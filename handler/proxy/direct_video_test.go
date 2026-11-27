@@ -96,18 +96,20 @@ func directVideoFixture(t *testing.T, dialect, upstreamURL string) (*store.DB, *
 		config.SetRuntime(previousRuntime)
 		store.OverrideDB(previousDB)
 	})
+	var ingress atomic.Pointer[chi.Mux]
 	wire := func(current *store.DB) {
 		router := routing.NewTokenRouter(service.NewProxyRoutingStore(current), &config.Config{TokenRouterCacheTtlMs: 60000}, nil, nil)
 		SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil },
 			ResolveDirectCredential: func(ctx context.Context, id int64, proxyURL *string, force bool) (*oauth.DirectCredentialResult, error) {
 				return oauth.ResolveDirectCredential(ctx, current.DB, id, proxyURL, force)
 			}})
+		r := chi.NewRouter()
+		r.Use(RequestLifecycle(current), auth.ProxyAuth(current))
+		r.Route("/v1", RegisterProxyRoutes)
+		ingress.Store(r)
 	}
 	wire(db)
-	r := chi.NewRouter()
-	r.Use(auth.ProxyAuth())
-	r.Route("/v1", RegisterProxyRoutes)
-	server := httptest.NewServer(r)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { ingress.Load().ServeHTTP(w, r) }))
 	t.Cleanup(server.Close)
 	// Reopen a separate connection and rebuild the router, as another worker or
 	// restarted process would; no task is restored from the process-local cache.
@@ -330,7 +332,7 @@ func TestDirectVideoTaskRevocationHTTP(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
+					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken(db, "client-one", config.Runtime()).Policy)
 					policy.RequiredUpstreamProtocol = routing.UpstreamProtocolVideo
 					selected, err := getUpstreamConfig().Router.SelectPreferredChannel(context.Background(), "client-alias", -task.Identity.ItemID, policy, nil)
 					if err != nil || selected == nil {
@@ -409,9 +411,6 @@ func TestDirectVideoOwnerIdentity(t *testing.T) {
 }
 
 func TestDirectVideoDeleteRequiresDurableStorage(t *testing.T) {
-	previous := store.GetDB()
-	store.OverrideDB(nil)
-	t.Cleanup(func() { store.OverrideDB(previous) })
 	ctx := &Ctx{videoTask: &directVideoTask{PublicID: directVideoIDPrefix + "missing"}}
 	selected := &routing.SelectedChannel{Direct: &store.DirectUpstreamCandidate{}}
 	if _, err := processVideoTaskResponse(ctx, selected, http.MethodDelete, "/v1/videos/upstream", nil); err == nil {
@@ -423,7 +422,7 @@ func TestDirectVideoDeleteRejectsNullResponse(t *testing.T) {
 	db, _, _ := directVideoFixture(t, store.DialectSQLite, "http://127.0.0.1:1")
 	const id = "video_direct_null_response"
 	videoExec(t, db, `INSERT INTO proxy_video_tasks (public_id,upstream_video_id,site_url,token_value) VALUES (?, 'upstream', '', '')`, id)
-	ctx := &Ctx{videoTask: &directVideoTask{PublicID: id}}
+	ctx := &Ctx{proxyRequestScope: proxyRequestScope{db: db}, videoTask: &directVideoTask{PublicID: id}}
 	selected := &routing.SelectedChannel{Direct: &store.DirectUpstreamCandidate{}}
 	if _, err := processVideoTaskResponse(ctx, selected, http.MethodDelete, "/v1/videos/upstream", []byte("null")); err == nil {
 		t.Fatal("invalid upstream response accepted")
@@ -521,7 +520,7 @@ func TestDirectVideoTaskExplicitGroupRevocationHTTP(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
+					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken(db, "client-one", config.Runtime()).Policy)
 					policy.RequiredUpstreamProtocol = routing.UpstreamProtocolVideo
 					if selected, err := getUpstreamConfig().Router.SelectPreferredChannel(context.Background(), "group-alias", -task.Identity.ItemID, policy, nil); err != nil || selected == nil {
 						t.Fatalf("cannot prime group route: %v", err)

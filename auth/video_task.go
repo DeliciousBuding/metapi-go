@@ -36,12 +36,12 @@ func directVideoReadID(r *http.Request) string {
 
 // Budget exemptions are only granted after a durable ownership check. They do
 // not replace the handler's TTL, model, route and current credential checks.
-func ownsDirectVideoTask(publicID string, pac *ProxyAuthContext) bool {
-	if publicID == "" || store.GetDB() == nil {
+func ownsDirectVideoTask(db *store.DB, publicID string, pac *ProxyAuthContext) bool {
+	if publicID == "" || db == nil {
 		return false
 	}
 	var raw string
-	if err := store.GetDB().QueryRow(`SELECT direct_identity FROM proxy_video_tasks WHERE public_id=? AND direct_identity IS NOT NULL`, publicID).Scan(&raw); err != nil {
+	if err := db.QueryRow(`SELECT direct_identity FROM proxy_video_tasks WHERE public_id=? AND direct_identity IS NOT NULL`, publicID).Scan(&raw); err != nil {
 		return false
 	}
 	var identity struct {

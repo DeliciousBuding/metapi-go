@@ -30,7 +30,7 @@ func dialDirectResponsesGatewayObserved(t *testing.T, token string, writer gatew
 		HandleResponsesWebsocket(w, r.WithContext(auth.WithProxyAuth(r.Context(), pac)))
 	}))
 	if writer != nil {
-		handler = requestLifecycleMiddleware(handler, writer)
+		handler = requestLifecycleMiddleware(store.GetDB(), handler, writer)
 	}
 	gateway := httptest.NewServer(handler)
 	t.Cleanup(gateway.Close)

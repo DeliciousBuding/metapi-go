@@ -172,7 +172,7 @@ func TestOAuthPostExchangeRevalidationDoesNotReadmitUser(t *testing.T) {
 					return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
 				},
 			})
-			handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
+			handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
 			request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"oauth-budget-model","messages":[{"role":"user","content":"hello"}],"max_tokens":16}`))
 			request.Header.Set("Authorization", "Bearer "+keys[0])
 			out := httptest.NewRecorder()

@@ -21,12 +21,12 @@ func newPathTraversalHarness(t *testing.T) (chi.Router, *atomic.Int32) {
 	// must reach the upstream.
 	db := openProxyOwnershipDB(t)
 	insertFileOwner(t, db, "file-abc_123", testOwner())
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(db, &ProxyVideoTask{
 		PublicID:        "video_abc-123",
 		UpstreamVideoID: "video_abc-123",
 		Owner:           testOwner(),
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID("video_abc-123") })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(db, "video_abc-123") })
 
 	var hits atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,7 @@ func newPathTraversalHarness(t *testing.T) (chi.Router, *atomic.Int32) {
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	r := chi.NewRouter()
-	r.Use(injectAuth)
+	r.Use(RequestLifecycle(db), injectAuth)
 	r.Route("/v1", func(r chi.Router) {
 		RegisterProxyRoutes(r)
 	})

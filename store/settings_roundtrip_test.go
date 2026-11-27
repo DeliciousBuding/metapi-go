@@ -15,10 +15,7 @@ import (
 // would be clamped when it arrives through env. The key-coverage half of this
 // contract lives in settings_rehydration_gate_test.go.
 
-// hydrateTestDB publishes a fresh in-memory SQLite DB as the process-wide
-// store DB so LoadRuntimeSettings (which reads through GetDB) can be exercised
-// end to end. The singleton is package-private, so these tests must not run in
-// parallel with each other.
+// hydrateTestDB opens an isolated, migrated settings store.
 func hydrateTestDB(t *testing.T) *SettingsStore {
 	t.Helper()
 	db, err := Open(DialectSQLite, ":memory:", false)
@@ -29,11 +26,7 @@ func hydrateTestDB(t *testing.T) *SettingsStore {
 		db.Close()
 		t.Fatalf("AutoMigrate failed: %v", err)
 	}
-	previous := activeDB.Swap(db)
-	t.Cleanup(func() {
-		activeDB.Store(previous)
-		db.Close()
-	})
+	t.Cleanup(func() { db.Close() })
 	return NewSettingsStore(db)
 }
 
@@ -645,7 +638,7 @@ func TestLoadRuntimeSettingsKeepsEnvDisabledLogCleanup(t *testing.T) {
 			if rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled {
 				t.Fatal("precondition failed: env already enabled log cleanup")
 			}
-			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+			if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 				t.Fatalf("LoadRuntimeSettings: %v", err)
 			}
 
@@ -700,7 +693,7 @@ func TestLoadRuntimeSettingsEnvToggleClaimsRegimeWithoutAdminRows(t *testing.T) 
 			}
 
 			cfg, rt := config.Load(quietSecretEnv(tc.env))
-			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+			if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 				t.Fatalf("LoadRuntimeSettings: %v", err)
 			}
 
@@ -738,7 +731,7 @@ func TestLoadRuntimeSettingsDbExplicitWinsOverEnvToggle(t *testing.T) {
 		"LOG_CLEANUP_USAGE_LOGS_ENABLED": "true",
 		"LOG_CLEANUP_RETENTION_DAYS":     "30",
 	}))
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
 
@@ -770,7 +763,7 @@ func TestLoadRuntimeSettingsEnvRetentionAloneDoesNotClaimRegime(t *testing.T) {
 	if cfg.LogCleanupEnvEnabled {
 		t.Fatal("LogCleanupEnvEnabled = true for retention/cron only")
 	}
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
 	if cfg.LogCleanupConfigured {
@@ -831,7 +824,7 @@ func TestLoadRuntimeSettingsLogsTheWinningLogRetentionRegime(t *testing.T) {
 				}
 			}
 			cfg, rt := config.Load(quietSecretEnv(tc.env))
-			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+			if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 				t.Fatalf("LoadRuntimeSettings: %v", err)
 			}
 			line := settingsLogLine(t, logs.String(), "settings: log retention regime")
@@ -865,7 +858,7 @@ func TestLoadRuntimeSettingsHydratesPersistedLogCleanup(t *testing.T) {
 		"LOG_CLEANUP_RETENTION_DAYS":     "30",
 		"LOG_CLEANUP_CRON":               "0 6 * * *",
 	}))
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
 
@@ -911,7 +904,7 @@ func TestLoadRuntimeSettingsHonorsExplicitlyClearedBranding(t *testing.T) {
 		"ABOUT":          "env about",
 		"SERVER_ADDRESS": "https://env.example.com",
 	}))
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
 
@@ -987,9 +980,9 @@ func TestApplyRuntimeSettingsAcceptsLegacyUnencodedCredentials(t *testing.T) {
 
 // An empty settings table must leave the resolved config untouched.
 func TestLoadRuntimeSettingsEmptyTableIsANoOp(t *testing.T) {
-	hydrateTestDB(t)
+	settings := hydrateTestDB(t)
 	cfg, rt := config.Load(quietSecretEnv(map[string]string{"SYSTEM_NAME": "Metapi"}))
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(settings.db, cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
 	if rt.SystemName != "Metapi" {

@@ -25,7 +25,7 @@ func TestGeminiEmbeddingIngressHasCanonicalRequestAndAttempt(t *testing.T) {
 					var records []store.GatewayRequest
 					var logs []proxy.ProxyLogEntry
 					getUpstreamConfig().LogProxy = func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }
-					wrapped := requestLifecycleMiddleware(directMediaRouter(), func(_ context.Context, entry store.GatewayRequest) error {
+					wrapped := requestLifecycleMiddleware(store.GetDB(), directMediaRouter(), func(_ context.Context, entry store.GatewayRequest) error {
 						records = append(records, entry)
 						return nil
 					})

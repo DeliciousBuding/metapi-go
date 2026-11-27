@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -90,11 +91,11 @@ func TestHandleVideosCreate_RewritesPublicIDAndSavesMapping(t *testing.T) {
 		t.Fatalf("object = %v", m["object"])
 	}
 
-	task := GetProxyVideoTaskByPublicID(publicID)
+	task := GetProxyVideoTaskByPublicID(nil, publicID)
 	if task == nil {
 		t.Fatal("expected mapping saved")
 	}
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 	if task.UpstreamVideoID != "upstream_vid_abc" {
 		t.Fatalf("UpstreamVideoID = %q", task.UpstreamVideoID)
 	}
@@ -112,7 +113,7 @@ func TestHandleVideosCreate_RewritesPublicIDAndSavesMapping(t *testing.T) {
 	}
 
 	// resolve path uses UpstreamVideoID for subsequent GET.
-	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != "upstream_vid_abc" {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(nil, publicID)); got != "upstream_vid_abc" {
 		t.Fatalf("resolve = %q", got)
 	}
 }
@@ -209,13 +210,13 @@ func TestHandleVideosCreate_InvalidMultipartReturnsBadRequest(t *testing.T) {
 
 func TestHandleVideosGet_WithMapping(t *testing.T) {
 	publicID := "video_test_get_123"
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(nil, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_" + publicID,
 		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 
 	r := chiRouterForVideo()
 	req := makeProxyReqNoBody("GET", "/v1/videos/"+publicID)
@@ -260,13 +261,13 @@ func TestHandleVideosGet_Unauthorized(t *testing.T) {
 
 func TestHandleVideosDelete_WithMapping_ClearsAfterUpstreamSuccess(t *testing.T) {
 	publicID := "video_test_delete_456"
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(nil, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_" + publicID,
 		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 
 	gotMethod, gotPath := make(chan string, 1), make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -301,20 +302,20 @@ func TestHandleVideosDelete_WithMapping_ClearsAfterUpstreamSuccess(t *testing.T)
 	if got := <-gotPath; got != "/v1/videos/upstream_"+publicID {
 		t.Fatalf("upstream path = %q", got)
 	}
-	if task := GetProxyVideoTaskByPublicID(publicID); task != nil {
+	if task := GetProxyVideoTaskByPublicID(nil, publicID); task != nil {
 		t.Fatal("mapping must be removed after the upstream delete succeeded")
 	}
 }
 
 func TestHandleVideosDelete_UpstreamFailureKeepsMapping(t *testing.T) {
 	publicID := "video_test_delete_fail"
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(nil, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_" + publicID,
 		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -341,7 +342,7 @@ func TestHandleVideosDelete_UpstreamFailureKeepsMapping(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected upstream 500, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if task := GetProxyVideoTaskByPublicID(publicID); task == nil || task.Owner != testOwner() {
+	if task := GetProxyVideoTaskByPublicID(nil, publicID); task == nil || task.Owner != testOwner() {
 		t.Fatal("mapping must survive a failed upstream delete")
 	}
 }
@@ -371,25 +372,25 @@ func TestHandleVideosDelete_Unauthorized(t *testing.T) {
 
 func TestResolveVideoUpstreamIDFromTask(t *testing.T) {
 	publicID := "video_resolve_public"
-	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != publicID {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(nil, publicID)); got != publicID {
 		t.Errorf("missing mapping: got %q want %q", got, publicID)
 	}
 
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(nil, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_video_xyz",
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 
-	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != "upstream_video_xyz" {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(nil, publicID)); got != "upstream_video_xyz" {
 		t.Errorf("mapped id: got %q want upstream_video_xyz", got)
 	}
 
 	// Same public/upstream id should not force a different path segment.
 	same := "video_same_id"
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: same, UpstreamVideoID: same})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(same) })
-	if got := resolveVideoUpstreamIDFromTask(same, GetProxyVideoTaskByPublicID(same)); got != same {
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: same, UpstreamVideoID: same})
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, same) })
+	if got := resolveVideoUpstreamIDFromTask(same, GetProxyVideoTaskByPublicID(nil, same)); got != same {
 		t.Errorf("same id mapping: got %q want %q", got, same)
 	}
 }
@@ -405,9 +406,9 @@ func TestSaveAndGetProxyVideoTask(t *testing.T) {
 		ChannelID:       1,
 		AccountID:       2,
 	}
-	SaveProxyVideoTask(task)
+	SaveProxyVideoTask(nil, task)
 
-	got := GetProxyVideoTaskByPublicID("public_123")
+	got := GetProxyVideoTaskByPublicID(nil, "public_123")
 	if got == nil {
 		t.Fatal("expected task to be saved")
 	}
@@ -419,15 +420,15 @@ func TestSaveAndGetProxyVideoTask(t *testing.T) {
 	}
 
 	// Delete
-	DeleteProxyVideoTaskByPublicID("public_123")
-	got = GetProxyVideoTaskByPublicID("public_123")
+	DeleteProxyVideoTaskByPublicID(nil, "public_123")
+	got = GetProxyVideoTaskByPublicID(nil, "public_123")
 	if got != nil {
 		t.Error("task should be deleted")
 	}
 }
 
 func TestGetProxyVideoTaskByPublicID_NotFound(t *testing.T) {
-	got := GetProxyVideoTaskByPublicID("never_exists")
+	got := GetProxyVideoTaskByPublicID(nil, "never_exists")
 	if got != nil {
 		t.Error("expected nil for nonexistent task")
 	}
@@ -435,7 +436,7 @@ func TestGetProxyVideoTaskByPublicID_NotFound(t *testing.T) {
 
 func TestDeleteProxyVideoTaskByPublicID_Idempotent(t *testing.T) {
 	// Deleting nonexistent should not panic
-	DeleteProxyVideoTaskByPublicID("does_not_exist")
+	DeleteProxyVideoTaskByPublicID(nil, "does_not_exist")
 }
 
 func TestProxyVideoTask_Concurrent(t *testing.T) {
@@ -445,9 +446,9 @@ func TestProxyVideoTask_Concurrent(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			id := "video_concurrent_" + strconv.FormatInt(int64(n), 10)
-			SaveProxyVideoTask(&ProxyVideoTask{PublicID: id})
-			_ = GetProxyVideoTaskByPublicID(id)
-			DeleteProxyVideoTaskByPublicID(id)
+			SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: id})
+			_ = GetProxyVideoTaskByPublicID(nil, id)
+			DeleteProxyVideoTaskByPublicID(nil, id)
 		}(i)
 	}
 	wg.Wait()
@@ -459,15 +460,15 @@ func TestProxyVideoTask_SiteURLAndToken(t *testing.T) {
 		SiteURL:    "https://api.openai.com",
 		TokenValue: "sk-test",
 	}
-	SaveProxyVideoTask(task)
-	got := GetProxyVideoTaskByPublicID("vid_url")
+	SaveProxyVideoTask(nil, task)
+	got := GetProxyVideoTaskByPublicID(nil, "vid_url")
 	if got.SiteURL != "https://api.openai.com" {
 		t.Errorf("SiteURL = %q", got.SiteURL)
 	}
 	if got.TokenValue != "sk-test" {
 		t.Errorf("TokenValue = %q", got.TokenValue)
 	}
-	DeleteProxyVideoTaskByPublicID("vid_url")
+	DeleteProxyVideoTaskByPublicID(nil, "vid_url")
 }
 
 var _ = json.Marshal
@@ -482,12 +483,10 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	publicID := "video_db_roundtrip_1"
 	// Ensure memory empty for cold load path after save+clear memory.
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(db, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "up_db_999",
 		Owner:           testOwner(),
@@ -503,7 +502,7 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 	delete(videoTaskStore, publicID)
 	videoTaskStoreMu.Unlock()
 
-	got := GetProxyVideoTaskByPublicID(publicID)
+	got := GetProxyVideoTaskByPublicID(db, publicID)
 	if got == nil {
 		t.Fatal("expected durable load from proxy_video_tasks")
 	}
@@ -520,13 +519,13 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 		t.Fatalf("owner=%q want %q", got.Owner, testOwner())
 	}
 	// Second get hits warm cache.
-	got2 := GetProxyVideoTaskByPublicID(publicID)
+	got2 := GetProxyVideoTaskByPublicID(db, publicID)
 	if got2 == nil || got2.UpstreamVideoID != "up_db_999" {
 		t.Fatalf("cache warm failed: %+v", got2)
 	}
 
-	DeleteProxyVideoTaskByPublicID(publicID)
-	if GetProxyVideoTaskByPublicID(publicID) != nil {
+	DeleteProxyVideoTaskByPublicID(db, publicID)
+	if GetProxyVideoTaskByPublicID(db, publicID) != nil {
 		t.Fatal("expected deleted from memory+db")
 	}
 }
@@ -563,7 +562,7 @@ func (r *preferredTrackRouter) RecordFailure(context.Context, int64, routing.Sit
 
 func TestHandleVideosGet_StickyPinForcesPreferredChannel(t *testing.T) {
 	publicID := "video_sticky_pin_pref"
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(nil, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_sticky_vid",
 		Owner:           testOwner(),
@@ -571,7 +570,7 @@ func TestHandleVideosGet_StickyPinForcesPreferredChannel(t *testing.T) {
 		ChannelID:       42,
 		AccountID:       7,
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(nil, publicID) })
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/videos/upstream_sticky_vid" {
@@ -619,5 +618,19 @@ func TestApplyVideoTaskStickyPin(t *testing.T) {
 	}
 	if ctx.RequestedModel != "m1" {
 		t.Fatalf("model=%q", ctx.RequestedModel)
+	}
+}
+
+func TestProxyVideoTaskCacheRespectsDatabase(t *testing.T) {
+	first, second := sqlitetest.Open(t), sqlitetest.Open(t)
+	task := &ProxyVideoTask{PublicID: "video_separate_db", UpstreamVideoID: "first"}
+	SaveProxyVideoTask(first, task)
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(first, task.PublicID) })
+	if got := GetProxyVideoTaskByPublicID(second, task.PublicID); got != nil {
+		t.Fatalf("foreign mapping: %+v", got)
+	}
+	DeleteProxyVideoTaskByPublicID(second, task.PublicID)
+	if got := GetProxyVideoTaskByPublicID(first, task.PublicID); got == nil || got.UpstreamVideoID != "first" {
+		t.Fatalf("lost original mapping: %+v", got)
 	}
 }

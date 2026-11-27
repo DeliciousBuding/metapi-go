@@ -43,7 +43,7 @@ func TestDownstreamAccessPolicyImportedHTTPRelayAndQuota(t *testing.T) {
 	SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 	r := chi.NewRouter()
-	r.Use(auth.ProxyAuth())
+	r.Use(RequestLifecycle(db), auth.ProxyAuth(db))
 	r.Route("/v1", RegisterProxyRoutes)
 	request := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))

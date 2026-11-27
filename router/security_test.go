@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/store"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -47,7 +48,7 @@ func TestCSPNonceRandomPerRequest(t *testing.T) {
 	cfg := &config.Config{
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	seen := map[string]bool{}
 	for i := 0; i < 25; i++ {
@@ -87,7 +88,7 @@ func TestSPAFallbackInjectsNonceMetaMatchingHeader(t *testing.T) {
 	cfg := &config.Config{
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	for _, path := range []string{"/", "/sites"} {
 		t.Run(path, func(t *testing.T) {

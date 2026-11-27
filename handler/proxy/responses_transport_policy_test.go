@@ -79,7 +79,7 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				logs := make(chan proxy.ProxyLogEntry, 4)
 				cfg.LogProxy = func(_ context.Context, e proxy.ProxyLogEntry) error { logs <- e; return nil }
 				SetUpstreamConfig(&cfg)
-				gateway := httptest.NewServer(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)))
+				gateway := httptest.NewServer(RequestLifecycle(db)(auth.ProxyAuth(db)(http.HandlerFunc(HandleResponsesWebsocket))))
 				t.Cleanup(gateway.Close)
 				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
@@ -262,7 +262,7 @@ func TestDirectResponsesWSUserBudgetKeepsNativeBounds(t *testing.T) {
 		},
 	})
 	requests := make(chan store.GatewayRequest, 4)
-	handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, e store.GatewayRequest) error { requests <- e; return nil })
+	handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, e store.GatewayRequest) error { requests <- e; return nil })
 	gateway := httptest.NewServer(handler)
 	t.Cleanup(gateway.Close)
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)

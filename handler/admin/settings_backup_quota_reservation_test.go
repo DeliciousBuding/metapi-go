@@ -134,7 +134,7 @@ func runBackupQuotaReservationRestore(t *testing.T, source, target *store.DB) {
 	t.Cleanup(func() { config.SetRuntime(previousRuntime) })
 
 	router := chi.NewRouter()
-	router.Use(auth.ProxyAuth())
+	router.Use(auth.ProxyAuth(store.GetDB()))
 	router.Get("/probe", func(w http.ResponseWriter, r *http.Request) {
 		pac := auth.GetProxyAuth(r.Context())
 		if pac == nil || pac.KeyID == nil || pac.QuotaReservationID == "" {
@@ -143,7 +143,7 @@ func runBackupQuotaReservationRestore(t *testing.T, source, target *store.DB) {
 			return
 		}
 		tokens := int64(1)
-		auth.RecordManagedKeyQuotaUsage(*pac.KeyID, pac.QuotaReservationID, &tokens, nil)
+		auth.RecordManagedKeyQuotaUsage(store.GetDB(), *pac.KeyID, pac.QuotaReservationID, &tokens, nil)
 		w.WriteHeader(http.StatusOK)
 	})
 	probe := func() *httptest.ResponseRecorder {

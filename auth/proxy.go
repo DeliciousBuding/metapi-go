@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/deliciousbuding/metapi-go/store"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -32,7 +33,7 @@ var bearerPrefixRe = regexp.MustCompile(`(?i)^Bearer\s+`)
 // On successful managed key auth, the middleware runs soft RPM/TPM admission
 // first, then atomically increments used_requests via consumeManagedKeyRequest
 // so a 429 over_rpm/over_tpm never burns max_requests.
-func ProxyAuth() func(http.Handler) http.Handler {
+func ProxyAuth(db *store.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// ---- Extract token (EXCLUSIVE priority semantics) ----
@@ -52,7 +53,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			// loop reauthorizes (and reserves) every message. Other requests
 			// atomically check-and-reserve their accessPolicy quota slot here.
 			wsHandshake := isResponsesWebsocketHandshake(r)
-			result := authorizeDownstreamToken(token, config.Runtime(), directVideoReadID(r), admissionOptions{
+			result := authorizeDownstreamToken(db, token, config.Runtime(), directVideoReadID(r), admissionOptions{
 				reserveQuota: !wsHandshake,
 				estimateTokens: func() int64 {
 					return estimateAdmissionTokens(r)
@@ -62,7 +63,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			// settled request (logProxy) leaves nothing behind, so this is a
 			// no-op then; early 4xx/5xx paths and panics stay covered.
 			if result.QuotaReservationID != "" {
-				defer ReleaseManagedKeyQuotaReservation(result.QuotaReservationID)
+				defer ReleaseManagedKeyQuotaReservation(db, result.QuotaReservationID)
 			}
 			if result.Key != nil {
 				if observer, ok := w.(interface{ ObserveProxyKey(int64) }); ok {
@@ -131,7 +132,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 					return
 				}
 				// Atomic max_requests gate - only after admission allows.
-				if !result.taskRead && !consumeManagedKeyRequest(result.Key.ID) {
+				if !result.taskRead && !consumeManagedKeyRequest(db, result.Key.ID) {
 					// 429 insufficient_quota, matching AuthorizeDownstreamToken's
 					// over_requests verdict for the same exhausted budget.
 					writeProxyError(w, http.StatusTooManyRequests, "insufficient_quota", "insufficient_quota",

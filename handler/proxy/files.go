@@ -98,7 +98,7 @@ func HandleFilesInfo(w http.ResponseWriter, r *http.Request) {
 	// An id the calling key did not upload is indistinguishable from an id that
 	// does not exist. Missing mappings (including files uploaded before
 	// ownership was recorded) are denied as well.
-	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+	if !proxyFileOwnedBy(ctx.db, ctx.Auth, fileID) {
 		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
 		return
 	}
@@ -122,7 +122,7 @@ func HandleFilesDownload(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "files does not support streaming", "invalid_request_error")
 		return
 	}
-	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+	if !proxyFileOwnedBy(ctx.db, ctx.Auth, fileID) {
 		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
 		return
 	}
@@ -145,7 +145,7 @@ func HandleFilesDelete(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "files does not support streaming", "invalid_request_error")
 		return
 	}
-	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+	if !proxyFileOwnedBy(ctx.db, ctx.Auth, fileID) {
 		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
 		return
 	}

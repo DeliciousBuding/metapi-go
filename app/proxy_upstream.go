@@ -66,23 +66,22 @@ func ConfigureProxyUpstream(db *store.DB, cfg *config.Config) error {
 		// Persist successful/failed proxy attempts (token usage when available).
 		// EnqueueProxyLog routes through the async batch writer when
 		// PROXY_LOG_ASYNC is enabled (default), falling back to a synchronous
-		// InsertProxyLog in sync mode and under channel backpressure. The
-		// writer resolves store.GetDB() at flush time so runtime overrides in
-		// tests are honored.
+		// InsertProxyLog in sync mode and under channel backpressure.
 		LogProxy: func(ctx context.Context, entry proxy.ProxyLogEntry) error {
-			return proxyhandler.EnqueueProxyLog(ctx, entry)
+			return proxyhandler.EnqueueProxyLog(ctx, db, entry)
 		},
 	})
 	// Configure the proxy_log batch writer from env. Idempotent: a reconfigure
 	// first drains the previous writer so no goroutine or in-flight entry leaks.
 	proxyhandler.ConfigureProxyLogWriter(
+		db,
 		cfg.ProxyLogAsync,
 		cfg.ProxyLogBatchSize,
 		cfg.ProxyLogFlushIntervalMs,
 	)
 	// Remember router for ModelProbeScheduler health recording.
 	// Wire global scheduler if already started (reconfigure / test paths).
-	rememberProbeRouter(cfg, router)
+	rememberProbeRouter(proxy.NewChannelHealthProbeExecutor(db, cfg), router)
 	WireGlobalModelProbeScheduler()
 	return nil
 }

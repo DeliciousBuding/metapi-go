@@ -16,6 +16,7 @@ import (
 // queue falls back to synchronous inserts; failed batches retry individual rows.
 // Shutdown drains queued entries. PROXY_LOG_ASYNC=false uses write-through mode.
 type proxyLogBatchWriter struct {
+	db            *store.DB
 	ch            chan proxyLogWrite
 	batchSize     int
 	flushInterval time.Duration
@@ -34,7 +35,7 @@ type proxyLogWrite struct {
 // newProxyLogBatchWriter constructs a writer. batchSize is clamped to a sane
 // floor; flushIntervalMs likewise. The channel capacity is a multiple of the
 // batch size to absorb short bursts before backpressure kicks in.
-func newProxyLogBatchWriter(batchSize int, flushIntervalMs int) *proxyLogBatchWriter {
+func newProxyLogBatchWriter(db *store.DB, batchSize int, flushIntervalMs int) *proxyLogBatchWriter {
 	if batchSize < 1 {
 		batchSize = defaultProxyLogBatchSize
 	}
@@ -46,6 +47,7 @@ func newProxyLogBatchWriter(batchSize int, flushIntervalMs int) *proxyLogBatchWr
 	// predictable under sustained overload.
 	channelCapacity := batchSize * 4
 	return &proxyLogBatchWriter{
+		db:            db,
 		ch:            make(chan proxyLogWrite, channelCapacity),
 		batchSize:     batchSize,
 		flushInterval: time.Duration(flushIntervalMs) * time.Millisecond,
@@ -70,11 +72,7 @@ func (b *proxyLogBatchWriter) enqueue(ctx context.Context, entry proxy.ProxyLogE
 	}
 	// Channel full: write through synchronously rather than blocking the hot
 	// path or dropping the log. This is the intended backpressure escape valve.
-	db := store.GetDB()
-	if db == nil {
-		return nil
-	}
-	return InsertProxyLog(ctx, db, entry)
+	return InsertProxyLog(ctx, b.db, entry)
 }
 
 func (b *proxyLogBatchWriter) enqueueRequest(ctx context.Context, entry store.GatewayRequest) error {
@@ -82,12 +80,11 @@ func (b *proxyLogBatchWriter) enqueueRequest(ctx context.Context, entry store.Ga
 	case b.ch <- proxyLogWrite{request: &entry}:
 		return nil
 	default:
-		return writeGatewayRequest(ctx, entry)
+		return writeGatewayRequest(ctx, b.db, entry)
 	}
 }
 
-func writeGatewayRequest(ctx context.Context, entry store.GatewayRequest) error {
-	db := store.GetDB()
+func writeGatewayRequest(ctx context.Context, db *store.DB, entry store.GatewayRequest) error {
 	if db == nil {
 		return nil
 	}
@@ -120,7 +117,7 @@ func (b *proxyLogBatchWriter) loop() {
 			}
 		}
 		b.flushBatch(context.Background(), attempts)
-		flushGatewayRequests(context.Background(), requests)
+		flushGatewayRequests(context.Background(), b.db, requests)
 		clear(buf)
 		buf = buf[:0]
 	}
@@ -155,11 +152,10 @@ func (b *proxyLogBatchWriter) loop() {
 	}
 }
 
-func flushGatewayRequests(ctx context.Context, entries []store.GatewayRequest) {
+func flushGatewayRequests(ctx context.Context, db *store.DB, entries []store.GatewayRequest) {
 	if len(entries) == 0 {
 		return
 	}
-	db := store.GetDB()
 	if db == nil {
 		slog.Warn("gateway request batch: no DB at flush", "count", len(entries))
 		return
@@ -191,13 +187,12 @@ func (b *proxyLogBatchWriter) shutdown(ctx context.Context) error {
 
 // flushBatch writes entries as a single multi-row INSERT. On failure it falls
 // back to per-row inserts (via InsertProxyLog) so one bad row cannot sink the
-// whole batch. The DB is resolved at flush time via store.GetDB() so runtime
-// overrides (tests) are honored.
+// whole batch. Each writer drains into the database it was created with.
 func (b *proxyLogBatchWriter) flushBatch(ctx context.Context, entries []proxy.ProxyLogEntry) {
 	if len(entries) == 0 {
 		return
 	}
-	db := store.GetDB()
+	db := b.db
 	if db == nil {
 		slog.Warn("proxy_log batch writer: no DB at flush, dropping batch", "count", len(entries))
 		return
@@ -273,7 +268,7 @@ const (
 // vars. When async is disabled the writer stays nil and EnqueueProxyLog writes
 // through synchronously — the test/e2e path that needs immediate visibility.
 var (
-	proxyLogBatchWriterMu   sync.Mutex
+	proxyLogBatchWriterMu   sync.RWMutex
 	proxyLogBatchWriterInst *proxyLogBatchWriter
 )
 
@@ -282,7 +277,7 @@ var (
 // (drained) and the system reverts to synchronous writes. Idempotent: calling
 // again first drains the previous writer so reconfigure does not leak a
 // goroutine or lose in-flight entries.
-func ConfigureProxyLogWriter(async bool, batchSize int, flushIntervalMs int) {
+func ConfigureProxyLogWriter(db *store.DB, async bool, batchSize int, flushIntervalMs int) {
 	proxyLogBatchWriterMu.Lock()
 	defer proxyLogBatchWriterMu.Unlock()
 
@@ -302,7 +297,7 @@ func ConfigureProxyLogWriter(async bool, batchSize int, flushIntervalMs int) {
 		return
 	}
 
-	w := newProxyLogBatchWriter(batchSize, flushIntervalMs)
+	w := newProxyLogBatchWriter(db, batchSize, flushIntervalMs)
 	w.start()
 	proxyLogBatchWriterInst = w
 	slog.Info("proxy_log batch writer enabled",
@@ -333,26 +328,26 @@ func ShutdownProxyLogBatchWriter(ctx context.Context) error {
 // production write path wired into UpstreamConfig.LogProxy by
 // app.ConfigureProxyUpstream. Backpressure (channel full) falls back to a
 // synchronous InsertProxyLog so logs are never dropped.
-func EnqueueProxyLog(ctx context.Context, entry proxy.ProxyLogEntry) error {
-	proxyLogBatchWriterMu.Lock()
+func EnqueueProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry) error {
+	proxyLogBatchWriterMu.RLock()
+	defer proxyLogBatchWriterMu.RUnlock()
 	w := proxyLogBatchWriterInst
-	proxyLogBatchWriterMu.Unlock()
 
-	if w == nil {
+	if w == nil || w.db != db {
 		// Sync mode: write through immediately. This is the test/e2e path and
 		// the PROXY_LOG_ASYNC=false operator opt-out.
-		return InsertProxyLog(ctx, store.GetDB(), entry)
+		return InsertProxyLog(ctx, db, entry)
 	}
 	return w.enqueue(ctx, entry)
 }
 
 // EnqueueGatewayRequest follows PROXY_LOG_ASYNC and is drained before DB close.
-func EnqueueGatewayRequest(ctx context.Context, entry store.GatewayRequest) error {
-	proxyLogBatchWriterMu.Lock()
+func EnqueueGatewayRequest(ctx context.Context, db *store.DB, entry store.GatewayRequest) error {
+	proxyLogBatchWriterMu.RLock()
+	defer proxyLogBatchWriterMu.RUnlock()
 	w := proxyLogBatchWriterInst
-	proxyLogBatchWriterMu.Unlock()
-	if w == nil {
-		return writeGatewayRequest(ctx, entry)
+	if w == nil || w.db != db {
+		return writeGatewayRequest(ctx, db, entry)
 	}
 	return w.enqueueRequest(ctx, entry)
 }

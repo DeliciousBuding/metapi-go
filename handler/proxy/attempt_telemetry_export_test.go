@@ -39,7 +39,7 @@ func RunTelemetryFixture(t *testing.T, dialect string, endpoints store.DirectEnd
 	cfg := *getUpstreamConfig()
 	cfg.LogProxy = func(ctx context.Context, e proxy.ProxyLogEntry) error { return InsertProxyLog(ctx, db, e) }
 	SetUpstreamConfig(&cfg)
-	handler := requestLifecycleMiddleware(directMediaRouter(), func(ctx context.Context, e store.GatewayRequest) error { return store.InsertGatewayRequest(ctx, db, e) })
+	handler := requestLifecycleMiddleware(db, directMediaRouter(), func(ctx context.Context, e store.GatewayRequest) error { return store.InsertGatewayRequest(ctx, db, e) })
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, makeProxyReq(http.MethodPost, path, body))
 	return db, rec

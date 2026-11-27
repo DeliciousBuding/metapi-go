@@ -69,21 +69,7 @@ var legacyAdminSQLXFiles = map[string]bool{
 // any count or adding a new file fails the gate; lowering a count fails until
 // the ceiling here is lowered too.
 var legacyStoreGetDBCounts = map[string]int{
-	"auth/downstream.go":                       4,
-	"auth/downstream_quota.go":                 4,
-	"auth/video_task.go":                       2,
-	"handler/proxy/direct_video.go":            4,
-	"handler/proxy/direct_video_accounting.go": 3,
-	"handler/proxy/direct_video_capture.go":    2,
-	"handler/proxy/files_ownership.go":         4,
-	"handler/proxy/proxy_log.go":               1,
-	"handler/proxy/proxy_log_batch.go":         5,
-	"handler/proxy/upstream.go":                2,
-	"handler/proxy/user_budget.go":             1,
-	"handler/proxy/videos.go":                  3,
-	"proxy/channel_health_probe.go":            1,
-	"router/router.go":                         1,
-	"store/settings.go":                        1,
+	"handler/proxy/upstream.go": 2,
 }
 
 type couplingScan struct {

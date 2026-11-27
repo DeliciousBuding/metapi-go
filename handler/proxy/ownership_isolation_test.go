@@ -377,13 +377,13 @@ func TestVideosDeleteUpstreamFailureKeepsDurableMapping(t *testing.T) {
 	router := chiRouterForVideoWithKeys()
 
 	const publicID = "video_delete_failure_durable"
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(db, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_delete_failure",
 		Owner:           managedKeyOwner(101),
 		RequestedModel:  "sora-2",
 	})
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(db, publicID) })
 
 	req := managedKeyRequest(http.MethodDelete, "/v1/videos/"+publicID, "", 101)
 	req.Header.Set("X-Test-Key-ID", "101")

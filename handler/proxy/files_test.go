@@ -16,7 +16,7 @@ import (
 
 func chiRouterForFiles() chi.Router {
 	r := chi.NewRouter()
-	r.Use(injectAuth)
+	r.Use(RequestLifecycle(store.GetDB()), injectAuth)
 	r.Route("/v1", func(r chi.Router) {
 		RegisterFilesRoutes(r)
 	})
@@ -115,7 +115,7 @@ func TestHandleFilesList_ForwardsToUpstream(t *testing.T) {
 
 	req := makeProxyReqNoBody("GET", "/v1/files")
 	rec := httptest.NewRecorder()
-	HandleFilesList(rec, req)
+	RequestLifecycle(db)(http.HandlerFunc(HandleFilesList)).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
@@ -205,7 +205,7 @@ func TestHandleFilesUpload_MultipartForwardsToUpstream(t *testing.T) {
 	req.Body = io.NopCloser(body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
-	HandleFilesUpload(rec, req)
+	RequestLifecycle(db)(http.HandlerFunc(HandleFilesUpload)).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
@@ -449,7 +449,7 @@ func TestHandleFiles_ModelOverrideFromQuery(t *testing.T) {
 
 	req := makeProxyReqNoBody("GET", "/v1/files?model=my-files-model")
 	rec := httptest.NewRecorder()
-	HandleFilesList(rec, req)
+	RequestLifecycle(store.GetDB())(http.HandlerFunc(HandleFilesList)).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}

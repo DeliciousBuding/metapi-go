@@ -258,7 +258,7 @@ func TestMediaChunkGapsBeyondWriteBudgetStayHealthy(t *testing.T) {
 // interrupted write. The error crosses the Unwrap hop real middleware uses.
 func TestMediaFlushErrorReachesRequestLifecycle(t *testing.T) {
 	var records []store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := io.NopCloser(bytes.NewReader(append(mediaBinaryPattern, mediaBinaryPattern...)))
 		_, outcome := handleMediaByteStream(w, r, &http.Response{
 			StatusCode: http.StatusOK,

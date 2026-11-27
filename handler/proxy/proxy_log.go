@@ -16,11 +16,7 @@ import (
 // defaultLogProxyWriter inserts a proxy.ProxyLogEntry into proxy_logs.
 // Prefer injecting via UpstreamConfig.LogProxy so tests can capture writes.
 func defaultLogProxyWriter(ctx context.Context, entry proxy.ProxyLogEntry) error {
-	db := store.GetDB()
-	if db == nil {
-		return nil
-	}
-	return InsertProxyLog(ctx, db, entry)
+	return InsertProxyLog(ctx, proxyScopeFromContext(ctx).db, entry)
 }
 
 // InsertProxyLog writes one proxy_logs row. Columns match store.ProxyLog / DDL.
@@ -212,7 +208,7 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 		if entry.TotalTokens != nil {
 			cost = &entry.EstimatedCost
 		}
-		auth.RecordManagedKeyQuotaUsage(*entry.DownstreamAPIKeyID, quotaReservationID(ctx, *entry.DownstreamAPIKeyID), entry.TotalTokens, cost)
+		auth.RecordManagedKeyQuotaUsage(proxyScopeFromContext(ctx).db, *entry.DownstreamAPIKeyID, quotaReservationID(ctx, *entry.DownstreamAPIKeyID), entry.TotalTokens, cost)
 	}
 	writer := cfg.LogProxy
 	if writer == nil {
@@ -387,7 +383,7 @@ func writeSuccessProxyLog(
 	// Stream + non-stream both sink here once; helper no-ops zero/NaN/Inf.
 	// Failure paths intentionally do not call this (known limitation stays).
 	if usage.videoAccounting == nil {
-		recordManagedKeyCostOnSuccess(keyID, billing.EstimatedCost)
+		recordManagedKeyCostOnSuccess(proxyScopeFromContext(ctx).db, keyID, billing.EstimatedCost)
 	}
 
 }
@@ -395,11 +391,11 @@ func writeSuccessProxyLog(
 // recordManagedKeyCostOnSuccess increments used_cost for managed keys after a
 // successful proxy attempt. Nil KeyID (global token) is a no-op; zero/NaN/Inf
 // costs are skipped by auth.RecordManagedKeyCostUsage itself.
-func recordManagedKeyCostOnSuccess(keyID *int64, estimatedCost float64) {
+func recordManagedKeyCostOnSuccess(db *store.DB, keyID *int64, estimatedCost float64) {
 	if keyID == nil {
 		return
 	}
-	auth.RecordManagedKeyCostUsage(*keyID, estimatedCost)
+	auth.RecordManagedKeyCostUsage(db, *keyID, estimatedCost)
 }
 
 // writeFailureProxyLog persists a failed attempt into proxy_logs so stats /

@@ -32,8 +32,7 @@ func TestChannelHealthProbeExecutor_ModelsSuccess(t *testing.T) {
 	db := openProbeTestDB(t)
 	channelID := seedProbeChannel(t, db, upstream.URL, "gpt-probe", "probe-token")
 
-	probe := NewChannelHealthProbeExecutor(&config.Config{})
-	probe.SetDB(db)
+	probe := NewChannelHealthProbeExecutor(db, &config.Config{})
 	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
@@ -72,8 +71,7 @@ func TestChannelHealthProbeExecutor_Models404FallsBackToChat(t *testing.T) {
 	db := openProbeTestDB(t)
 	channelID := seedProbeChannel(t, db, upstream.URL, "gpt-probe", "probe-token")
 
-	probe := NewChannelHealthProbeExecutor(&config.Config{})
-	probe.SetDB(db)
+	probe := NewChannelHealthProbeExecutor(db, &config.Config{})
 	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
@@ -98,8 +96,7 @@ func TestChannelHealthProbeExecutor_Upstream5xxIsFailure(t *testing.T) {
 	db := openProbeTestDB(t)
 	channelID := seedProbeChannel(t, db, upstream.URL, "gpt-probe", "probe-token")
 
-	probe := NewChannelHealthProbeExecutor(&config.Config{})
-	probe.SetDB(db)
+	probe := NewChannelHealthProbeExecutor(db, &config.Config{})
 	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
 		ModelName: "gpt-probe",
@@ -137,8 +134,7 @@ func TestChannelHealthProbeExecutor_RejectsCrossOriginRedirect(t *testing.T) {
 	db := openProbeTestDB(t)
 	channelID := seedProbeChannel(t, db, source.URL, "gpt-probe", "probe-token")
 
-	probe := NewChannelHealthProbeExecutor(&config.Config{})
-	probe.SetDB(db)
+	probe := NewChannelHealthProbeExecutor(db, &config.Config{})
 	// Leave transport nil so doRequest uses the real bare http.Client path.
 	out, err := probe.ProbeChannel(context.Background(), ChannelProbeTarget{
 		ChannelID: channelID,
@@ -223,8 +219,7 @@ func TestProbeOAuthMemberCredential(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	exec := NewChannelHealthProbeExecutor(&config.Config{})
-	exec.SetDB(db)
+	exec := NewChannelHealthProbeExecutor(db, &config.Config{})
 	for _, account := range []int64{2, 3} {
 		res, err := exec.ProbeChannel(context.Background(), ChannelProbeTarget{ChannelID: id, AccountID: account, ModelName: "m"})
 		if err != nil || account == 2 && res.Status != "success" || account == 3 && res.Status != "inconclusive" {

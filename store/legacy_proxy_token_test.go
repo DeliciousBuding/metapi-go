@@ -164,13 +164,12 @@ func TestMigrateLegacyProxyToken(t *testing.T) {
 }
 
 func TestLoadRuntimeSettingsMigratesSavedRootBeforeEnvironment(t *testing.T) {
-	hydrateTestDB(t)
-	db := GetDB()
+	db := hydrateTestDB(t).db
 	if _, err := db.Exec(`INSERT INTO settings (key,value) VALUES ('proxy_token','"sk-synthetic-saved"')`); err != nil {
 		t.Fatal(err)
 	}
 	cfg, rt := config.Load(map[string]string{"PROXY_TOKEN": "sk-synthetic-env"})
-	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+	if err := LoadRuntimeSettings(db, cfg, rt); err != nil {
 		t.Fatal(err)
 	}
 	var saved, env, legacy int
@@ -190,7 +189,7 @@ func TestLoadRuntimeSettingsMigratesSavedRootBeforeEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, restarted := config.Load(map[string]string{"PROXY_TOKEN": "sk-synthetic-new-env"})
-	if err := LoadRuntimeSettings(cfg, restarted); err != nil {
+	if err := LoadRuntimeSettings(db, cfg, restarted); err != nil {
 		t.Fatal(err)
 	}
 	var enabled bool

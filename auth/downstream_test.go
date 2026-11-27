@@ -66,7 +66,7 @@ func TestGetManagedKeyByToken_Found(t *testing.T) {
 		t.Fatalf("insert key: %v", err)
 	}
 
-	view, err := getManagedKeyByToken("sk-crud-found")
+	view, err := getManagedKeyByToken(db, "sk-crud-found")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestGetManagedKeyByToken_Found(t *testing.T) {
 func TestGetManagedKeyByToken_NotFound(t *testing.T) {
 	setupTestDB(t)
 
-	view, err := getManagedKeyByToken("sk-does-not-exist")
+	view, err := getManagedKeyByToken(testDB(t), "sk-does-not-exist")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken should not error on not found: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestGetManagedKeyByToken_NoRows(t *testing.T) {
 	setupTestDB(t)
 
 	// Empty table → no rows
-	view, err := getManagedKeyByToken("any-key")
+	view, err := getManagedKeyByToken(testDB(t), "any-key")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestDownstreamKeyCRUD_Insert(t *testing.T) {
 	}
 
 	// Read back via getManagedKeyByToken (our auth function)
-	view, err := getManagedKeyByToken("sk-crud-insert")
+	view, err := getManagedKeyByToken(db, "sk-crud-insert")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestDownstreamKeyCRUD_Update(t *testing.T) {
 	}
 
 	// Verify
-	view, err := getManagedKeyByToken("sk-crud-update")
+	view, err := getManagedKeyByToken(db, "sk-crud-update")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestDownstreamKeyCRUD_Delete(t *testing.T) {
 	}
 
 	// Verify it exists
-	view, err := getManagedKeyByToken("sk-crud-delete")
+	view, err := getManagedKeyByToken(db, "sk-crud-delete")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken before delete: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestDownstreamKeyCRUD_Delete(t *testing.T) {
 	}
 
 	// Verify it no longer exists
-	view, err = getManagedKeyByToken("sk-crud-delete")
+	view, err = getManagedKeyByToken(db, "sk-crud-delete")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken after delete: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestExpiration_PastDate(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-past", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-exp-past", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for past expiration")
 	}
@@ -330,7 +330,7 @@ func TestExpiration_FutureDate(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-future", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-exp-future", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for future expiration, got: %s", result.Error)
 	}
@@ -356,7 +356,7 @@ func TestExpiration_NilExpiresAt(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-null", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-exp-null", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for nil expires_at, got: %s", result.Error)
 	}
@@ -381,7 +381,7 @@ func TestExpiration_InvalidDateFormat(t *testing.T) {
 	}
 
 	// Invalid date → parse error → expiration check is skipped → key passes
-	result := AuthorizeDownstreamToken("sk-exp-invalid", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-exp-invalid", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true when expires_at is unparseable (TS: parseErr → skip), got: %s", result.Error)
 	}
@@ -409,7 +409,7 @@ func TestCostQuota_UnderLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-under", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-cost-under", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for under cost limit, got: %s", result.Error)
 	}
@@ -433,7 +433,7 @@ func TestCostQuota_AtLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-at", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-cost-at", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false when usedCost == maxCost")
 	}
@@ -460,7 +460,7 @@ func TestCostQuota_OverLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-over", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-cost-over", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for over cost limit")
 	}
@@ -487,7 +487,7 @@ func TestCostQuota_NilMaxCost(t *testing.T) {
 	}
 
 	// nil max_cost means unlimited — should pass even with high used_cost
-	result := AuthorizeDownstreamToken("sk-cost-nil", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-cost-nil", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for nil max_cost (unlimited), got: %s", result.Error)
 	}
@@ -515,7 +515,7 @@ func TestRequestQuota_UnderLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-under", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-req-under", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for under request limit, got: %s", result.Error)
 	}
@@ -539,7 +539,7 @@ func TestRequestQuota_AtLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-at", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-req-at", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false when usedRequests == maxRequests")
 	}
@@ -566,7 +566,7 @@ func TestRequestQuota_OverLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-over", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-req-over", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for over request limit")
 	}
@@ -598,9 +598,9 @@ func TestConsumeManagedKeyRequest_AtomicIncrement(t *testing.T) {
 	id, _ := res.LastInsertId()
 
 	// Call consumeManagedKeyRequest multiple times
-	consumeManagedKeyRequest(id)
-	consumeManagedKeyRequest(id)
-	consumeManagedKeyRequest(id)
+	consumeManagedKeyRequest(db, id)
+	consumeManagedKeyRequest(db, id)
+	consumeManagedKeyRequest(db, id)
 
 	// Read back used_requests
 	var usedRequests int64
@@ -641,10 +641,10 @@ func TestConsumeManagedKeyRequest_RespectsMaxRequests(t *testing.T) {
 	}
 	id, _ := res.LastInsertId()
 
-	if !consumeManagedKeyRequest(id) {
+	if !consumeManagedKeyRequest(db, id) {
 		t.Fatal("expected first request reservation to succeed")
 	}
-	if consumeManagedKeyRequest(id) {
+	if consumeManagedKeyRequest(db, id) {
 		t.Fatal("expected second request reservation to fail at max_requests=1")
 	}
 
@@ -678,7 +678,7 @@ func TestConsumeManagedKeyRequest_FromNull(t *testing.T) {
 	}
 	id, _ := res.LastInsertId()
 
-	consumeManagedKeyRequest(id)
+	consumeManagedKeyRequest(db, id)
 
 	var usedRequests sql.NullInt64
 	err = db.QueryRow(`SELECT used_requests FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedRequests)
@@ -708,7 +708,7 @@ func TestRecordManagedKeyCostUsage_PositiveCost(t *testing.T) {
 	}
 	id, _ := res.LastInsertId()
 
-	RecordManagedKeyCostUsage(id, 5.5)
+	RecordManagedKeyCostUsage(db, id, 5.5)
 
 	var usedCost float64
 	err = db.QueryRow(`SELECT used_cost FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedCost)
@@ -739,7 +739,7 @@ func TestRecordManagedKeyCostUsage_ZeroCost(t *testing.T) {
 	}
 	id, _ := res.LastInsertId()
 
-	RecordManagedKeyCostUsage(id, 0) // should be no-op
+	RecordManagedKeyCostUsage(db, id, 0) // should be no-op
 
 	var usedCost float64
 	err = db.QueryRow(`SELECT used_cost FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedCost)
@@ -769,7 +769,7 @@ func TestRecordManagedKeyCostUsage_NegativeCost(t *testing.T) {
 	}
 	id, _ := res.LastInsertId()
 
-	RecordManagedKeyCostUsage(id, -5.0) // negative → should be no-op
+	RecordManagedKeyCostUsage(db, id, -5.0) // negative → should be no-op
 
 	var usedCost float64
 	err = db.QueryRow(`SELECT used_cost FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedCost)
@@ -800,7 +800,7 @@ func TestRecordManagedKeyCostUsage_NaN(t *testing.T) {
 	id, _ := res.LastInsertId()
 
 	// NaN should be skipped (not > 0)
-	RecordManagedKeyCostUsage(id, math.NaN())
+	RecordManagedKeyCostUsage(db, id, math.NaN())
 
 	var usedCost float64
 	err = db.QueryRow(`SELECT used_cost FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedCost)
@@ -831,9 +831,9 @@ func TestRecordManagedKeyCostUsage_Inf(t *testing.T) {
 	id, _ := res.LastInsertId()
 
 	// Inf should be skipped (not valid)
-	RecordManagedKeyCostUsage(id, math.Inf(1))
+	RecordManagedKeyCostUsage(db, id, math.Inf(1))
 	// Neg Inf
-	RecordManagedKeyCostUsage(id, math.Inf(-1))
+	RecordManagedKeyCostUsage(db, id, math.Inf(-1))
 
 	var usedCost float64
 	err = db.QueryRow(`SELECT used_cost FROM downstream_api_keys WHERE id = ?`, id).Scan(&usedCost)
@@ -866,7 +866,7 @@ func TestDisabledKey_Rejected(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-disabled", &config.RuntimeSettings{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken(db, "sk-disabled", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for disabled key")
 	}
@@ -1304,7 +1304,7 @@ func TestGetManagedKeyByToken_CredentialRefsRoundtrip(t *testing.T) {
 		t.Fatalf("insert key: %v", err)
 	}
 
-	view, err := getManagedKeyByToken("sk-cred-roundtrip")
+	view, err := getManagedKeyByToken(db, "sk-cred-roundtrip")
 	if err != nil {
 		t.Fatalf("getManagedKeyByToken: %v", err)
 	}

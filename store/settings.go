@@ -14,8 +14,7 @@ import (
 
 // LoadRuntimeSettings reads the settings table and applies runtime overrides
 // to the config. Mirrors TS runtimeSettingsHydration behavior.
-func LoadRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings) error {
-	db := GetDB()
+func LoadRuntimeSettings(db *DB, cfg *config.Config, rt *config.RuntimeSettings) error {
 	if db == nil {
 		return fmt.Errorf("settings: database not initialized")
 	}

@@ -177,7 +177,7 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			if change == "embeddingsBecameRequired" {
 				surface = HandleEmbeddings
 			}
-			handler := requestLifecycleMiddleware(auth.ProxyAuth()(surface), func(context.Context, store.GatewayRequest) error { return nil })
+			handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(surface), func(context.Context, store.GatewayRequest) error { return nil })
 			body := `{"model":"conditional-limited","messages":[{"role":"user","content":"hello"}],"metadata":{"marker":"remove"},"max_tokens":16}`
 			path := "/v1/chat/completions"
 			if change == "streamBecameForbidden" {

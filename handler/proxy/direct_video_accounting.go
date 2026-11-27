@@ -49,13 +49,14 @@ func accountDirectVideoUsage(requestCtx context.Context, ctx *Ctx, selected *rou
 	// cancel the short local ledger transaction and make consumption disappear.
 	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(requestCtx), 5*time.Second)
 	defer cancel()
-	result, err := store.AccountVideoTask(writeCtx, store.GetDB(), task.PublicID, directVideoOwner(ctx.Auth), task.Identity.GrantID, keyID, usage, cost)
+	db := ctx.db
+	result, err := store.AccountVideoTask(writeCtx, db, task.PublicID, directVideoOwner(ctx.Auth), task.Identity.GrantID, keyID, usage, cost)
 	if err != nil {
 		ctx.videoAccountingError = fmt.Errorf("video task accounting is unavailable")
-		if keyID > 0 && store.GetDB() != nil {
+		if keyID > 0 && db != nil {
 			// Match durable quota accounting's fail-closed policy. Do not let a
 			// missing billable event increase the key's remaining budget.
-			_, _ = store.GetDB().ExecContext(writeCtx, `UPDATE downstream_api_keys SET enabled=? WHERE id=?`, false, keyID)
+			_, _ = db.ExecContext(writeCtx, `UPDATE downstream_api_keys SET enabled=? WHERE id=?`, false, keyID)
 		}
 		return observed, ctx.videoAccountingError
 	}

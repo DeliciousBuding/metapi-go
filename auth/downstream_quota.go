@@ -38,8 +38,7 @@ func quotaDeny(code int, reason, message string) DownstreamTokenAuthResult {
 // checkManagedKeyQuota is the read-only admission check used when a request
 // must not hold a slot (Responses WebSocket handshake) or by callers that only
 // explain state. Live HTTP admission uses reserveManagedKeyQuota instead.
-func checkManagedKeyQuota(id int64, quota *store.DownstreamQuota) DownstreamTokenAuthResult {
-	db := store.GetDB()
+func checkManagedKeyQuota(db *store.DB, id int64, quota *store.DownstreamQuota) DownstreamTokenAuthResult {
 	if db == nil {
 		return quotaDeny(503, "quota_unavailable", "API key quota usage is unavailable")
 	}
@@ -184,8 +183,7 @@ func sumManagedKeyQuotaReservations(db quotaQueryer, id int64, start, end int64)
 // channel's price is unknown before routing: cost admission stays
 // completion-based and concurrent in-flight requests can exceed it by roughly
 // (concurrency x per-request cost).
-func reserveManagedKeyQuota(id int64, quota *store.DownstreamQuota, estimatedTokens int64) (string, DownstreamTokenAuthResult) {
-	db := store.GetDB()
+func reserveManagedKeyQuota(db *store.DB, id int64, quota *store.DownstreamQuota, estimatedTokens int64) (string, DownstreamTokenAuthResult) {
 	if db == nil {
 		return "", quotaDeny(503, "quota_unavailable", "API key quota usage is unavailable")
 	}
@@ -283,11 +281,10 @@ func newQuotaReservationID() (string, error) {
 // cancellation before any usage). It is idempotent and safe after settlement.
 // A failed delete only leaves the hold for the TTL sweep, which over-counts
 // the budget rather than granting it.
-func ReleaseManagedKeyQuotaReservation(reservationID string) {
+func ReleaseManagedKeyQuotaReservation(db *store.DB, reservationID string) {
 	if reservationID == "" {
 		return
 	}
-	db := store.GetDB()
 	if db == nil {
 		return
 	}
@@ -306,8 +303,7 @@ func ReleaseManagedKeyQuotaReservation(reservationID string) {
 // between them. A missing reservation (crash cleanup, retry after a released
 // hold) does not suppress the usage row: billing must not depend on admission
 // bookkeeping.
-func RecordManagedKeyQuotaUsage(keyID int64, reservationID string, tokens *int64, cost *float64) {
-	db := store.GetDB()
+func RecordManagedKeyQuotaUsage(db *store.DB, keyID int64, reservationID string, tokens *int64, cost *float64) {
 	if db == nil || keyID <= 0 {
 		return
 	}

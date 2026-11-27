@@ -35,7 +35,7 @@ func TestHealthAndReadyBypassAuthAndIncludeSecurityHeaders(t *testing.T) {
 		_ = store.CloseDatabase()
 	})
 
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	for _, path := range []string{"/health", "/ready"} {
 		t.Run(path, func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestAdminRouteStillRequiresAuth(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/debug/vars", nil)
@@ -173,7 +173,7 @@ func TestAboutRouteRequiresAuthAndServesBuildInfoWithoutDatabase(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
@@ -221,7 +221,7 @@ func TestAdminRoutesAreMountedWithoutDoubleAPIPrefix(t *testing.T) {
 		_ = store.CloseDatabase()
 	})
 
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/auth/info", nil)
@@ -264,7 +264,7 @@ func TestAdminCORSDefaultDoesNotAllowCrossOrigin(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
@@ -286,7 +286,7 @@ func TestAdminCORSAllowsConfiguredOriginsOnly(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
@@ -314,7 +314,7 @@ func TestProxyCORSRemainsWildcard(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
@@ -335,7 +335,7 @@ func TestSPAFallbackRootBypassesProxyAuth(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -367,7 +367,7 @@ func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	cases := []struct {
 		name   string
@@ -407,7 +407,7 @@ func TestNonV1ProxyAliasStillRequiresProxyAuth(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/chat/completions", strings.NewReader(`{"model":"gpt-test"}`))
@@ -427,7 +427,7 @@ func TestHealthCORSRemainsWildcard(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -448,7 +448,7 @@ func TestDownstreamPricingRequiresProxyAuth(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// No Authorization header → must be rejected at the proxy-auth edge
 	// (the pricing catalog is downstream-key-gated, not public).
@@ -497,7 +497,7 @@ func TestStaticAssetsServedWithRealContentType(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	jsName := findDistAsset(t, "dist/static/js", ".js")
 	cssName := findDistAsset(t, "dist/static/css", ".css")
@@ -551,7 +551,7 @@ func TestStaticAssetMissingReturns404NotSPAFallback(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/static/js/__missing_asset__.js", nil)
@@ -575,7 +575,7 @@ func TestSPAFallbackServesClientRoutesAfterStaticMount(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
@@ -605,7 +605,7 @@ func TestMethodNotAllowedDoesNotEnumerateAPI(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// /api/auth/login is registered for POST only.
 	rec := httptest.NewRecorder()
@@ -646,7 +646,7 @@ func TestStaticDirectoryRequestsAreNotListed(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	for _, path := range []string{"/static/", "/static/js/", "/static/css/"} {
 		rec := httptest.NewRecorder()

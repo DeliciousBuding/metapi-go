@@ -82,7 +82,7 @@ func encodeAccessPayload(t *testing.T, p map[string]any) []byte {
 
 func accessHTTPHandler(db *store.DB) http.Handler {
 	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
-	return auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return auth.ProxyAuth(db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pac := auth.GetProxyAuth(r.Context())
 		selected, err := router.SelectChannel(r.Context(), r.URL.Query().Get("model"), routing.DownstreamRoutingPolicy{RequiredUpstreamProtocol: routing.UpstreamProtocolChat, AccessPolicy: pac.Policy.AccessPolicy, SupportedModels: pac.Policy.SupportedModels, DenyAllWhenEmpty: pac.Policy.DenyAllWhenEmpty})
 		if err != nil {
@@ -187,7 +187,7 @@ func TestAxonHubQuotaImportsHistoryAndKeepsLocalUsageOnReimport(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, raw, "quota-origin", false); err != nil {
 		t.Fatal(err)
 	}
-	result := auth.AuthorizeDownstreamToken("sk-fixture-access", config.Runtime())
+	result := auth.AuthorizeDownstreamToken(db, "sk-fixture-access", config.Runtime())
 	if !result.OK {
 		t.Fatalf("under-limit history rejected: %+v", result)
 	}
@@ -195,8 +195,8 @@ func TestAxonHubQuotaImportsHistoryAndKeepsLocalUsageOnReimport(t *testing.T) {
 	_ = db.Get(&id, `SELECT id FROM downstream_api_keys WHERE key='sk-fixture-access'`)
 	tokens := int64(60)
 	cost := 0.1
-	auth.RecordManagedKeyQuotaUsage(id, "", &tokens, &cost)
-	if result = auth.AuthorizeDownstreamToken("sk-fixture-access", config.Runtime()); result.OK || result.StatusCode != 429 {
+	auth.RecordManagedKeyQuotaUsage(db, id, "", &tokens, &cost)
+	if result = auth.AuthorizeDownstreamToken(db, "sk-fixture-access", config.Runtime()); result.OK || result.StatusCode != 429 {
 		t.Fatalf("token quota ignored: %+v", result)
 	}
 	if _, err := ImportAxonHubV14(db, raw, "quota-origin", false); err != nil {
@@ -205,14 +205,14 @@ func TestAxonHubQuotaImportsHistoryAndKeepsLocalUsageOnReimport(t *testing.T) {
 	if n := countRows(t, db, `SELECT COUNT(*) FROM downstream_quota_usage WHERE key_id=?`, id); n != 2 {
 		t.Fatalf("history duplicated or local usage reset: %d", n)
 	}
-	if result = auth.AuthorizeDownstreamToken("sk-fixture-access", config.Runtime()); result.OK {
+	if result = auth.AuthorizeDownstreamToken(db, "sk-fixture-access", config.Runtime()); result.OK {
 		t.Fatal("reimport reset budget")
 	}
 	delete(p, "usage_logs")
 	if _, err := ImportAxonHubV14(db, encodeAccessPayload(t, p), "quota-origin", false); err != nil {
 		t.Fatal(err)
 	}
-	if result = auth.AuthorizeDownstreamToken("sk-fixture-access", config.Runtime()); result.OK || result.Reason != "quota_history_missing" {
+	if result = auth.AuthorizeDownstreamToken(db, "sk-fixture-access", config.Runtime()); result.OK || result.Reason != "quota_history_missing" {
 		t.Fatalf("missing history widened quota: %+v", result)
 	}
 }
@@ -227,7 +227,7 @@ func TestAxonHubQuotaNativeBackupIncludesPolicyAndUsage(t *testing.T) {
 	_ = db.Get(&id, `SELECT id FROM downstream_api_keys WHERE key='sk-fixture-access'`)
 	tokens := int64(9)
 	cost := 0.2
-	auth.RecordManagedKeyQuotaUsage(id, "", &tokens, &cost)
+	auth.RecordManagedKeyQuotaUsage(db, id, "", &tokens, &cost)
 	payload, err := BuildPayload(db.DB, "all")
 	if err != nil {
 		t.Fatal(err)

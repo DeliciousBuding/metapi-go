@@ -126,7 +126,7 @@ func TestWebsocketPluginsRespectUserAdmissionAndRawSettlement(t *testing.T) {
 				return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
 			}})
 			completed := make(chan store.GatewayRequest, 2)
-			gateway := httptest.NewServer(requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil }))
+			gateway := httptest.NewServer(requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil }))
 			t.Cleanup(gateway.Close)
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()

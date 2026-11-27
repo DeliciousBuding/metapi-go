@@ -186,7 +186,7 @@ func TestResponsesWebsocketBridgeQueuedRevalidationPreservesClientIP(t *testing.
 			releaseBlocker := func() { releaseOnce.Do(blocker.Release) }
 			t.Cleanup(releaseBlocker)
 
-			server := httptest.NewServer(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)))
+			server := httptest.NewServer(RequestLifecycle(db)(auth.ProxyAuth(db)(http.HandlerFunc(HandleResponsesWebsocket))))
 			t.Cleanup(server.Close)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
