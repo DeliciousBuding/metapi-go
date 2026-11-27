@@ -23,7 +23,7 @@ func TestImportedUpstreamsReturnsTypedEndpointConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := chi.NewRouter()
-	RegisterImportedUpstreamRoutes(mux, db.DB)
+	RegisterImportedUpstreamRoutes(mux, db)
 	response := doGet(t, mux, "/api/imported-upstreams")
 	if response.Code != 200 || strings.Contains(response.Body.String(), "fixture-secret") {
 		t.Fatalf("unsafe inventory: %s", response.Body.String())

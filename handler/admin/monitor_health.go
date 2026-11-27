@@ -6,21 +6,21 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterMonitorHealthRoute mounts the read-only observability health
 // projection. It never hard-disables anything — the response only aggregates
 // the in-memory runtime breaker state and the DB-backed channel cooldown /
 // site+account health counters.
-func RegisterMonitorHealthRoute(r chi.Router, db *sqlx.DB) {
+func RegisterMonitorHealthRoute(r chi.Router, db *store.DB) {
 	h := &monitorHealthHandler{db: db}
 	r.Get("/api/monitor/health", h.health)
 }
 
 type monitorHealthHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // health is the read-only projection endpoint backing the observability
@@ -37,12 +37,12 @@ func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to aggregate cooldown")
 		return
 	}
-	sites, err := h.statusCounts("sites")
+	sites, err := h.db.SiteStatusCounts()
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load status counts")
 		return
 	}
-	accounts, err := h.statusCounts("accounts")
+	accounts, err := h.db.AccountStatusCounts()
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load status counts")
 		return
@@ -72,20 +72,17 @@ func (h *monitorHealthHandler) namedRuntimeHealth(snapshot routing.RuntimeHealth
 	if len(snapshot.OpenBreakers) == 0 {
 		return result, nil
 	}
-	names := make(map[int64]string)
-	var ids []any
+	seen := make(map[int64]bool)
+	var ids []int64
 	for _, breaker := range snapshot.OpenBreakers {
-		if _, seen := names[breaker.SiteID]; !seen {
+		if !seen[breaker.SiteID] {
 			ids = append(ids, breaker.SiteID)
-			names[breaker.SiteID] = ""
+			seen[breaker.SiteID] = true
 		}
 	}
-	rows, err := queryRowsErr(h.db, "SELECT id,name FROM sites WHERE id IN ("+sqlPlaceholders(len(ids))+")", ids...)
+	names, err := h.db.SiteNames(ids)
 	if err != nil {
 		return result, err
-	}
-	for _, row := range rows {
-		names[coerceInt64(row["id"])] = coerceString(row["name"])
 	}
 	for _, breaker := range snapshot.OpenBreakers {
 		result.OpenBreakers = append(result.OpenBreakers, namedBreaker{breaker, names[breaker.SiteID]})
@@ -101,23 +98,7 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 	// Cooldown window cap is runtime-mutable (settings hot-update); read one
 	// snapshot for the whole aggregation so every row uses the same value.
 	configuredMaxSec := config.Runtime().TokenRouterFailureCooldownMaxSec
-	rows, err := queryRowsErr(h.db, `
-		SELECT
-			rc.id AS id,
-			rc.account_id AS account_id,
-			rc.fail_count AS fail_count,
-			rc.last_fail_at AS last_fail_at,
-			rc.cooldown_until AS cooldown_until,
-			rc.cooldown_reason_code, rc.cooldown_reason,
-			s.id AS site_id,
-			COALESCE(s.name, '') AS site_name
-		FROM route_channels rc
-		LEFT JOIN accounts a ON a.id = rc.account_id
-		LEFT JOIN sites s ON s.id = a.site_id
-		WHERE rc.cooldown_until IS NOT NULL OR rc.fail_count > 0
-		ORDER BY rc.cooldown_until DESC
-		LIMIT 10000
-	`)
+	rows, err := h.db.CooldownChannels()
 	if err != nil {
 		return nil, err
 	}
@@ -131,9 +112,9 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 	cooling := make([]map[string]any, 0)
 
 	for _, row := range rows {
-		failCount := coerceInt64(row["failCount"])
-		cooldownUntil := nullableString(row["cooldownUntil"])
-		lastFailAt := nullableString(row["lastFailAt"])
+		failCount := row.FailCount
+		cooldownUntil := row.CooldownUntil
+		lastFailAt := row.LastFailAt
 
 		if failCount > 0 {
 			channelsWithFailures++
@@ -144,14 +125,14 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 		if routing.IsCooldownActive(cooldownUntil, nowISO) {
 			channelsCooling++
 			cooling = append(cooling, map[string]any{
-				"cooldownReasonCode": row["cooldownReasonCode"],
-				"cooldownReason":     row["cooldownReason"],
-				"channelId":          coerceInt64(row["id"]),
-				"accountId":          coerceInt64(row["accountId"]),
-				"siteId":             coerceInt64(row["siteId"]),
-				"siteName":           coerceString(row["siteName"]),
+				"cooldownReasonCode": row.ReasonCode,
+				"cooldownReason":     row.Reason,
+				"channelId":          row.ID,
+				"accountId":          row.AccountID,
+				"siteId":             row.SiteID,
+				"siteName":           row.SiteName,
 				"failCount":          failCount,
-				"cooldownUntil":      coerceString(row["cooldownUntil"]),
+				"cooldownUntil":      *cooldownUntil,
 			})
 		}
 	}
@@ -162,47 +143,4 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 		"channelsRecentlyFailed": channelsRecentlyFailed,
 		"cooling":                cooling,
 	}, nil
-}
-
-// statusCounts aggregates a table's `status` column into total/active/
-// disabled/other buckets. `table` is always a literal in this file.
-func (h *monitorHealthHandler) statusCounts(table string) (map[string]any, error) {
-	rows, err := queryRowsErr(h.db, "SELECT status, COUNT(*) AS count FROM "+table+" GROUP BY status")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]any{
-		"total":    0,
-		"active":   0,
-		"disabled": 0,
-		"other":    0,
-	}
-	var total int64
-	for _, row := range rows {
-		count := coerceInt64(row["count"])
-		total += count
-		switch coerceString(row["status"]) {
-		case "active":
-			result["active"] = count
-		case "disabled":
-			result["disabled"] = count
-		default:
-			result["other"] = coerceInt64(result["other"]) + count
-		}
-	}
-	result["total"] = total
-	return result, nil
-}
-
-// nullableString converts a nullable MapScan value into *string, treating nil
-// and empty as nil so cooldown helpers see a genuinely absent timestamp.
-func nullableString(v any) *string {
-	if v == nil {
-		return nil
-	}
-	s := coerceString(v)
-	if s == "" {
-		return nil
-	}
-	return &s
 }

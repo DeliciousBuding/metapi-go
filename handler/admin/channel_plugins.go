@@ -9,10 +9,9 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
-func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterChannelPluginRoutes(r chi.Router, db *store.DB) {
 	r.Post("/api/channel-plugin-versions/prune", func(w http.ResponseWriter, r *http.Request) {
 		setNoStore(w)
 		var in struct {
@@ -22,7 +21,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 		if !catalogDecode(w, r, &in) {
 			return
 		}
-		if err := channelplugins.PruneArchivedVersion(r.Context(), db, in.Key, in.Fingerprint); err != nil {
+		if err := channelplugins.PruneArchivedVersion(r.Context(), db.DB, in.Key, in.Fingerprint); err != nil {
 			channelPluginError(w, err)
 			return
 		}
@@ -30,7 +29,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 	})
 	r.Get("/api/channel-plugin-versions", func(w http.ResponseWriter, r *http.Request) {
 		setNoStore(w)
-		items, err := channelplugins.ListArchivedVersions(r.Context(), db)
+		items, err := channelplugins.ListArchivedVersions(r.Context(), db.DB)
 		if err != nil {
 			channelPluginError(w, err)
 			return
@@ -47,7 +46,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 		if !catalogDecode(w, r, &in) {
 			return
 		}
-		if err := channelplugins.RestoreArchivedVersion(r.Context(), db, in.Key, in.Fingerprint, in.Source); err != nil {
+		if err := channelplugins.RestoreArchivedVersion(r.Context(), db.DB, in.Key, in.Fingerprint, in.Source); err != nil {
 			channelPluginError(w, err)
 			return
 		}
@@ -55,7 +54,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 	})
 	r.Get("/api/channel-plugins", func(w http.ResponseWriter, r *http.Request) {
 		setNoStore(w)
-		items, err := channelplugins.List(r.Context(), db)
+		items, err := channelplugins.List(r.Context(), db.DB)
 		if err != nil {
 			channelPluginError(w, err)
 			return
@@ -64,7 +63,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 	})
 	r.Get("/api/channel-plugins/{key}", func(w http.ResponseWriter, r *http.Request) {
 		setNoStore(w)
-		row, err := store.LoadChannelPlugin(r.Context(), db, chi.URLParam(r, "key"))
+		row, err := store.LoadChannelPlugin(r.Context(), db.DB, chi.URLParam(r, "key"))
 		if err != nil {
 			channelPluginError(w, err)
 			return
@@ -80,7 +79,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 		if !catalogDecode(w, r, &in) {
 			return
 		}
-		row, err := channelplugins.Save(r.Context(), db, chi.URLParam(r, "key"), in.Source, in.Enabled, in.ExpectedRevision)
+		row, err := channelplugins.Save(r.Context(), db.DB, chi.URLParam(r, "key"), in.Source, in.Enabled, in.ExpectedRevision)
 		if err != nil {
 			channelPluginError(w, err)
 			return
@@ -98,7 +97,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 			channelPluginError(w, store.ErrChannelPluginConflict)
 			return
 		}
-		err := store.DeleteChannelPlugin(r.Context(), db, chi.URLParam(r, "key"), in.ExpectedRevision)
+		err := store.DeleteChannelPlugin(r.Context(), db.DB, chi.URLParam(r, "key"), in.ExpectedRevision)
 		if err != nil {
 			channelPluginError(w, err)
 			return
@@ -118,16 +117,7 @@ func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
 			return
 		}
 		key := chi.URLParam(r, "key")
-		stored, err := store.LoadChannelPlugin(r.Context(), db, key)
-		if err != nil {
-			channelPluginError(w, err)
-			return
-		}
-		if stored.Revision != in.ExpectedRevision {
-			channelPluginError(w, store.ErrChannelPluginConflict)
-			return
-		}
-		row, err := channelplugins.Save(r.Context(), db, key, stored.Source, *in.Enabled, in.ExpectedRevision)
+		row, err := channelplugins.SetEnabled(r.Context(), db.DB, key, *in.Enabled, in.ExpectedRevision)
 		if err != nil {
 			channelPluginError(w, err)
 			return

@@ -8,11 +8,10 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterMaintenanceRoutes registers all /api/settings/maintenance routes.
-func RegisterMaintenanceRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterMaintenanceRoutes(r chi.Router, db *store.DB) {
 	handler := &maintenanceHandler{db: db}
 
 	r.Post("/api/settings/maintenance/clear-cache", handler.clearCache)
@@ -21,7 +20,7 @@ func RegisterMaintenanceRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type maintenanceHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 const (
@@ -59,7 +58,7 @@ func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) 
 	}, func() (any, error) {
 		// Recompose automatic channels from the route definitions and model
 		// availability that are still on the row — real work, and idempotent.
-		service.RebuildRoutesBestEffort(h.db)
+		service.RebuildRoutesBestEffort(h.db.DB)
 		// Re-invalidate after rebuild so stale route matches cannot linger.
 		invalidateLocalProcessCaches()
 		return map[string]any{
@@ -89,32 +88,11 @@ func invalidateLocalProcessCaches() {
 
 // POST /api/settings/maintenance/clear-usage
 func (h *maintenanceHandler) clearUsage(w http.ResponseWriter, r *http.Request) {
-	var deletedProxyLogs int64
-	if err := h.db.Get(&deletedProxyLogs, h.db.Rebind("SELECT COUNT(*) FROM proxy_logs")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read proxy_logs: %v", err))
+	deletedProxyLogs, err := h.db.ClearUsage()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM proxy_logs")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear proxy_logs: %v", err))
-		return
-	}
-
-	// Reset route channel stats
-	if _, err := h.db.Exec(h.db.Rebind(`UPDATE route_channels SET
-		success_count = 0, fail_count = 0, total_latency_ms = 0, total_cost = 0,
-		last_used_at = NULL, last_selected_at = NULL, last_fail_at = NULL,
-		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL,
-		cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL`)); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear route_channels stats: %v", err))
-		return
-	}
-
-	// Reset account balanceUsed
-	if _, err := h.db.Exec(h.db.Rebind("UPDATE accounts SET balance_used = 0")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear account balance usage: %v", err))
-		return
-	}
-
 	// Accounts list snapshot may still show old balanceUsed until cleared.
 	if globalAccountsCache != nil {
 		globalAccountsCache.clear()
@@ -152,7 +130,7 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 	// admin_audit_logs, model_probe_results and the rest is the intended
 	// semantics of restoring a clean install; store.FactoryReset owns the
 	// FK-safe order, the sequence restart and the per-table counts.
-	deleted, err := store.FactoryReset(h.db)
+	deleted, err := store.FactoryReset(h.db.DB)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: %v", err))
 		return

@@ -22,7 +22,7 @@ func TestRuntimeDatabaseGetRuntimeReportsActivePostgres(t *testing.T) {
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	handler := &databaseHandler{db: db, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestRuntimeDatabaseSaveRuntimeKeepsActiveDatabaseSeparateFromSavedOverride(
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	handler := &databaseHandler{db: db, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/settings/database/runtime", strings.NewReader(`{
 		"dialect": "postgres",
@@ -132,7 +132,7 @@ func TestRuntimeDatabaseSaveRuntimeKeepsActiveDatabaseSeparateFromSavedOverride(
 
 func TestRuntimeDatabaseRejectsUnsupportedDialect(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &databaseHandler{db: db.DB}
+	handler := &databaseHandler{db: db}
 
 	cases := []struct {
 		name   string
@@ -220,7 +220,7 @@ func TestApplyPostgresTestConnectTimeout(t *testing.T) {
 
 func TestRuntimeDatabaseTestConnectionSQLiteSuccess(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &databaseHandler{db: db.DB}
+	handler := &databaseHandler{db: db}
 	target := filepath.Join(t.TempDir(), "target.db")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/test-connection", strings.NewReader(`{
@@ -244,7 +244,7 @@ func TestRuntimeDatabaseTestConnectionSQLiteSuccess(t *testing.T) {
 
 func TestRuntimeDatabaseTestConnectionPostgresFailureDoesNotLeakPassword(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &databaseHandler{db: db.DB}
+	handler := &databaseHandler{db: db}
 
 	const dsn = "postgres://user:secret-pass@127.0.0.1:1/metapi?sslmode=disable&connect_timeout=1"
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/test-connection", strings.NewReader(`{
@@ -308,7 +308,7 @@ func TestRuntimeDatabaseMigrateQueuesBackgroundTask(t *testing.T) {
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+	handler := &databaseHandler{db: settingsDB, cfg: cfg}
 
 	targetPath := filepath.Join(t.TempDir(), "target.db")
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
@@ -409,7 +409,7 @@ func TestRuntimeDatabaseMigrateRejectsSameTarget(t *testing.T) {
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+	handler := &databaseHandler{db: settingsDB, cfg: cfg}
 
 	// Target spells the same SQLite file with a sqlite:// prefix.
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
@@ -437,7 +437,7 @@ func TestRuntimeDatabaseMigrateRejectsEmptyConnectionString(t *testing.T) {
 	cfg, rt := config.Load(map[string]string{"DB_TYPE": "sqlite", "DB_URL": "C:/data/hub.db"})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+	handler := &databaseHandler{db: settingsDB, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
 		"dialect": "sqlite",
@@ -473,7 +473,7 @@ func TestRuntimeDatabaseGetDoesNotRequireRestartWhenSavedMatchesActive(t *testin
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	handler := &databaseHandler{db: db, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
 	handler.getRuntime(rec, req)
@@ -510,7 +510,7 @@ func TestRuntimeDatabaseGetDoesNotRequireRestartForEquivalentSQLitePath(t *testi
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	handler := &databaseHandler{db: db, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
 	handler.getRuntime(rec, req)
@@ -547,7 +547,7 @@ func TestRuntimeDatabaseLegacyStringSSLDoesNotForceRestart(t *testing.T) {
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	handler := &databaseHandler{db: db, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
 	handler.getRuntime(rec, req)

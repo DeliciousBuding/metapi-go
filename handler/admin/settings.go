@@ -516,23 +516,3 @@ func decodeScheduleSpec(v any) (schedulespec.ScheduleSpec, error) {
 	}
 	return spec, nil
 }
-
-// persistDualSchedule writes the legacy cron key and its v2 ScheduleSpec
-// mirror in one transaction so the two never diverge.
-func persistDualSchedule(db *sqlx.DB, legacyKey string, legacyValue any, v2Key string, spec schedulespec.ScheduleSpec) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return fmt.Errorf("settings: begin dual schedule write: %w", err)
-	}
-	defer tx.Rollback()
-	if err := upsertSettingTx(db, tx, legacyKey, legacyValue); err != nil {
-		return err
-	}
-	if cron, ok := legacyValue.(string); ok {
-		spec.Cron = cron
-	}
-	if err := upsertSettingTx(db, tx, v2Key, spec); err != nil {
-		return err
-	}
-	return tx.Commit()
-}

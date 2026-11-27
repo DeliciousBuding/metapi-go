@@ -45,10 +45,10 @@ import (
 // positions that carry the settings key.
 var settingsGatePersistHelpers = map[string][]int{
 	"upsertSettingDB":         {1},
-	"upsertSettingTx":         {2},
+	"upsertScheduleTx":        {1},
 	"applyStringSettingDB":    {3},
 	"applyBoolSettingDB":      {3},
-	"persistDualSchedule":     {1, 3},
+	"SaveDualSchedule":        {1, 3},
 	"saveBackupSettingString": {1},
 }
 
@@ -263,12 +263,17 @@ func TestSettingsRehydrationGateCoversEveryAdminWritableKey(t *testing.T) {
 		t.Fatalf("gate parsed no files; admin dir resolution is broken (%s)", adminDir)
 	}
 
-	writeKeys := settingsGateWriteKeys(fset, files)
+	// Include the transactional schedule writer shared by the admin endpoints.
+	schedule, err := parser.ParseFile(fset, filepath.Join(dir, "..", "service", "settingsmigration", "schedule.go"), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeKeys := settingsGateWriteKeys(fset, append(files, schedule))
 	hydrated := settingsGateHydratedKeys(t, filepath.Join(dir, "settings.go"))
 	if len(writeKeys) == 0 {
 		t.Fatal("write-side extractor found no settings keys; the matcher is broken")
 	}
-	for _, probe := range []string{"system_name", "system_proxy_url"} {
+	for _, probe := range []string{"system_name", "system_proxy_url", "checkin_schedule_v2"} {
 		if _, ok := writeKeys[probe]; !ok {
 			t.Fatalf("write-side extractor missed %q; the matcher is broken", probe)
 		}
@@ -325,10 +330,10 @@ const someKeyConst = "monitor_ldoh_cookie"
 
 func examples(db *sqlx.DB, body map[string]any) {
 	upsertSettingDB(db, "admin_ip_allowlist", nil)
-	upsertSettingTx(db, tx, "checkin_cron", "0 8 * * *")
+	upsertScheduleTx(tx, "checkin_cron", "0 8 * * *")
 	applyStringSettingDB(db, body, "systemName", "system_name", nil)
 	applyBoolSettingDB(db, body, "webhookEnabled", "webhook_enabled", nil)
-	persistDualSchedule(db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec)
+	settingsmigration.SaveDualSchedule(db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec)
 	saveBackupSettingString(db, someKeyConst, data)
 	db.Exec(db.Rebind("UPDATE settings SET value = ? WHERE key = 'auth_token'"), v)
 	db.Query("SELECT key, value FROM settings WHERE key IN ('db_type', 'db_url')")
@@ -813,8 +818,8 @@ func sortedWantLabels(m map[string]bool) []string {
 // "the key is computed" is exactly how a writer hides from a gate that reads
 // source.
 var settingsGateDynamicWriteSites = map[string]string{
-	"store/setting_store.go:(*SettingsStore).Set":   "the KV primitive itself; the key is each caller's, and every caller's own site is resolved here",
-	"service/settingsmigration/service.go:upsertTx": "the key arrives from the migration item builders: the three *_schedule_v2 keys, each allowlisted in nonHydratedSettingKeys",
+	"store/setting_store.go:(*SettingsStore).Set":           "the KV primitive itself; the key is each caller's, and every caller's own site is resolved here",
+	"service/settingsmigration/service.go:upsertScheduleTx": "admin schedule keys are checked by R1; Apply writes migration version metadata and the schedule mirrors",
 }
 
 // settingsGateWriteSQL matches the statement shapes that persist a settings

@@ -79,7 +79,7 @@ func newMigrationHandlerForTest(t *testing.T, sourcePath string) *databaseHandle
 	})
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	return &databaseHandler{db: settingsDB.DB, cfg: cfg}
+	return &databaseHandler{db: settingsDB, cfg: cfg}
 }
 
 func doPostMigration(t *testing.T, h *databaseHandler, body string) *httptest.ResponseRecorder {

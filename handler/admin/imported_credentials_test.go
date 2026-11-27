@@ -32,7 +32,7 @@ func TestImportedCredentialManagementDoesNotExposeSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := chi.NewRouter()
-	RegisterImportedUpstreamRoutes(mux, db.DB)
+	RegisterImportedUpstreamRoutes(mux, db)
 	patch := func(body string) *httptest.ResponseRecorder {
 		out := httptest.NewRecorder()
 		mux.ServeHTTP(out, httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/imported-upstreams/credentials/%d", id), strings.NewReader(body)))

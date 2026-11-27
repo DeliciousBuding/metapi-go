@@ -2,7 +2,6 @@ package admin
 
 import (
 	"crypto/subtle"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -11,13 +10,13 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/admintoken"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterAuthSettingsRoutes registers all /api/settings/auth routes.
 // sessions may be nil (tests): rotation then skips session revocation.
-func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, sessions *auth.SessionManager) {
+func RegisterAuthSettingsRoutes(r chi.Router, db *store.DB, sessions *auth.SessionManager) {
 	handler := &authSettingsHandler{db: db, sessions: sessions}
 
 	r.Get("/api/settings/auth/info", handler.getInfo)
@@ -25,7 +24,7 @@ func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, sessions *auth.Sessio
 }
 
 type authSettingsHandler struct {
-	db       *sqlx.DB
+	db       *store.DB
 	sessions *auth.SessionManager
 }
 
@@ -92,24 +91,10 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// Persist to settings table before mutating in-memory RuntimeSettings so a
 	// storage failure cannot desynchronize live auth from durable state.
 	now := timeNowUTC()
-	var existingCount int
-	if err := h.db.Get(&existingCount, "SELECT COUNT(*) FROM settings WHERE key = 'auth_token'"); err != nil {
-		slog.Error("failed to query auth_token setting before rotation", "error", err)
+	if err := upsertSettingDB(h.db, "auth_token", body.NewToken); err != nil {
+		slog.Error("failed to persist auth_token setting", "error", err)
 		writeError(w, http.StatusInternalServerError, "Failed to update token")
 		return
-	}
-	if existingCount > 0 {
-		if _, err := h.db.Exec(h.db.Rebind("UPDATE settings SET value = ? WHERE key = 'auth_token'"), jsonQuote(body.NewToken)); err != nil {
-			slog.Error("failed to update auth_token setting", "error", err)
-			writeError(w, http.StatusInternalServerError, "Failed to update token")
-			return
-		}
-	} else {
-		if _, err := h.db.Exec(h.db.Rebind("INSERT INTO settings (key, value) VALUES (?, ?)"), "auth_token", jsonQuote(body.NewToken)); err != nil {
-			slog.Error("failed to insert auth_token setting", "error", err)
-			writeError(w, http.StatusInternalServerError, "Failed to update token")
-			return
-		}
 	}
 
 	// Publish the rotated token atomically; every subsequent admin/proxy
@@ -126,11 +111,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// Only on success — failed change must not clear a still-valid session cookie.
 	clearMonitorAuthCookies(w, r)
 
-	// Log the change event
-	// read is a BOOLEAN column on PostgreSQL: bind FALSE, not the integer
-	// literal 0 (PG rejects integer literals for booleans).
-	h.db.Exec(h.db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, read)
-		VALUES ('token', 'Admin login token updated', 'The admin login token was changed. Use the new token to log in.', 'warning', 'settings', ?, FALSE)`), now)
+	logSettingsEvent(h.db.DB, "token", "Admin login token updated", "The admin login token was changed. Use the new token to log in.", "warning", now)
 
 	// Keep the 0600 handoff file in sync when this deployment uses it. A
 	// custom rotation overwrites the previous value instead of leaving a dead
@@ -165,11 +146,6 @@ func constantTimeTokenEqual(a, b string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare(ab, bb) == 1
-}
-
-func jsonQuote(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
 }
 
 func timeNowUTC() string {

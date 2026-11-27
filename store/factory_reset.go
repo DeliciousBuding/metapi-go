@@ -111,3 +111,30 @@ func resetSequences(db *sqlx.DB, tx *sql.Tx, postgres bool) error {
 	}
 	return nil
 }
+
+// ClearUsage clears the log and resets counters in the legacy operation order.
+func (db *DB) ClearUsage() (int64, error) {
+	var deletedProxyLogs int64
+	if err := db.Get(&deletedProxyLogs, "SELECT COUNT(*) FROM proxy_logs"); err != nil {
+		return 0, fmt.Errorf("failed to read proxy_logs: %w", err)
+	}
+	if _, err := db.Exec("DELETE FROM proxy_logs"); err != nil {
+		return 0, fmt.Errorf("failed to clear proxy_logs: %w", err)
+	}
+
+	// Reset route channel stats
+	if _, err := db.Exec(`UPDATE route_channels SET
+		success_count = 0, fail_count = 0, total_latency_ms = 0, total_cost = 0,
+		last_used_at = NULL, last_selected_at = NULL, last_fail_at = NULL,
+		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL,
+		cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL`); err != nil {
+		return 0, fmt.Errorf("failed to clear route_channels stats: %w", err)
+	}
+
+	// Reset account balanceUsed
+	if _, err := db.Exec("UPDATE accounts SET balance_used = 0"); err != nil {
+		return 0, fmt.Errorf("failed to clear account balance usage: %w", err)
+	}
+
+	return deletedProxyLogs, nil
+}

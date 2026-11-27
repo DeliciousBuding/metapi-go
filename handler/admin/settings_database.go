@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,11 +10,10 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterDatabaseRoutes registers all /api/settings/database routes.
-func RegisterDatabaseRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterDatabaseRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &databaseHandler{db: db, cfg: cfg}
 
 	r.Get("/api/settings/database/runtime", handler.getRuntime)
@@ -25,7 +23,7 @@ func RegisterDatabaseRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 }
 
 type databaseHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 }
 
@@ -423,24 +421,11 @@ func (w *backgroundTaskLogWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func loadSavedDatabaseConfig(db *sqlx.DB) (*savedDatabaseConfig, error) {
-	rows, err := queryRowsErr(db, "SELECT key, value FROM settings WHERE key IN ('db_type', 'db_url', 'db_ssl')")
+func loadSavedDatabaseConfig(db *store.DB) (*savedDatabaseConfig, error) {
+	values, err := store.NewSettingsStore(db).DatabaseConfigValues()
 	if err != nil {
 		return nil, err
 	}
-	values := map[string]any{}
-	for _, row := range rows {
-		key, _ := row["key"].(string)
-		value, _ := row["value"].(string)
-		if value == "" {
-			continue
-		}
-		var parsed any
-		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
-			values[key] = parsed
-		}
-	}
-
 	dialect, _ := values["db_type"].(string)
 	connection, _ := values["db_url"].(string)
 	if dialect == "" || connection == "" {

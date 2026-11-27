@@ -314,7 +314,7 @@ func TestMonitorSaveConfig_BareValueIsNormalizedBeforePersist(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("save status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	stored := getSettingValue(db.DB, ldohCookieSettingKey)
+	stored := getSettingValue(db, ldohCookieSettingKey)
 	if stored != "ld_auth_session="+bareValue {
 		t.Fatalf("stored = %q, want normalized %q", stored, "ld_auth_session="+bareValue)
 	}
@@ -339,7 +339,7 @@ func TestMonitorSaveConfig_EmptyBodyClearsStoredCookie(t *testing.T) {
 	if body["ldohCookieConfigured"] != false {
 		t.Fatalf("expected configured=false after clear, got %v", body["ldohCookieConfigured"])
 	}
-	if getSettingValue(db.DB, ldohCookieSettingKey) != "" {
+	if getSettingValue(db, ldohCookieSettingKey) != "" {
 		t.Fatal("stored cookie was not cleared")
 	}
 }

@@ -52,7 +52,7 @@ func catalogTestDB(t *testing.T, dialect, sqliteDSN string) *store.DB {
 }
 func catalogMux(db *store.DB) *chi.Mux {
 	r := chi.NewRouter()
-	RegisterImportedUpstreamRoutes(r, db.DB)
+	RegisterImportedUpstreamRoutes(r, db)
 	return r
 }
 func catalogRequest(r http.Handler, method, path string, body any) *httptest.ResponseRecorder {

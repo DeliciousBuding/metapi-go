@@ -17,15 +17,15 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterMonitorRoutes registers the Bearer-protected /api/monitor
 // configuration surface. The cookie-authenticated iframe proxy lives in
 // RegisterMonitorProxyRoutes and must be wired OUTSIDE the admin auth group
 // (see router/router.go).
-func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterMonitorRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
 	r.Get("/api/monitor/config", handler.getConfig)
@@ -44,7 +44,7 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 // breaks the LDOH iframe. The handler enforces
 // the cookie itself via ensureMonitorAuth; keep this registrar outside any
 // Bearer-gated group.
-func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterMonitorProxyRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
 	r.HandleFunc("/monitor-proxy/ldoh", handler.ldohProxy)
@@ -53,7 +53,7 @@ func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 }
 
 type monitorHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 
 	ldohClientOnce sync.Once
@@ -548,16 +548,13 @@ func maskValue(value string) string {
 	return raw[:6] + "****" + raw[len(raw)-4:]
 }
 
-func getSettingValue(db *sqlx.DB, key string) string {
-	var row struct {
-		Value *string `db:"value"`
-	}
-	err := db.Get(&row, db.Rebind("SELECT value FROM settings WHERE key = ?"), key)
-	if err != nil || row.Value == nil {
+func getSettingValue(db *store.DB, key string) string {
+	value, err := store.NewSettingsStore(db).Get(key)
+	if err != nil {
 		return ""
 	}
 	// Value is stored as JSON-encoded string
-	val := strings.TrimSpace(*row.Value)
+	val := strings.TrimSpace(value)
 	if strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
 		var unquoted string
 		if err := json.Unmarshal([]byte(val), &unquoted); err == nil {

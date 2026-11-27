@@ -3,17 +3,16 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	checkinservice "github.com/deliciousbuding/metapi-go/service/checkin"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterCheckinRoutes registers all /api/checkin routes.
-func RegisterCheckinRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterCheckinRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
@@ -26,7 +25,7 @@ func RegisterCheckinRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 }
 
 type checkinHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 }
 
@@ -38,7 +37,7 @@ type checkinHandler struct {
 // keeps its own checkin_logs row, so a cancelled round leaves an honest partial
 // result rather than a half-written one.
 func (h *checkinHandler) triggerAll(w http.ResponseWriter, r *http.Request) {
-	results := checkinservice.CheckinAllContext(r.Context(), h.cfg, h.db, nil, "manual")
+	results := checkinservice.CheckinAllContext(r.Context(), h.cfg, h.db.DB, nil, "manual")
 	summary := summarizeCheckinResults(results)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": summary.Failed == 0,
@@ -57,7 +56,7 @@ func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := checkinservice.CheckinAccount(h.cfg, h.db, id, &checkinservice.CheckinOptions{
+	result := checkinservice.CheckinAccount(h.cfg, h.db.DB, id, &checkinservice.CheckinOptions{
 		ScheduleMode: "manual",
 	})
 	if result.Message == "account not found" {
@@ -115,84 +114,19 @@ func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
 func (h *checkinHandler) getLogs(w http.ResponseWriter, r *http.Request) {
 	limit, _ := parseLimitOffset(r, 50, 200)
 	offset := max(0, getQueryInt(r, "offset", 0))
-	accountIDStr := strings.TrimSpace(r.URL.Query().Get("accountId"))
-	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
-	from := strings.TrimSpace(r.URL.Query().Get("from"))
-	to := strings.TrimSpace(r.URL.Query().Get("to"))
-	reason := splitTrimFilter(r.URL.Query().Get("reason"))
-	site := splitTrimFilter(r.URL.Query().Get("site"))
-	search := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
-
-	var conditions []string
-	var args []any
-
-	if accountIDStr != "" {
-		if aid, err := strconv.ParseInt(accountIDStr, 10, 64); err == nil && aid > 0 {
-			conditions = append(conditions, "cl.account_id = ?")
-			args = append(args, aid)
-		}
-	}
-	if status == "success" || status == "failed" || status == "skipped" {
-		conditions = append(conditions, "cl.status = ?")
-		args = append(args, status)
-	}
-	// created_at is stored as a naive UTC RFC3339 string, so lexicographic
-	// comparison against UTC bounds is correct and dialect-agnostic.
-	if from != "" {
-		conditions = append(conditions, "cl.created_at >= ?")
-		args = append(args, from)
-	}
-	if to != "" {
-		conditions = append(conditions, "cl.created_at <= ?")
-		args = append(args, to)
-	}
-	if len(reason) > 0 {
-		// failure_reason is compact JSON from encoding/json, so a substring
-		// match on "category":"<value>" hits cleanly. OR across the selected
-		// categories so the multi-select behaves like the legacy client filter.
-		reasonClauses := make([]string, 0, len(reason))
-		for _, category := range reason {
-			reasonClauses = append(reasonClauses, "LOWER(COALESCE(cl.failure_reason, '')) LIKE ?")
-			args = append(args, "%\"category\":\""+strings.ToLower(category)+"\"%")
-		}
-		conditions = append(conditions, "("+strings.Join(reasonClauses, " OR ")+")")
-	}
-	if len(site) > 0 {
-		placeHolders := make([]string, 0, len(site))
-		for _, name := range site {
-			placeHolders = append(placeHolders, "?")
-			args = append(args, name)
-		}
-		conditions = append(conditions, "s.name IN ("+strings.Join(placeHolders, ",")+")")
-	}
-	if search != "" {
-		conditions = append(conditions, "(LOWER(COALESCE(a.username, '')) LIKE ? OR LOWER(COALESCE(s.name, '')) LIKE ? OR LOWER(COALESCE(cl.message, '')) LIKE ? OR LOWER(COALESCE(cl.reward, '')) LIKE ?)")
-		like := "%" + search + "%"
-		args = append(args, like, like, like, like)
-	}
-
-	var where string
-	if len(conditions) > 0 {
-		where = " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	query := `SELECT cl.*, a.username as account_username, s.name as site_name, s.url as site_url
-		FROM checkin_logs cl
-		INNER JOIN accounts a ON cl.account_id = a.id
-		INNER JOIN sites s ON a.site_id = s.id` +
-		where + " ORDER BY cl.created_at DESC LIMIT ? OFFSET ?"
-	qArgs := make([]any, len(args))
-	copy(qArgs, args)
-	qArgs = append(qArgs, limit, offset)
-	rows, err := queryRowsErr(h.db, query, qArgs...)
+	rows, total, err := h.db.CheckinLogs(store.CheckinLogFilter{
+		AccountID: strings.TrimSpace(r.URL.Query().Get("accountId")),
+		Status:    strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status"))),
+		From:      strings.TrimSpace(r.URL.Query().Get("from")),
+		To:        strings.TrimSpace(r.URL.Query().Get("to")),
+		Reasons:   splitTrimFilter(r.URL.Query().Get("reason")),
+		Sites:     splitTrimFilter(r.URL.Query().Get("site")),
+		Search:    strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search"))),
+	}, limit, offset)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load checkin logs")
 		return
 	}
-
-	countQuery := "SELECT COUNT(*) FROM checkin_logs cl INNER JOIN accounts a ON cl.account_id = a.id INNER JOIN sites s ON a.site_id = s.id" + where
-	var total int
-	h.db.Get(&total, rebindAdminQuery(h.db, countQuery), args...)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items":    reshapeCheckinLogs(rows),
@@ -219,7 +153,7 @@ func splitTrimFilter(value string) []string {
 	return out
 }
 
-// reshapeCheckinLogs converts the flat camelCased query rows into the nested
+// reshapeCheckinLogs converts the joined query rows into the nested
 // {checkin_logs, accounts, sites, failureReason} shape and parses the stored
 // failure_reason JSON string into a structured object (nil when absent/invalid).
 func reshapeCheckinLogs(rows []map[string]any) []map[string]any {
@@ -228,21 +162,21 @@ func reshapeCheckinLogs(rows []map[string]any) []map[string]any {
 		out = append(out, map[string]any{
 			"checkin_logs": map[string]any{
 				"id":        row["id"],
-				"accountId": row["accountId"],
+				"accountId": row["account_id"],
 				"status":    row["status"],
 				"message":   row["message"],
 				"reward":    row["reward"],
-				"createdAt": row["createdAt"],
+				"createdAt": row["created_at"],
 			},
 			"accounts": map[string]any{
-				"username": row["accountUsername"],
-				"id":       row["accountId"],
+				"username": row["account_username"],
+				"id":       row["account_id"],
 			},
 			"sites": map[string]any{
-				"name": row["siteName"],
-				"url":  row["siteUrl"],
+				"name": row["site_name"],
+				"url":  row["site_url"],
 			},
-			"failureReason": parseFailureReasonJSON(row["failureReason"]),
+			"failureReason": parseFailureReasonJSON(row["failure_reason"]),
 		})
 	}
 	return out

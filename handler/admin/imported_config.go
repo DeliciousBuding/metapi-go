@@ -193,17 +193,6 @@ func importedJSONHasNull(value any) bool {
 	return false
 }
 
-func importedDisplayURL(value string) string {
-	u, err := url.Parse(value)
-	if err != nil {
-		return ""
-	}
-	u.User = nil
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String()
-}
-
 func (h *importedUpstreamHandler) detail(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -214,7 +203,7 @@ func (h *importedUpstreamHandler) detail(w http.ResponseWriter, r *http.Request)
 		importedReadError(w, err)
 		return
 	}
-	row.BaseURL = importedDisplayURL(row.BaseURL)
+	row.BaseURL = upstream.DisplayURL(row.BaseURL)
 	row.Ownership = upstream.Ownership(row.OriginKey)
 	setNoStore(w)
 	writeJSON(w, 200, struct {
@@ -224,7 +213,7 @@ func (h *importedUpstreamHandler) detail(w http.ResponseWriter, r *http.Request)
 		HasCustomHeaders    bool   `json:"hasCustomHeaders"`
 		HasParamOverride    bool   `json:"hasParamOverride"`
 		HasRequestTransform bool   `json:"hasRequestTransform"`
-	}{row, row.ChannelProxy != "", importedDisplayURL(row.ChannelProxy), hasImportedConfig(row.CustomHeaders), hasImportedConfig(row.ParamOverride), row.RequestConfig.Active()})
+	}{row, row.ChannelProxy != "", upstream.DisplayURL(row.ChannelProxy), hasImportedConfig(row.CustomHeaders), hasImportedConfig(row.ParamOverride), row.RequestConfig.Active()})
 }
 
 func hasImportedConfig(value string) bool {

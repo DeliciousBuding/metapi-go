@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -142,24 +143,11 @@ func coalescePtr[T any](v *T, fallback T) T {
 // ---- DB row helpers (moved from search.go) ----
 
 func queryRowsErr(db *sqlx.DB, query string, args ...any) ([]map[string]any, error) {
-	rows, err := db.Queryx(rebindAdminQuery(db, query), args...)
-	if err != nil {
-		return nil, err
+	rows, err := store.SelectMaps(db, query, args...)
+	for i, row := range rows {
+		rows[i] = mapKeysToCamel(row)
 	}
-	defer rows.Close()
-
-	var result []map[string]any
-	for rows.Next() {
-		row := make(map[string]any)
-		if err := rows.MapScan(row); err != nil {
-			return nil, err
-		}
-		result = append(result, mapKeysToCamel(row))
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return rows, err
 }
 
 func rebindAdminQuery(db *sqlx.DB, query string) string {

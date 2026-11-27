@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 )
 
@@ -78,4 +79,23 @@ func (s *SettingsStore) GetAll() (map[string]string, error) {
 		return nil, fmt.Errorf("settings: rows iteration: %w", err)
 	}
 	return result, nil
+}
+
+// DatabaseConfigValues reads the saved connection settings, ignoring legacy non-JSON values.
+func (s *SettingsStore) DatabaseConfigValues() (map[string]any, error) {
+	var rows []struct {
+		Key   string
+		Value *string
+	}
+	if err := s.db.Select(&rows, `SELECT key,value FROM settings WHERE key IN ('db_type','db_url','db_ssl')`); err != nil {
+		return nil, err
+	}
+	values := map[string]any{}
+	for _, row := range rows {
+		var decoded any
+		if row.Value != nil && json.Unmarshal([]byte(*row.Value), &decoded) == nil {
+			values[row.Key] = decoded
+		}
+	}
+	return values, nil
 }

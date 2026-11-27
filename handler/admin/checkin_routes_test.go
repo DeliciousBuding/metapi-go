@@ -34,7 +34,7 @@ func setupCheckinRoutesTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
-	RegisterCheckinRoutes(r, db.DB, cfg)
+	RegisterCheckinRoutes(r, db, cfg)
 	return db, r, cfg
 }
 

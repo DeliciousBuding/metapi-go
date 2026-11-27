@@ -229,7 +229,7 @@ func TestBatchUpdateChannels_WriteIsAudited(t *testing.T) {
 	// Mirror the production wiring (router mounts AuditMiddleware over the
 	// admin group) so the disable action's audit row is proven, not assumed.
 	wrapped := chi.NewRouter()
-	wrapped.Use(AuditMiddleware(db.DB))
+	wrapped.Use(AuditMiddleware(db))
 	wrapped.Mount("/", r)
 
 	resp := doPutJSON(t, wrapped, "/api/channels/batch", map[string]any{

@@ -41,6 +41,18 @@ func List(ctx context.Context, db *sqlx.DB) ([]Item, error) {
 	return out, nil
 }
 
+// SetEnabled uses the stored source and the caller's revision guard.
+func SetEnabled(ctx context.Context, db *sqlx.DB, key string, enabled bool, expected int64) (store.ChannelPlugin, error) {
+	row, err := store.LoadChannelPlugin(ctx, db, key)
+	if err != nil {
+		return store.ChannelPlugin{}, err
+	}
+	if row.Revision != expected {
+		return store.ChannelPlugin{}, store.ErrChannelPluginConflict
+	}
+	return Save(ctx, db, key, row.Source, enabled, expected)
+}
+
 func Save(ctx context.Context, db *sqlx.DB, key, source string, enabled bool, expected int64) (store.ChannelPlugin, error) {
 	if expected < 0 || !contract.ValidKey(key) {
 		return store.ChannelPlugin{}, ErrBinding

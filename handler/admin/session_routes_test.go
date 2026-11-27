@@ -46,7 +46,7 @@ func setupSessionRoutes(t *testing.T) *sessionTestEnv {
 	r.Use(auth.AdminAuth(sessions))
 	r.Use(auth.RequireReauth())
 	RegisterSessionRoutes(r, cfg, sessions)
-	RegisterAuthSettingsRoutes(r, db.DB, sessions)
+	RegisterAuthSettingsRoutes(r, db, sessions)
 	// Protected probe route standing in for the ordinary admin surface.
 	r.Get("/api/probe", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})

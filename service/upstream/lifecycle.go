@@ -47,8 +47,10 @@ type DeletionPreview struct {
 }
 
 type DeleteOptions struct {
-	Cascade          bool
-	ExpectedRevision string
+	// AllowUnpairedRoute preserves native route deletion without cascade confirmation.
+	AllowUnpairedRoute bool
+	Cascade            bool
+	ExpectedRevision   string
 }
 
 type DeletionResult struct {
@@ -150,7 +152,8 @@ func Delete(ctx context.Context, db *sqlx.DB, kind Kind, id int64, options Delet
 		return nil, err
 	}
 	result := &DeletionResult{DeletionPreview: plan.Preview}
-	if plan.Preview.RequiresCascade && (!options.Cascade || options.ExpectedRevision == "") {
+	unpairedRoute := options.AllowUnpairedRoute && kind == KindRoute && plan.Preview.Counts["groups"] == 0
+	if plan.Preview.RequiresCascade && !unpairedRoute && (!options.Cascade || options.ExpectedRevision == "") {
 		return result, ErrConfirmationRequired
 	}
 	if options.ExpectedRevision != "" && options.ExpectedRevision != plan.Preview.Revision {
