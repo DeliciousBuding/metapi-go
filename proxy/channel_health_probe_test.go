@@ -207,3 +207,31 @@ func seedProbeChannel(t *testing.T, db *store.DB, upstreamURL, model, token stri
 	}
 	return channelID
 }
+
+func TestProbeOAuthMemberCredential(t *testing.T) {
+	var got []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":[{"id":"m"}]}`))
+	}))
+	defer upstream.Close()
+	db := openProbeTestDB(t)
+	id := seedProbeChannel(t, db, upstream.URL, "m", "fixture-a")
+	for _, stmt := range []string{`INSERT INTO accounts(id,site_id,access_token,api_token,status,created_at,updated_at) VALUES(2,1,'fixture-b','fixture-other','active','now','now')`, `INSERT INTO oauth_route_units(id,site_id,provider,name,enabled) VALUES(1,1,'fixture','unit',TRUE)`, `INSERT INTO oauth_route_unit_members(unit_id,account_id) VALUES(1,1),(1,2)`, `UPDATE route_channels SET oauth_route_unit_id=1`} {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec := NewChannelHealthProbeExecutor(&config.Config{})
+	exec.SetDB(db)
+	for _, account := range []int64{2, 3} {
+		res, err := exec.ProbeChannel(context.Background(), ChannelProbeTarget{ChannelID: id, AccountID: account, ModelName: "m"})
+		if err != nil || account == 2 && res.Status != "success" || account == 3 && res.Status != "inconclusive" {
+			t.Errorf("probe account %d: %+v %v", account, res, err)
+		}
+	}
+	if len(got) != 1 || got[0] != "Bearer fixture-b" {
+		t.Fatalf("credentials = %v", got)
+	}
+}

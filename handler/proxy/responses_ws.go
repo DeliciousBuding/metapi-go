@@ -1214,7 +1214,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 	})
 	if sendErr != nil {
 		runtimeErr, ok := sendErr.(*CodexWebsocketRuntimeError)
-		if ok && runtimeErr.Status != 0 && len(runtimeErr.Events) == 0 {
+		if ok && !runtimeErr.Dispatched && len(runtimeErr.Events) == 0 {
 			LogCodexWebsocketDialFallback(sessionKey, sendErr)
 			return nil, false, nil
 		}
@@ -1241,8 +1241,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 			}
 			return collectResponsesOutputFromMaps(runtimeErr.Events), true, nil
 		}
-		LogCodexWebsocketDialFallback(sessionKey, sendErr)
-		return nil, false, nil
+		return nil, true, sendErr
 	}
 
 	for _, ev := range result.Events {

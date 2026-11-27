@@ -236,3 +236,13 @@ func TestModelProbeScheduler_StartStopWithDeps(t *testing.T) {
 		t.Fatalf("Stop: %v", err)
 	}
 }
+
+func TestRecoveryProbeRecordsMeasuredMember(t *testing.T) {
+	s := NewModelProbeScheduler(testConfig())
+	rec := &fakeRecorder{}
+	s.SetHealthRecorder(rec)
+	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{1: {Status: "success", AccountID: 2, SiteID: 3}}})
+	if status := s.probeOne(ProbeTarget{ChannelID: 1, ModelName: "m"}, 1000); status != "success" || len(rec.successCalls) != 1 || rec.successCalls[0].AccountID == nil || *rec.successCalls[0].AccountID != 2 {
+		t.Fatalf("status=%s recorded=%+v", status, rec.successCalls)
+	}
+}

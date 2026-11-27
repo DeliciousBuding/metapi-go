@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -23,6 +24,8 @@ type ProbeTarget struct {
 // ProbeOutcome is the result of a single lightweight probe attempt.
 // Status is one of: success | failure | inconclusive | skipped.
 type ProbeOutcome struct {
+	AccountID int64
+	SiteID    int64
 	Status    string
 	LatencyMs float64
 	// HTTPStatus is optional; 0 means unknown / transport error.
@@ -265,10 +268,15 @@ func (s *ModelProbeScheduler) ProbeBatch(ctx context.Context, targets []ProbeTar
 			out = append(out, res)
 			continue
 		}
+		target = measuredProbeTarget(target, outcome)
+		res.Target = target
 		res.Outcome = outcome
 		if recorder != nil {
-			if _, applyErr := ApplyProbeOutcome(ctx, recorder, target, outcome); applyErr == nil {
-				res.HealthApplied = true
+			status, applyErr := ApplyProbeOutcome(ctx, recorder, target, outcome)
+			if applyErr != nil {
+				slog.Warn("model-probe: failed to record health", "channel_id", target.ChannelID, "account_id", target.AccountID, "error", applyErr)
+			} else {
+				res.HealthApplied = status == "success" || status == "failure"
 			}
 		}
 		out = append(out, res)
@@ -463,54 +471,16 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int, dbw ..
 		return "inconclusive"
 	}
 
-	modelName := target.ModelName
-	var modelPtr *string
-	if modelName != "" {
-		modelPtr = &modelName
-	}
-	accountID := target.AccountID
-	accountPtr := &accountID
+	target = measuredProbeTarget(target, outcome)
 	// The probe context may already be expired when a probe times out. Health
 	// bookkeeping is a separate database write and must not inherit that
 	// deadline, otherwise a timed-out channel is never cooled down.
 	recordCtx, recordCancel := context.WithTimeout(context.Background(), probeRecordTimeout)
 	defer recordCancel()
 
-	status := "inconclusive"
-	switch outcome.Status {
-	case "success":
-		if err := recorder.RecordProbeSuccess(recordCtx, target.ChannelID, outcome.LatencyMs, modelPtr, accountPtr); err != nil {
-			slog.Warn("model-probe: RecordProbeSuccess failed",
-				"channel_id", target.ChannelID,
-				"error", err,
-			)
-		} else {
-			status = "success"
-		}
-	case "failure":
-		var statusPtr *int
-		if outcome.HTTPStatus > 0 {
-			st := outcome.HTTPStatus
-			statusPtr = &st
-		}
-		var errPtr *string
-		if outcome.ErrorText != "" {
-			e := outcome.ErrorText
-			errPtr = &e
-		}
-		if err := recorder.RecordProbeFailure(recordCtx, target.ChannelID, statusPtr, errPtr, modelPtr, accountPtr); err != nil {
-			slog.Warn("model-probe: RecordProbeFailure failed",
-				"channel_id", target.ChannelID,
-				"error", err,
-			)
-		} else {
-			status = "failure"
-		}
-	case "skipped":
-		status = "skipped"
-	default:
-		// inconclusive / unknown — do not mutate health or cooldown.
-		status = "inconclusive"
+	status, recordErr := ApplyProbeOutcome(recordCtx, recorder, target, outcome)
+	if recordErr != nil {
+		slog.Warn("model-probe: failed to record health", "channel_id", target.ChannelID, "account_id", target.AccountID, "error", recordErr)
 	}
 
 	// Record the raw probe outcome for the route-rebuild probe filter (#625).
@@ -661,6 +631,16 @@ func queryProbeTargets(dbw *store.DB, query string, args ...any) ([]ProbeTarget,
 	return out, scanErr
 }
 
+// Recovery probes may initially know only the channel. Pin history and health
+// to the identity used on the wire even if the channel binding has changed.
+func measuredProbeTarget(target ProbeTarget, outcome ProbeOutcome) ProbeTarget {
+	if outcome.AccountID > 0 {
+		target.AccountID = outcome.AccountID
+		target.SiteID = outcome.SiteID
+	}
+	return target
+}
+
 // ApplyProbeOutcome is a pure helper used by tests and optional direct callers.
 // It maps a ProbeOutcome onto the recorder without requiring a live DB target load.
 func ApplyProbeOutcome(
@@ -677,7 +657,10 @@ func ApplyProbeOutcome(
 	if modelName != "" {
 		modelPtr = &modelName
 	}
-	accountID := target.AccountID
+	accountID := measuredProbeTarget(target, outcome).AccountID
+	if accountID <= 0 && (outcome.Status == "success" || outcome.Status == "failure") {
+		return "inconclusive", fmt.Errorf("missing account identity for channel %d probe", target.ChannelID)
+	}
 	accountPtr := &accountID
 
 	switch outcome.Status {

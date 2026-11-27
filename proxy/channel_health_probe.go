@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -29,6 +30,8 @@ type ChannelProbeTarget struct {
 // ChannelProbeOutcome is the result of a single lightweight probe attempt.
 // Status is one of: success | failure | inconclusive | skipped.
 type ChannelProbeOutcome struct {
+	AccountID  int64
+	SiteID     int64
 	Status     string
 	LatencyMs  float64
 	HTTPStatus int
@@ -82,7 +85,7 @@ func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target Ch
 		return ChannelProbeOutcome{}, fmt.Errorf("database not initialized")
 	}
 
-	loaded, err := loadProbeChannel(ctx, dbw, target.ChannelID)
+	loaded, err := loadProbeChannel(ctx, dbw, target)
 	if err != nil {
 		// Missing channel is inconclusive (no health mutation).
 		return ChannelProbeOutcome{Status: "inconclusive", ErrorText: err.Error()}, nil
@@ -101,7 +104,9 @@ func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target Ch
 
 	// Prefer lightweight models listing. Fall back to a tiny chat completion
 	// when the operator/target model is known and models endpoint is absent.
-	return p.executeModelsProbe(ctx, loaded, model)
+	out, err := p.executeModelsProbe(ctx, loaded, model)
+	out.AccountID, out.SiteID = loaded.AccountID, loaded.SiteID
+	return out, err
 }
 
 type probeChannelTarget struct {
@@ -115,17 +120,18 @@ type probeChannelTarget struct {
 	Site        store.Site
 }
 
-func loadProbeChannel(ctx context.Context, dbw *store.DB, channelID int64) (*probeChannelTarget, error) {
+func loadProbeChannel(ctx context.Context, dbw *store.DB, target ChannelProbeTarget) (*probeChannelTarget, error) {
 	var ch struct {
 		ID          int64   `db:"id"`
 		AccountID   int64   `db:"account_id"`
+		UnitID      *int64  `db:"oauth_route_unit_id"`
 		TokenID     *int64  `db:"token_id"`
 		SourceModel *string `db:"source_model"`
 		Enabled     bool    `db:"enabled"`
 	}
 	err := dbw.GetContext(ctx, &ch, dbw.Rebind(`
-		SELECT id, account_id, token_id, source_model, enabled
-		FROM route_channels WHERE id = ?`), channelID)
+		SELECT id, account_id, oauth_route_unit_id, token_id, source_model, enabled
+		FROM route_channels WHERE id = ?`), target.ChannelID)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("channel not found")
 	}
@@ -133,17 +139,30 @@ func loadProbeChannel(ctx context.Context, dbw *store.DB, channelID int64) (*pro
 		return nil, fmt.Errorf("load channel: %w", err)
 	}
 
-	var acc store.Account
-	if err := dbw.GetContext(ctx, &acc, dbw.Rebind(`
+	accountID := ch.AccountID
+	if target.AccountID > 0 {
+		accountID = target.AccountID
+	}
+	accountQuery := `
 		SELECT id, site_id, username, access_token, api_token, balance, balance_used,
 		       quota, unit_cost, value_score, status, is_pinned, sort_order,
 		       checkin_enabled, last_checkin_at, last_balance_refresh, oauth_provider,
 		       oauth_account_key, oauth_project_id, extra_config, created_at, updated_at
-		FROM accounts WHERE id = ?`), ch.AccountID); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("account not found")
-		}
-		return nil, fmt.Errorf("load account: %w", err)
+		FROM accounts WHERE id = ?`
+	args := []any{accountID}
+	if ch.UnitID != nil && *ch.UnitID > 0 {
+		accountQuery += ` AND EXISTS (SELECT 1 FROM oauth_route_unit_members m WHERE m.unit_id=? AND m.account_id=accounts.id)`
+		args = append(args, *ch.UnitID)
+		ch.TokenID = nil
+	} else if accountID != ch.AccountID {
+		return nil, fmt.Errorf("probe account %d is not bound to channel %d", accountID, ch.ID)
+	}
+	var acc store.Account
+	if err := dbw.GetContext(ctx, &acc, dbw.Rebind(accountQuery), args...); err != nil {
+		return nil, fmt.Errorf("load probe account %d for channel %d: %w", accountID, ch.ID, err)
+	}
+	if target.SiteID > 0 && target.SiteID != acc.SiteID {
+		return nil, fmt.Errorf("probe account %d is not bound to site %d", accountID, target.SiteID)
 	}
 
 	var site store.Site
@@ -166,9 +185,10 @@ func loadProbeChannel(ctx context.Context, dbw *store.DB, channelID int64) (*pro
 		if err := dbw.GetContext(ctx, &tr, dbw.Rebind(`
 			SELECT id, account_id, name, token, token_group, value_status, source,
 			       enabled, is_default, created_at, updated_at
-			FROM account_tokens WHERE id = ?`), *ch.TokenID); err == nil {
-			token = &tr
+			FROM account_tokens WHERE id = ? AND account_id = ?`), *ch.TokenID, accountID); err != nil {
+			return nil, fmt.Errorf("load probe token: %w", err)
 		}
+		token = &tr
 	}
 
 	sourceModel := ""
@@ -176,13 +196,17 @@ func loadProbeChannel(ctx context.Context, dbw *store.DB, channelID int64) (*pro
 		sourceModel = strings.TrimSpace(*ch.SourceModel)
 	}
 
+	tokenValue := resolveProbeToken(ch.TokenID, token, acc)
+	if ch.UnitID != nil && *ch.UnitID > 0 {
+		tokenValue = routing.ResolveRouteUnitMemberTokenValue(acc)
+	}
 	return &probeChannelTarget{
 		ChannelID:   ch.ID,
 		AccountID:   acc.ID,
 		SiteID:      site.ID,
 		SourceModel: sourceModel,
 		SiteURL:     site.URL,
-		TokenValue:  resolveProbeToken(ch.TokenID, token, acc),
+		TokenValue:  tokenValue,
 		Account:     acc,
 		Site:        site,
 	}, nil

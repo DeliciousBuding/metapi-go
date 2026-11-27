@@ -245,7 +245,22 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	// endings share. A client that stopped reading is bounded by one write
 	// window here too; a failure is logged and never retried.
 	emitStreamError := func(message string) {
-		if err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget); err != nil {
+		if messageBridge != nil {
+			if src, ok := any(messageBridge).(interface{ ResponsesFailureEvents(string) []byte }); ok {
+				if terminal := src.ResponsesFailureEvents(message); len(terminal) != 0 {
+					if err := writeDownstreamChunk(w, terminal, writeBudget); err != nil {
+						slog.Debug("SSE terminal error event not delivered", "err", err, "latency_ms", latencyMs, "streamed_bytes", streamedBytes)
+					}
+					return
+				}
+			}
+		}
+		var sequence int64
+		if native, ok := resp.Body.(*nativeTerminalBody); ok {
+			sequence = native.nextSequence
+		}
+		err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget, sequence)
+		if err != nil {
 			slog.Debug("SSE terminal error event not delivered",
 				"err", err,
 				"latency_ms", latencyMs,
@@ -264,7 +279,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		// Post-stream SSE analysis uses bounded incremental state instead of
 		// retaining the complete upstream body.
 		result := analyzer.Result()
-		if native, ok := resp.Body.(*nativeTerminalBody); ok && native.original != nil {
+		native, _ := resp.Body.(*nativeTerminalBody)
+		if native != nil && native.original != nil {
 			result.Usage = native.original.Result().Usage
 		}
 		if messageBridge != nil {
@@ -302,6 +318,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			// channel that never got to finish. Still return
 			// any usage already extracted from earlier SSE events (best-effort
 			// partial) — never invent tokens.
+			return result.Usage, end, nil
+		}
+		// A native incomplete terminal can legitimately have zero output.
+		if native != nil && native.responseIncomplete && !native.terminalFailed && end == streamEndedNormally && !result.HasErrorEvent {
 			return result.Usage, end, nil
 		}
 		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
@@ -498,11 +518,11 @@ func streamResponseByteLimit() int64 {
 }
 
 // writeSSEStreamError writes one terminal SSE error event (plus [DONE] on
-// OpenAI-shaped endpoints). The whole sequence shares a single downstream
+// Chat Completions and legacy endpoints). The whole sequence shares a single downstream
 // write window so a client that stopped reading cannot hold the relay past
 // the budget, and a stale deadline from an earlier chunk cannot make these
 // writes fail instantly.
-func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration) error {
+func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration, sequence int64) error {
 	clear := armStreamWriteDeadline(w, budget)
 	defer clear()
 
@@ -517,7 +537,10 @@ func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budge
 			"type":    typ,
 		},
 	}
-	if endpoint == proxy.EndpointMessages {
+	if endpoint == proxy.EndpointResponses {
+		body = map[string]any{"code": typ, "message": message, "param": nil, "sequence_number": sequence}
+	}
+	if endpoint == proxy.EndpointMessages || endpoint == proxy.EndpointResponses {
 		body["type"] = "error"
 		if _, err := w.Write([]byte("event: error\n")); err != nil {
 			return err
@@ -527,7 +550,7 @@ func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budge
 	if _, err := w.Write(sseEvent(string(payload))); err != nil {
 		return err
 	}
-	if endpoint != proxy.EndpointMessages {
+	if endpoint != proxy.EndpointMessages && endpoint != proxy.EndpointResponses {
 		if _, err := w.Write(sseDone()); err != nil {
 			return err
 		}

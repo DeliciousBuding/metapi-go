@@ -35,7 +35,7 @@ const (
 )
 
 // CodexWebsocketRuntimeError is returned when an upstream Codex wss turn fails.
-// When Events is empty and Status is set, the caller should prefer HTTP bridge fallback.
+// Dispatched marks a generation write, including ambiguous write failures.
 type CodexWebsocketRuntimeError struct {
 	Message    string
 	Status     int
@@ -62,8 +62,8 @@ type CodexWebsocketRuntimeResult struct {
 
 // CodexWebsocketSendInput is one upstream wss turn.
 type CodexWebsocketSendInput struct {
-	// ObserveAttempt records each actual socket attempt, including retries and
-	// zero-event dial fallback. It does not decide the downstream turn result.
+	// ObserveAttempt accounts for each attempted generation write, including
+	// continuation recovery. A dial failure has no generation attempt.
 	ObserveAttempt func([]map[string]any, error, time.Duration)
 	// DecodeEvent observes/adapts a bounded raw frame before the native parser.
 	// The host callback owns observations; the transport never retries its error.
@@ -680,7 +680,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		if runtimeErr, ok := attemptErr.(*CodexWebsocketRuntimeError); ok {
 			runtimeErr.Dispatched = dispatched
 		}
-		if input.ObserveAttempt == nil {
+		if !dispatched || input.ObserveAttempt == nil {
 			return
 		}
 		var events []map[string]any

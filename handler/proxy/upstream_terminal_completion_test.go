@@ -2,12 +2,16 @@ package proxyhandler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
@@ -93,7 +97,7 @@ func TestNativeCompletionReaderProtocolScopeAndErrors(t *testing.T) {
 		{"responses", "/v1/responses", "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n", false},
 		{"foreign-chat-marker", "/v1/messages", "data: [DONE]\n\n", true},
 		{"foreign-responses-marker", "/v1/chat/completions", "data: {\"type\":\"response.completed\"}\n\n", true},
-		{"incomplete-response", "/v1/responses", "data: {\"type\":\"response.incomplete\",\"response\":{\"status\":\"incomplete\"}}\n\n", true},
+		{"incomplete-response", "/v1/responses", "data: {\"type\":\"response.incomplete\",\"response\":{\"status\":\"incomplete\"}}\n\n", false},
 		{"failed-response", "/v1/responses", "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"error\":{\"type\":\"server_error\"}}}\n\n", false},
 		{"mismatched-response-status", "/v1/responses", "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"incomplete\"}}\n\n", true},
 		{"gemini-no-done-marker", "/v1beta/models/native:streamGenerateContent", "data: {\"candidates\":[{\"finishReason\":\"STOP\"}]}\n\n", false},
@@ -227,5 +231,41 @@ func TestNativeResponsesReasoningNullStatusBufferedHTTP(t *testing.T) {
 	}
 	if strings.Contains(body, `"status":null`) {
 		t.Fatalf("buffered response kept a null reasoning status: %s", body)
+	}
+}
+
+func TestResponsesTerminalErrorsAndIncompleteUsage(t *testing.T) {
+	previous := config.RuntimeSafe()
+	config.UpdateRuntime(func(cfg *config.RuntimeSettings) { cfg.ProxyEmptyContentFailEnabled = true })
+	t.Cleanup(func() { config.SetRuntime(previous) })
+	for _, reason := range []string{"max_output_tokens", "content_filter", "truncated"} {
+		for _, size := range []int{1, 4096} {
+			t.Run(fmt.Sprintf("%s/%d", reason, size), func(t *testing.T) {
+				frame := "event: response.incomplete\ndata: " + fmt.Sprintf(`{"type":"response.incomplete","sequence_number":4,"response":{"status":"incomplete","output":[],"incomplete_details":{"reason":%q},"usage":{"input_tokens":5,"output_tokens":0,"total_tokens":5}}}`, reason) + "\n\n"
+				if reason == "truncated" {
+					frame = "event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":4}\n\n"
+				}
+				resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: &terminalChunkReader{data: []byte(frame), size: size, end: io.EOF}}
+				out := httptest.NewRecorder()
+				usage, end, verdict := handleStreamUpstream(out, makeProxyReq("POST", "/v1/responses", `{}`), resp, 1)
+				if reason == "truncated" {
+					events, _ := ParseSseStream(out.Body.String())
+					if end != streamEndedUpstreamFault || len(events) != 2 || events[1].Event != "error" {
+						t.Fatalf("interruption: %v %s", end, out.Body.String())
+					}
+					var e struct {
+						Type, Message, Code string
+						SequenceNumber      int `json:"sequence_number"`
+					}
+					if json.Unmarshal([]byte(events[1].Data), &e) != nil || e.Type != "error" || e.Code != "upstream_error" || e.Message == "" || e.SequenceNumber != 5 {
+						t.Fatalf("error frame: %s", events[1].Data)
+					}
+					return
+				}
+				if out.Body.String() != frame || usage.TotalTokens != 5 || end != streamEndedNormally || (verdict != nil && verdict.Failed) {
+					t.Fatalf("reason=%s end=%v verdict=%+v usage=%d body=%s", reason, end, verdict, usage.TotalTokens, out.Body.String())
+				}
+			})
+		}
 	}
 }

@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/proxy"
@@ -48,7 +49,9 @@ func sanitizeUpstreamJSONBody(bodyBytes []byte, sitePlatform, upstreamPath, upst
 		return bodyBytes, nil
 	}
 	var body map[string]any
-	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+	decoder.UseNumber()
+	if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF {
 		return bodyBytes, nil
 	}
 	next := body
