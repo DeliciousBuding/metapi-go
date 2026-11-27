@@ -331,11 +331,10 @@ func writeSuccessProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := selectedBillingPlatform(selected)
 	// Billing attribution uses the requested (canonical) name so a
 	// redirect/rewrite to the upstream actual name never changes cost
 	// accounting — ratio lookups stay on the canonical model.
-	billing := directVideoBillingResult(requestedModel, platformName, usage)
+	billing := directVideoBillingResult(ctx, requestedModel, selected, usage)
 	entry := proxy.ProxyLogEntry{
 		DownstreamPath:        proxyLogDownstreamPath(proxyCtx),
 		RouteID:               routeIDPtr,
@@ -461,14 +460,13 @@ func writeFailureProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := selectedBillingPlatform(selected)
 	// Only attach cost when usage was found; avoid inventing spend on pure
 	// network/timeout failures with zero tokens. Attribution name, not the
 	// upstream rewritten name.
 	var estimatedCost float64
 	var billingDetails any
 	if usage.Found || usage.videoAccounting != nil {
-		billing := directVideoBillingResult(requestedModel, platformName, usage)
+		billing := directVideoBillingResult(ctx, requestedModel, selected, usage)
 		estimatedCost = billing.EstimatedCost
 		billingDetails = billing.BillingDetails
 	}

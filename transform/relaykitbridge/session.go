@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"slices"
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
@@ -38,6 +38,9 @@ type Session struct {
 	ctx           context.Context
 	meta          *convmeta.Values
 	streamCreated bool
+	quality       relayconvert.RequestConverterQuality
+	steps         []relayconvert.RequestStep
+	diagnostics   []Diagnostic
 }
 
 func kitFormat(format Format) (types.RelayFormat, error) {
@@ -73,7 +76,12 @@ func ConvertRequest(ctx context.Context, from, to Format, model string, raw []by
 	if from == to {
 		return s, raw, nil
 	}
-	if err := eligibleRequest(from, to, raw); err != nil {
+	req, err := readObject(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	emptyCacheKey := string(req["prompt_cache_key"]) == `""`
+	if err := eligibleRequest(from, to, req); err != nil {
 		return nil, nil, err
 	}
 	value, err := decode(from, "request", raw)
@@ -97,14 +105,27 @@ func ConvertRequest(ctx context.Context, from, to Format, model string, raw []by
 	}
 	result, err := relayconvert.ConvertRequest(ctx, s.meta, target, value)
 	if err != nil {
-		return nil, nil, fmt.Errorf("request: %w", ErrConversion)
+		return nil, nil, s.conversionError("request", err, nil)
 	}
-	if err := checkDiagnostics(result.Diagnostics); err != nil {
+	s.quality, s.steps = result.Quality, result.Steps
+	if err := s.checkDiagnostics("request", result.Diagnostics); err != nil {
 		return nil, nil, err
 	}
 	out, err := kitutil.Marshal(result.Value)
 	if err != nil {
 		return nil, nil, fmt.Errorf("request encoding: %w", ErrConversion)
+	}
+	// RelayKit DTOs use omitempty on the string. Preserve an explicitly empty key.
+	if emptyCacheKey {
+		obj, err := readObject(out)
+		if err != nil {
+			return nil, nil, err
+		}
+		obj["prompt_cache_key"] = json.RawMessage(`""`)
+		out, err = json.Marshal(obj)
+		if err != nil {
+			return nil, nil, ErrConversion
+		}
 	}
 	return s, out, nil
 }
@@ -129,24 +150,19 @@ func (s *Session) Response(ctx context.Context, raw []byte) ([]byte, error) {
 	target, _ := kitFormat(s.from)
 	result, err := relayconvert.ConvertResponse(ctx, s.meta, target, value)
 	if err != nil {
-		return nil, fmt.Errorf("response: %w", ErrConversion)
+		return nil, s.conversionError("response", err, nil)
 	}
-	if err := checkDiagnostics(result.Diagnostics); err != nil {
+	if err := s.checkDiagnostics("response", result.Diagnostics); err != nil {
 		return nil, err
 	}
 	return encodeResponse(result.Value)
 }
 
-func checkDiagnostics(diagnostics []types.ConversionDiagnostic) error {
-	if len(diagnostics) == 0 {
-		return nil
-	}
-	codes := make([]string, 0, len(diagnostics))
-	for _, d := range diagnostics {
-		codes = append(codes, d.Code)
-	}
-	return fmt.Errorf("protocol conversion would lose semantics (%s): %w", strings.Join(codes, ", "), ErrConversion)
-}
+// Quality and Steps describe the request route selected by RelayKit. Native
+// pass-through has no converter. Callers own the slices returned by accessors.
+func (s *Session) Quality() relayconvert.RequestConverterQuality { return s.quality }
+func (s *Session) Steps() []relayconvert.RequestStep             { return slices.Clone(s.steps) }
+func (s *Session) DiagnosticsSummary() []Diagnostic              { return slices.Clone(s.diagnostics) }
 
 func decode(format Format, phase string, raw []byte) (any, error) {
 	var value any

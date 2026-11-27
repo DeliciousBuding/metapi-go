@@ -5,9 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
 func TestFunctionHistoryIdentity(t *testing.T) {
@@ -225,5 +229,192 @@ func TestInvalidRolesAndMixedGeminiParts(t *testing.T) {
 		if err == nil || len(out) > 0 {
 			t.Fatalf("ambiguous request accepted: %s", out)
 		}
+	}
+}
+
+func TestPromptCacheKeyConversation(t *testing.T) {
+	const key = "fixture-private-cache-key"
+	for _, p := range []struct{ from, to Format }{{Chat, Responses}, {Responses, Chat}} {
+		raw := strings.TrimSuffix(requests[p.from], "}") + `,"prompt_cache_key":"` + key + `"}`
+		s, out, err := ConvertRequest(t.Context(), p.from, p.to, "fixture-model", []byte(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		obj, err := readObject(out)
+		if err != nil || text(obj["prompt_cache_key"]) != key {
+			t.Fatal("cache key lost")
+		}
+		body, err := s.Response(t.Context(), []byte(replies[p.to]))
+		if err != nil || !bytes.Contains(body, []byte("hello")) || bytes.Contains(body, []byte(key)) {
+			t.Fatalf("response = %s %v", body, err)
+		}
+		stream, err := s.NewResponseStream()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var events []byte
+		for _, chunk := range streams[p.to] {
+			out, err := stream.TransformEvent(frame(chunk))
+			if err != nil {
+				t.Fatal(err)
+			}
+			events = append(events, out...)
+		}
+		if p.to == Chat {
+			if _, err = stream.TransformEvent(frame("[DONE]")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		tail, err := stream.Finish()
+		events = append(events, tail...)
+		if err != nil || !bytes.Contains(events, []byte("hello")) || bytes.Contains(events, []byte(key)) {
+			t.Fatal("invalid stream", err)
+		}
+	}
+}
+
+func TestRelayKitStrictDiagnosticPrivacy(t *testing.T) {
+	const key = "private-cache-key"
+	_, body, err := ConvertRequest(t.Context(), Chat, Responses, "m", []byte(`{"messages":[{"role":"user","content":"private-text"}],"tool_choice":{"type":"function","function":{"name":"private-name"}},"prompt_cache_key":"`+key+`"}`))
+	var diagnostic interface{ DiagnosticsSummary() []Diagnostic }
+	if len(body) != 0 || !errors.Is(err, ErrConversion) || !errors.As(err, &diagnostic) {
+		t.Fatalf("strict conversion: err=%v", err)
+	}
+	ds := diagnostic.DiagnosticsSummary()
+	if len(ds) != 1 || ds[0] != (Diagnostic{"request", "tool_choice_without_tools", "warning", "tool_choice"}) {
+		t.Fatalf("unexpected diagnostic: %+v", ds)
+	}
+	if strings.Contains(fmt.Sprint(err, ds), "private-") {
+		t.Fatal("private data in error")
+	}
+	s := newTestSession(t, Chat, Gemini)
+	steps := s.Steps()
+	if s.Quality() == "" || len(steps) == 0 {
+		t.Fatal("missing request trace")
+	}
+	steps[0].Converter = "overwritten"
+	if s.Steps()[0].Converter == steps[0].Converter {
+		t.Fatal("mutable request trace")
+	}
+	// Unknown library fields must remain safe even when the loss error is wrapped.
+	e := fmt.Errorf("private-error: %w", &types.ConversionLossError{Diagnostics: []types.ConversionDiagnostic{{Path: "tools[private-name].private-param", Code: key, Message: "private-text", Severity: "private-severity"}}})
+	err = s.conversionError("stream", e, nil)
+	ds = s.DiagnosticsSummary()
+	if len(ds) != 1 || ds[0] != (Diagnostic{"stream", "unknown", "unknown", "tools"}) || strings.Contains(fmt.Sprintf("%+v %#v", err, ds), "private-") {
+		t.Fatalf("summary=%v error=%v", ds, err)
+	}
+	ds[0].Code = "overwritten"
+	if s.DiagnosticsSummary()[0].Code == ds[0].Code {
+		t.Fatal("mutable diagnostics")
+	}
+}
+
+func TestPromptCacheKeyEligibility(t *testing.T) {
+	for _, p := range []struct{ from, to Format }{{Chat, Responses}, {Responses, Chat}, {Chat, Messages}, {Responses, Gemini}} {
+		for _, v := range []string{`null`, `123`, `["private"]`, `{"private":1}`, `""`, `"private"`} {
+			raw := strings.TrimSuffix(requests[p.from], "}") + `,"prompt_cache_key":` + v + `}`
+			_, out, err := ConvertRequest(t.Context(), p.from, p.to, "m", []byte(raw))
+			if (p.to == Chat || p.to == Responses) && v[0] == '"' {
+				obj, e := readObject(out)
+				if err != nil || e != nil || string(obj["prompt_cache_key"]) != v {
+					t.Fatalf("%s -> %s: key %s lost, %v", p.from, p.to, v, err)
+				}
+			} else if !errors.Is(err, ErrSpecialized) || len(out) > 0 || strings.Contains(err.Error(), "private") {
+				t.Fatalf("unexpected admission: %v", err)
+			}
+		}
+	}
+}
+
+func TestParallelFunctionHistoryRoundTrip(t *testing.T) {
+	const raw = `{"model":"fixture-model","messages":[{"role":"user","content":"run"},{"role":"assistant","tool_calls":[{"id":"a","type":"function","function":{"name":"lookup","arguments":"{\"id\":9223372036854775807}"}},{"id":"b","type":"function","function":{"name":"lookup","arguments":"{\"id\":-9223372036854775808}"}}]},{"role":"tool","tool_call_id":"b","content":"second"},{"role":"tool","tool_call_id":"a","content":"first"}]}`
+	_, res, err := ConvertRequest(t.Context(), Chat, Responses, "m", []byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		Input []struct {
+			Type              string
+			CallID            string `json:"call_id"`
+			Arguments, Output string
+		}
+	}
+	if err = json.Unmarshal(res, &response); err != nil {
+		t.Fatal(err)
+	}
+	args := map[string]string{}
+	outputs := map[string]string{}
+	for _, item := range response.Input {
+		switch item.Type {
+		case "function_call":
+			args[item.CallID] = item.Arguments
+		case "function_call_output":
+			outputs[item.CallID] = item.Output
+		}
+	}
+	wantArgs := map[string]string{"a": `{"id":9223372036854775807}`, "b": `{"id":-9223372036854775808}`}
+	wantOutputs := map[string]string{"a": "first", "b": "second"}
+	if !maps.Equal(args, wantArgs) || !maps.Equal(outputs, wantOutputs) {
+		t.Fatalf("Responses tool pairing: %s", res)
+	}
+	_, chat, err := ConvertRequest(t.Context(), Responses, Chat, "m", res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request struct {
+		Messages []struct {
+			Role, Content string
+			ToolCallID    string `json:"tool_call_id"`
+			Calls         []struct {
+				ID       string
+				Function struct{ Arguments string }
+			} `json:"tool_calls"`
+		}
+	}
+	if err = json.Unmarshal(chat, &request); err != nil {
+		t.Fatal(err)
+	}
+	clear(args)
+	clear(outputs)
+	for _, msg := range request.Messages {
+		for _, call := range msg.Calls {
+			args[call.ID] = call.Function.Arguments
+		}
+		if msg.Role == "tool" {
+			outputs[msg.ToolCallID] = msg.Content
+		}
+	}
+	if !maps.Equal(args, wantArgs) || !maps.Equal(outputs, wantOutputs) {
+		t.Fatalf("Chat tool pairing: %s", chat)
+	}
+}
+
+func TestResponsesFailureEventsForEachUpstream(t *testing.T) {
+	for _, up := range []Format{Chat, Messages, Gemini} {
+		t.Run(string(up), func(t *testing.T) {
+			s, err := newTestSession(t, Responses, up).NewResponseStream()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, data := range streams[up][:1] {
+				if _, err := s.TransformEvent(frame(data)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := s.TransformEvent(frame(`{"error":{"message":"private-data"}}`)); !errors.Is(err, ErrConversion) {
+				t.Fatal("upstream error accepted")
+			}
+			out := s.ResponsesFailureEvents("private-message")
+			if !bytes.Contains(out, []byte("event: response.failed\n")) || bytes.Contains(out, []byte("private-")) || bytes.Contains(out, []byte("[DONE]")) {
+				t.Fatalf("invalid failure output: %s", out)
+			}
+		})
+	}
+	s, err := newTestSession(t, Chat, Responses).NewResponseStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.ResponsesFailureEvents("ignored"); got != nil {
+		t.Fatal("Responses failure emitted to Chat")
 	}
 }

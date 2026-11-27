@@ -28,6 +28,7 @@ import (
 func ConfigureProxyUpstream(cfg *config.Config) error {
 	db := store.GetDB()
 	if db == nil {
+		proxyhandler.SetBillingCatalogProvider(nil)
 		proxyhandler.SetUpstreamConfig(nil)
 		setTokenRouteDecisionRuntime(nil, nil)
 		return fmt.Errorf("proxy upstream: database is not initialized")
@@ -46,7 +47,14 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	auth.ConfigureSharedAdmissionFromRedisURL(cfg.RedisURL)
 
 	routingStore := service.NewProxyRoutingStore(db)
-	router := routing.NewTokenRouter(routingStore, cfg, pricingCatalogResolver(cfg, db), proxyLoadProvider{})
+	var resolver routing.CatalogPricingResolver
+	if catalog := pricingCatalogResolver(cfg, db); catalog != nil {
+		resolver = catalog
+		proxyhandler.SetBillingCatalogProvider(catalog.Snapshot)
+	} else {
+		proxyhandler.SetBillingCatalogProvider(nil)
+	}
+	router := routing.NewTokenRouter(routingStore, cfg, resolver, proxyLoadProvider{})
 	decisionService := routing.NewRouteDecisionService(router, routingStore)
 	setTokenRouteDecisionRuntime(router, decisionService)
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
@@ -137,7 +145,7 @@ var (
 // wired into the TokenRouter as the cold-start cost signal, or nil when
 // PRICING_CATALOG_ENABLED=false. Reconfigure calls reuse the existing
 // manager (and its sync loop) instead of stacking duplicate tickers.
-func pricingCatalogResolver(cfg *config.Config, db *store.DB) routing.CatalogPricingResolver {
+func pricingCatalogResolver(cfg *config.Config, db *store.DB) *catalogsync.Manager {
 	if cfg == nil || !cfg.PricingCatalogEnabled {
 		return nil
 	}
@@ -199,6 +207,7 @@ func (s *siteSnapshotSource) GetSiteSnapshot(ctx context.Context, siteID int64) 
 // an app OnClose hook during server startup; no-op when the catalog was never
 // enabled.
 func ShutdownPricingCatalog() {
+	proxyhandler.SetBillingCatalogProvider(nil)
 	pricingCatalogMu.Lock()
 	manager := pricingCatalogManager
 	pricingCatalogMu.Unlock()

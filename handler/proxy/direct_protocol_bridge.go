@@ -419,6 +419,14 @@ type protocolEventStream interface {
 }
 type chainedProtocolStream struct{ first, second protocolEventStream }
 
+func (s *chainedProtocolStream) ResponsesFailureEvents(message string) []byte {
+	return responsesFailureEvents(s.second, message)
+}
+
+func (s *directProviderStream) ResponsesFailureEvents(message string) []byte {
+	return responsesFailureEvents(s.next, message)
+}
+
 func (s *chainedProtocolStream) TransformEvent(frame []byte) ([]byte, error) {
 	out, err := s.first.TransformEvent(frame)
 	if err != nil {

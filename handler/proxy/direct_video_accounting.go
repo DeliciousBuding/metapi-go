@@ -44,7 +44,7 @@ func accountDirectVideoUsage(requestCtx context.Context, ctx *Ctx, selected *rou
 	usage := store.VideoTaskUsage{Found: observed.Found, PromptTokens: observed.PromptTokens,
 		CompletionTokens: observed.CompletionTokens, TotalTokens: observed.TotalTokens,
 		CacheReadTokens: observed.CacheReadTokens, CacheCreationTokens: observed.CacheCreationTokens, ReasoningTokens: observed.ReasoningTokens}
-	cost := EstimateBillingCostFromUsage(task.RequestedModel, selectedBillingPlatform(selected), observed).EstimatedCost
+	cost := EstimateBillingCostFromUsageWithCatalog(task.RequestedModel, selectedBillingPlatform(selected), observed, currentBillingCatalog(), selectedBillingClass(requestCtx, selected)).EstimatedCost
 	// The upstream work has already happened. Client cancellation must not
 	// cancel the short local ledger transaction and make consumption disappear.
 	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(requestCtx), 5*time.Second)
@@ -88,8 +88,9 @@ func applyDirectVideoAccounting(ctx *Ctx, observed ParsedUsage) ParsedUsage {
 	return out
 }
 
-func directVideoBillingResult(model, platform string, usage ParsedUsage) BillingCostResult {
-	billing := EstimateBillingCostFromUsage(model, platform, usage)
+func directVideoBillingResult(ctx context.Context, model string, selected *routing.SelectedChannel, usage ParsedUsage) BillingCostResult {
+	platform, snapshot, class := selectedBillingPlatform(selected), currentBillingCatalog(), selectedBillingClass(ctx, selected)
+	billing := EstimateBillingCostFromUsageWithCatalog(model, platform, usage, snapshot, class)
 	if accounting := usage.videoAccounting; accounting != nil {
 		billing.EstimatedCost = accounting.CostDelta
 		observed := accounting.Observed
@@ -99,7 +100,7 @@ func directVideoBillingResult(model, platform string, usage ParsedUsage) Billing
 			"cacheReadTokens": observed.CacheReadTokens, "cacheCreationTokens": observed.CacheCreationTokens,
 			"reasoningTokens": observed.ReasoningTokens, "upstreamReportedModel": observed.UpstreamReportedModel,
 		}
-		billing.BillingDetails["observedEstimatedCost"] = EstimateBillingCostFromUsage(model, platform, accounting.Observed).EstimatedCost
+		billing.BillingDetails["observedEstimatedCost"] = EstimateBillingCostFromUsageWithCatalog(model, platform, accounting.Observed, snapshot, class).EstimatedCost
 		billing.BillingDetails["accountedCost"] = accounting.CostDelta
 		billing.BillingDetails["videoTaskId"] = accounting.TaskID
 		billing.BillingDetails["accountingMode"] = "task_cumulative"

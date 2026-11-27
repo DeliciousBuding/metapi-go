@@ -3,6 +3,10 @@ package proxyhandler
 import (
 	"math"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func TestEstimateBillingCostFromUsage_FallbackPositive(t *testing.T) {
@@ -222,5 +226,74 @@ func asFloat(t *testing.T, v any) float64 {
 	default:
 		t.Fatalf("expected numeric value, got %T (%#v)", v, v)
 		return 0
+	}
+}
+
+func TestBillingCatalogRates(t *testing.T) {
+	catalog, err := pricingcatalog.ParseCatalog([]byte(`{"vendor":{"models":{"m":{"id":"m","cost":{"input":5,"output":12,"cache_read":0,"cache_write":8}},"free":{"id":"free","cost":{"input":0,"output":0}},"out":{"id":"out","cost":{"input":0,"output":3}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ratios, err := pricingcatalog.ParseNewAPIRatios([]byte(`{"success":true,"data":{"model_ratio":{"m":2},"completion_ratio":{"m":3},"cache_ratio":{"m":0}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog = pricingcatalog.MergeSnapshots([]*pricingcatalog.CatalogSnapshot{catalog, ratios})
+	for _, tc := range []struct {
+		model  string
+		class  pricingcatalog.SiteClass
+		usage  ParsedUsage
+		want   float64
+		source string
+	}{
+		{"m", pricingcatalog.SiteClassOfficial, ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 100, CacheReadTokens: 200, CacheCreationTokens: 50}, .00535, "catalog"},
+		{"m", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 100}, .0052, "catalog_estimate"},
+		{"m", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, PromptTokens: 1000, CacheReadTokens: 1000}, 0, "catalog_estimate"},
+		{"free", pricingcatalog.SiteClassOfficial, ParsedUsage{Found: true, PromptTokens: 1000}, 0, "catalog"},
+		{"out", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, PromptTokens: 1000, CompletionTokens: 100}, .0003, "catalog_estimate"},
+		{"unknown", pricingcatalog.SiteClassRelay, ParsedUsage{Found: true, TotalTokens: 1000}, .002, "full_price_fallback"},
+	} {
+		got := EstimateBillingCostFromUsageWithCatalog(tc.model, "openai", tc.usage, catalog, tc.class)
+		p := got.BillingDetails["pricing"].(map[string]any)
+		b := got.BillingDetails["breakdown"].(map[string]any)
+		if math.Abs(got.EstimatedCost-tc.want) > 1e-12 || b["total_cost"] != got.EstimatedCost || p["model"] != tc.model || p["source"] != tc.source {
+			t.Fatalf("%s %s = %+v want %v", tc.model, tc.class, got, tc.want)
+		}
+	}
+}
+
+func TestSelectedBillingClass(t *testing.T) {
+	site := routing.SelectedChannel{Site: store.Site{Platform: "openai", URL: "https://api.openai.com"}}
+	if selectedBillingClass(t.Context(), &site) != pricingcatalog.SiteClassOfficial {
+		t.Fatal("official site classified as relay")
+	}
+	endpoint := &store.DirectEndpoint{URL: "https://relay.example/v1"}
+	direct := routing.SelectedChannel{Direct: &store.DirectUpstreamCandidate{BaseURL: "https://api.openai.com", Provider: "openai", Endpoints: store.DirectEndpoints{Chat: endpoint}}}
+	for _, tc := range []struct {
+		wire *directProviderWire
+		want pricingcatalog.SiteClass
+	}{
+		{nil, pricingcatalog.SiteClassRelay},
+		{&directProviderWire{Endpoint: endpoint}, pricingcatalog.SiteClassRelay},
+		{&directProviderWire{Endpoint: &store.DirectEndpoint{URL: "https://api.openai.com/v1"}}, pricingcatalog.SiteClassOfficial},
+		{&directProviderWire{Endpoint: &store.DirectEndpoint{URL: "https://api.openai.com/v1"}, DriverURL: "https://relay.example/v1"}, pricingcatalog.SiteClassRelay},
+	} {
+		ctx := t.Context()
+		if tc.wire != nil {
+			ctx = withDirectProviderWire(ctx, tc.wire)
+		}
+		if got := selectedBillingClass(ctx, &direct); got != tc.want {
+			t.Fatalf("direct class=%s want %s", got, tc.want)
+		}
+	}
+}
+
+func TestBillingZeroBreakdownOverridesFallback(t *testing.T) {
+	// One Claude cache-read token at the historical $0.20/M default rounds to
+	// zero at the ledger's precision. The token-divisor fallback is still positive.
+	got := EstimateBillingCostFromUsage("claude-synthetic", "anthropic", ParsedUsage{Found: true, PromptTokens: 1, CacheReadTokens: 1})
+	b := got.BillingDetails["breakdown"].(map[string]any)
+	if b["fallback_total_cost"].(float64) <= 0 || b["total_cost"] != 0.0 || got.EstimatedCost != 0 {
+		t.Fatalf("zero-cost detailed bill=%+v", got)
 	}
 }

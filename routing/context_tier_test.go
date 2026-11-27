@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -248,5 +249,37 @@ func TestEstimateRequestContextTokens_GeminiContents(t *testing.T) {
 	got := EstimateRequestContextTokens(body)
 	if got != 4 {
 		t.Fatalf("gemini contents estimate = %d, want 4", got)
+	}
+}
+
+func TestAgentContextTierBoundary(t *testing.T) {
+	body := map[string]any{"messages": []any{map[string]any{"role": "user", "content": "检查代码"}}, "tools": []any{map[string]any{"name": "read", "description": strings.Repeat("读取代码", 128)}}, "max_completion_tokens": 64}
+	// Message leaves (8), tool keys (15) and values (516) give 134 tokens.
+	const want = 198
+	if got := EstimateRequestContextTokens(body); got != want {
+		t.Fatalf("agent estimate = %d, want %d", got, want)
+	}
+	routes := []store.TokenRoute{{ID: 1, ContextLength: int64p(want)}, {ID: 2, ContextLength: int64p(512)}}
+	for _, tc := range []struct {
+		cap int
+		id  int64
+	}{{64, 1}, {65, 2}} {
+		body["max_completion_tokens"] = tc.cap
+		if got := PickContextTierRoute(routes, EstimateRequestContextTokens(body)); got.ID != tc.id {
+			t.Fatalf("cap %d selected route %d", tc.cap, got.ID)
+		}
+	}
+	for _, key := range []string{"instructions", "prompt"} {
+		if got := EstimateRequestContextTokens(map[string]any{key: "检查go代码()"}); got != 2 {
+			t.Errorf("%s = %d", key, got)
+		}
+	}
+}
+
+func BenchmarkAgentContextEstimate(b *testing.B) {
+	body := map[string]any{"input": "hi", "tools": []any{map[string]any{"type": "function", "description": strings.Repeat("检查代码 return value ", 4096), "parameters": map[string]any{"type": "object", "properties": map[string]any{"file_path": map[string]any{"type": "string"}}}}}, "max_completion_tokens": 2048}
+	b.ReportAllocs()
+	for b.Loop() {
+		EstimateRequestContextTokens(body)
 	}
 }

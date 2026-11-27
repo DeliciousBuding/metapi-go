@@ -5,22 +5,14 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"unicode/utf8"
+
+	"github.com/deliciousbuding/metapi-go/internal/tokenestimate"
 )
 
 // Best-effort TPM admission estimate.
 
-// Strategy (documented intentionally; not a tokenizer):
-// 1. Prefer JSON body fields used by chat/completions, responses, Claude, Gemini:
-// sum string rune lengths under "messages", "input", "system", "contents",
-// "prompt", then chars/4 (same leaf strategy as routing.EstimateRequestContextTokens).
-// 2. Else fall back to bytes actually read from the body (covers chunked
-// requests, where Content-Length is -1), then to Content-Length when the body
-// was not readable.
-// 3. Clamp positive estimates to [1, 128000].
-// 4. Unreadable / empty body with no Content-Length → reserve the 1-token
-// minimum instead of skipping TPM accounting. A request that cannot be
-// estimated must not silently bypass maxTPM.
+// Prefer recognized JSON inputs and their requested output budget. For a
+// truncated or unrecognized envelope, use the byte-count fallback below.
 
 // Never invent large defaults that false-block admission.
 const (
@@ -39,7 +31,6 @@ func estimateAdmissionTokens(r *http.Request) int64 {
 		return 1
 	}
 
-	chars := int64(0)
 	readBytes := int64(0)
 	if r.Body != nil && r.Body != http.NoBody {
 		// Peek up to cap+1 so we can detect truncation without consuming the rest.
@@ -54,23 +45,16 @@ func estimateAdmissionTokens(r *http.Request) int64 {
 		} else {
 			// Full body (within cap) was consumed; restore from bytes.
 			r.Body = io.NopCloser(bytes.NewReader(peek))
-			if n := sumMessagesInputStringRunes(peek); n > 0 {
-				chars = n
+			var body map[string]any
+			if json.Unmarshal(peek, &body) == nil {
+				if n := tokenestimate.Request(body, tpmEstimateMaxTokens); n > 0 {
+					return n
+				}
 			}
 		}
 	}
 
-	if chars <= 0 {
-		// Bytes actually read cover chunked bodies (Content-Length -1) and
-		// unparseable/truncated bodies. A declared Content-Length larger than
-		// what we could read stays a conservative floor.
-		if readBytes > 0 {
-			chars = readBytes
-		}
-		if r.ContentLength > chars {
-			chars = r.ContentLength
-		}
-	}
+	chars := max(readBytes, r.ContentLength)
 
 	if chars <= 0 {
 		// No signal at all: reserve the 1-token minimum rather than skipping.
@@ -86,77 +70,4 @@ func estimateAdmissionTokens(r *http.Request) int64 {
 		tokens = tpmEstimateMaxTokens
 	}
 	return tokens
-}
-
-// sumMessagesInputStringRunes walks JSON "messages" / "input" and sums rune
-// lengths of string leaves. Also counts Claude "system", Gemini "contents" and
-// top-level "prompt" envelopes (parity with routing.EstimateRequestContextTokens
-// plus the completions prompt surface). Returns 0 for non-JSON or missing fields.
-func sumMessagesInputStringRunes(raw []byte) int64 {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || raw[0] != '{' {
-		return 0
-	}
-	var top map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &top); err != nil {
-		return 0
-	}
-	var total int64
-	if m, ok := top["messages"]; ok {
-		total += sumJSONStringRunes(m)
-	}
-	if in, ok := top["input"]; ok {
-		total += sumJSONStringRunes(in)
-	}
-	// Claude Messages / Gemini generateContent alternate envelopes.
-	if sys, ok := top["system"]; ok {
-		total += sumJSONStringRunes(sys)
-	}
-	if contents, ok := top["contents"]; ok {
-		total += sumJSONStringRunes(contents)
-	}
-	// Legacy completions prompt (string or string array).
-	if prompt, ok := top["prompt"]; ok {
-		total += sumJSONStringRunes(prompt)
-	}
-	return total
-}
-
-// sumJSONStringRunes recursively sums rune counts of all JSON string values.
-func sumJSONStringRunes(raw json.RawMessage) int64 {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 {
-		return 0
-	}
-	switch raw[0] {
-	case '"':
-		var s string
-		if err := json.Unmarshal(raw, &s); err != nil {
-			return 0
-		}
-		return int64(utf8.RuneCountInString(s))
-	case '[':
-		var arr []json.RawMessage
-		if err := json.Unmarshal(raw, &arr); err != nil {
-			return 0
-		}
-		var n int64
-		for _, el := range arr {
-			n += sumJSONStringRunes(el)
-		}
-		return n
-	case '{':
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &obj); err != nil {
-			return 0
-		}
-		var n int64
-		for _, v := range obj {
-			n += sumJSONStringRunes(v)
-		}
-		return n
-	default:
-		// numbers, bools, null — ignore
-		return 0
-	}
 }

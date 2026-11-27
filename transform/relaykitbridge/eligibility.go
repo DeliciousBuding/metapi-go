@@ -35,7 +35,7 @@ func fields(value object, path string, allowed ...string) error {
 			}
 		}
 		if !found {
-			return specialized(path + "." + key)
+			return specialized(path + " field")
 		}
 	}
 	return nil
@@ -50,10 +50,13 @@ func array(raw json.RawMessage) ([]json.RawMessage, error) {
 
 // This is a feature classifier, not a trial conversion. It deliberately routes
 // protocol-owned state and multimodal/structured output to their existing owner.
-func eligibleRequest(format, target Format, raw []byte) error {
-	req, err := readObject(raw)
-	if err != nil {
-		return err
+func eligibleRequest(format, target Format, req object) error {
+	var err error
+	if cache, ok := req["prompt_cache_key"]; ok {
+		if !(format == Chat && target == Responses || format == Responses && target == Chat) || len(cache) == 0 || cache[0] != '"' {
+			return specialized("prompt_cache_key")
+		}
+		delete(req, "prompt_cache_key") // classified above; the converter receives the original bytes
 	}
 	var messages []json.RawMessage
 	switch format {
