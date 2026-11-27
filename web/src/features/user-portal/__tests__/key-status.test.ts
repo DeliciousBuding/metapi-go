@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 
 import type { PersonalKey } from '../api'
-import { personalKeyStatus } from '../key-status'
+import { personalKeyStatus, personalKeyStatusTone } from '../key-status'
 
 const key: PersonalKey = {
   id: 1,
@@ -25,4 +25,11 @@ it('shares exact status precedence between key list and onboarding', () => {
     'limitReached'
   )
   expect(personalKeyStatus({ ...key, maxCost: 0 })).toBe('limitReached')
+})
+
+it('maps personal key status to semantic SoftTone values', () => {
+  expect(personalKeyStatusTone('available')).toBe('success')
+  expect(personalKeyStatusTone('expired')).toBe('warning')
+  expect(personalKeyStatusTone('limitReached')).toBe('warning')
+  expect(personalKeyStatusTone('disabled')).toBe('neutral')
 })

@@ -27,7 +27,9 @@ describe('personal connection examples', () => {
           ? 'x-api-key: synthetic-personal-key'
           : 'Authorization: Bearer synthetic-personal-key'
       )
-      const body = JSON.parse(args[args.indexOf('--data-raw') + 1]!)
+      const rawBody = args[args.indexOf('--data-raw') + 1]
+      expect(rawBody).toBeDefined()
+      const body = JSON.parse(rawBody ?? '')
       expect(body.model).toBe(model)
       if (protocol === 'embeddings')
         expect(body).toEqual({ model, input: 'Hello' })

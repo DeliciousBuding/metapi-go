@@ -41,16 +41,18 @@ export function PortalAccount({ session }: { session: UserSession }) {
     },
   })
   return (
-    <div className='max-w-xl space-y-6'>
-      <dl className='grid grid-cols-2 gap-4 text-sm'>
-        <div>
-          <dt className='text-muted-foreground'>{t('userPortal.username')}</dt>
+    <div className='max-w-xl space-y-5'>
+      <dl className='bg-card grid divide-y rounded-xl border text-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0'>
+        <div className='min-w-0 p-4'>
+          <dt className='text-muted-foreground text-xs font-medium'>
+            {t('userPortal.username')}
+          </dt>
           <dd className='mt-1 font-medium wrap-anywhere'>
             {session.user.username}
           </dd>
         </div>
-        <div>
-          <dt className='text-muted-foreground'>
+        <div className='min-w-0 p-4'>
+          <dt className='text-muted-foreground text-xs font-medium'>
             {t('userPortal.currentGroup')}
           </dt>
           <dd className='mt-1 font-medium wrap-anywhere'>

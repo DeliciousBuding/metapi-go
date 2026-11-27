@@ -4,6 +4,8 @@ import { ArrowRight, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { ModelPill } from '@/components/common/model-pill'
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
 import {
   useUrlTableState,
   type UrlTableState,
@@ -88,19 +90,19 @@ function ReferencePrice({ model }: { model: PersonalModel }) {
     maximumFractionDigits: 8,
   })
   return (
-    <div className='space-y-3'>
-      <h3 className='text-sm font-medium'>
+    <div className='bg-muted/30 space-y-2.5 rounded-lg border p-3'>
+      <h3 className='text-xs font-medium'>
         {t('userPortal.catalog.referencePrice')}
       </h3>
       {price ? (
-        <dl className='grid grid-cols-2 gap-3 text-sm'>
+        <dl className='grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4'>
           {(['input', 'output', 'cacheRead', 'cacheWrite'] as const).map(
             (field) => (
-              <div key={field}>
-                <dt className='text-muted-foreground'>
+              <div key={field} className='min-w-0'>
+                <dt className='text-muted-foreground text-xs'>
                   {t('userPortal.catalog.' + field)}
                 </dt>
-                <dd className='tabular-nums'>
+                <dd className='mt-0.5 font-medium tabular-nums'>
                   {price[field] === null
                     ? t('userPortal.unknown')
                     : number.format(price[field])}
@@ -114,11 +116,11 @@ function ReferencePrice({ model }: { model: PersonalModel }) {
           {t('userPortal.catalog.priceUnknown')}
         </p>
       )}
-      <p className='text-muted-foreground text-xs'>
+      <p className='text-muted-foreground text-xs leading-relaxed'>
         {t('userPortal.catalog.priceHint')}
       </p>
       {price?.updatedAt && (
-        <p className='text-muted-foreground text-xs'>
+        <p className='text-muted-foreground text-xs tabular-nums'>
           {t('userPortal.catalog.priceUpdated', { date: price.updatedAt })}
         </p>
       )}
@@ -145,18 +147,31 @@ function ModelConnection({ model }: { model: PersonalModel }) {
     })
   }
   return (
-    <div className='space-y-5'>
+    <div className='space-y-4'>
       <ReferencePrice model={model} />
-      <div className='space-y-2 border-t pt-4'>
-        <h3 className='font-medium'>{t('userPortal.catalog.firstCall')}</h3>
-        <p className='text-muted-foreground text-sm'>
-          {t('userPortal.catalog.exampleHint')}
-        </p>
-        <Label htmlFor='model-base-url'>{t('userPortal.endpoint')}</Label>
-        <Input id='model-base-url' value={baseURL} readOnly />
-        <div className='flex flex-wrap gap-2'>
-          <CopyValue value={baseURL} label={t('userPortal.copyEndpoint')} />
-          <CopyValue value={model.id} label={t('userPortal.copyModel')} />
+      <div className='bg-muted/40 space-y-3 rounded-lg border p-3'>
+        <div className='space-y-1'>
+          <h3 className='text-sm font-medium'>
+            {t('userPortal.catalog.firstCall')}
+          </h3>
+          <p className='text-muted-foreground text-xs leading-relaxed'>
+            {t('userPortal.catalog.exampleHint')}
+          </p>
+        </div>
+        <div className='space-y-2'>
+          <Label htmlFor='model-base-url' className='text-xs'>
+            {t('userPortal.endpoint')}
+          </Label>
+          <Input
+            id='model-base-url'
+            value={baseURL}
+            readOnly
+            className='bg-background font-mono text-xs'
+          />
+          <div className='flex flex-wrap gap-2'>
+            <CopyValue value={baseURL} label={t('userPortal.copyEndpoint')} />
+            <CopyValue value={model.id} label={t('userPortal.copyModel')} />
+          </div>
         </div>
       </div>
       {protocol ? (
@@ -173,11 +188,11 @@ function ModelConnection({ model }: { model: PersonalModel }) {
               ))}
             </TabsList>
             <TabsContent value={protocol} className='space-y-3'>
-              <p className='text-muted-foreground text-sm'>
+              <p className='text-muted-foreground text-xs leading-relaxed'>
                 {t('userPortal.catalog.environmentKey')}
               </p>
               <pre
-                className='bg-muted max-h-72 overflow-auto rounded-lg border p-3 text-xs'
+                className='bg-muted max-h-72 overflow-auto rounded-lg border p-3 font-mono text-xs'
                 tabIndex={0}
                 aria-label={t('userPortal.catalog.example')}
               >
@@ -201,9 +216,13 @@ function ModelConnection({ model }: { model: PersonalModel }) {
           </Tabs>
         </div>
       ) : (
-        <Notice tone='info'>{t('userPortal.catalog.noExample')}</Notice>
+        <Notice tone='info' size='compact'>
+          {t('userPortal.catalog.noExample')}
+        </Notice>
       )}
-      <Notice tone='info'>{t('userPortal.catalog.verifyHint')}</Notice>
+      <Notice tone='info' size='compact'>
+        {t('userPortal.catalog.verifyHint')}
+      </Notice>
       <div className='flex flex-wrap gap-2'>
         <Button
           render={
@@ -261,14 +280,12 @@ export function PortalModels({ userId }: { userId: number }) {
       href: modelContextHref(locationSearch, { model: model.id, protocol }),
     })
   }
-  return (
-    <div className='space-y-5'>
-      <p className='text-muted-foreground text-sm'>
-        {t('userPortal.modelsHint')}
-      </p>
-      {query.isPending ? (
-        <Spinner aria-label={t('common.loading')} />
-      ) : query.isError ? (
+  function renderCatalogBody() {
+    if (query.isPending) {
+      return <Spinner aria-label={t('common.loading')} />
+    }
+    if (query.isError) {
+      return (
         <Notice tone='destructive' role='alert'>
           <span>{t('userPortal.loadFailed')}</span>
           <Button
@@ -279,35 +296,41 @@ export function PortalModels({ userId }: { userId: number }) {
             {t('common.retry')}
           </Button>
         </Notice>
-      ) : (
-        <>
-          {context.model && !selected && !query.isFetching && (
-            <Notice tone='warning'>
-              <p className='wrap-anywhere'>
-                {t('userPortal.catalog.selectedUnavailable', {
-                  model: context.model,
-                })}
-              </p>
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={() =>
-                  void navigate({ href: modelContextHref(locationSearch, {}) })
-                }
-              >
-                {t('userPortal.catalog.clearSelection')}
-              </Button>
-            </Notice>
-          )}
-          <Card>
-            <CardContent className='space-y-3'>
-              <h2 className='font-medium'>
+      )
+    }
+    const multiplierText = new Intl.NumberFormat(i18n.language).format(
+      query.data.quota.groupMultiplier
+    )
+    return (
+      <>
+        {context.model && !selected && !query.isFetching && (
+          <Notice tone='warning'>
+            <p className='wrap-anywhere'>
+              {t('userPortal.catalog.selectedUnavailable', {
+                model: context.model,
+              })}
+            </p>
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={() =>
+                void navigate({ href: modelContextHref(locationSearch, {}) })
+              }
+            >
+              {t('userPortal.catalog.clearSelection')}
+            </Button>
+          </Notice>
+        )}
+        <div className='grid gap-4 lg:grid-cols-2'>
+          <Card size='sm'>
+            <CardContent className='space-y-2.5'>
+              <h2 className='text-sm font-medium'>
                 {t('userPortal.capabilities.title')}
               </h2>
-              <p className='text-muted-foreground text-sm leading-relaxed'>
+              <p className='text-muted-foreground text-xs leading-relaxed'>
                 {t('userPortal.capabilities.intro')}
               </p>
-              <ul className='grid gap-2 text-sm sm:grid-cols-2'>
+              <ul className='grid gap-1.5 text-xs leading-relaxed'>
                 {capabilityKeys.map((key) => (
                   <li className='flex gap-2' key={key}>
                     <span aria-hidden='true' className='text-primary mt-0.5'>
@@ -322,134 +345,155 @@ export function PortalModels({ userId }: { userId: number }) {
               </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className='space-y-2'>
-              <h2 className='font-medium'>
-                {t('userPortal.catalog.quotaTitle')}
-              </h2>
-              <p className='text-sm'>
+          <Card size='sm'>
+            <CardContent className='space-y-2.5'>
+              <div className='flex flex-wrap items-center justify-between gap-2'>
+                <h2 className='text-sm font-medium'>
+                  {t('userPortal.catalog.quotaTitle')}
+                </h2>
+                <SoftToneBadge tone='info'>{multiplierText}×</SoftToneBadge>
+              </div>
+              <p className='text-sm leading-relaxed tabular-nums'>
                 {t('userPortal.catalog.quotaFormula', {
-                  multiplier: new Intl.NumberFormat(i18n.language).format(
-                    query.data.quota.groupMultiplier
-                  ),
+                  multiplier: multiplierText,
                 })}
               </p>
-              <p className='text-muted-foreground text-xs'>
+              <p className='text-muted-foreground text-xs leading-relaxed'>
                 {t('userPortal.catalog.quotaHint')}
               </p>
             </CardContent>
           </Card>
-          {query.data.items.length === 0 ? (
-            <Notice tone='info'>{t('userPortal.noModels')}</Notice>
-          ) : (
-            <>
-              <div className='flex flex-wrap items-center gap-3'>
-                <div className='relative min-w-0 flex-1'>
-                  <Search
-                    className='text-muted-foreground pointer-events-none absolute start-3 top-2.5 size-4'
-                    aria-hidden='true'
-                  />
-                  <Input
-                    aria-label={t('userPortal.catalog.search')}
-                    placeholder={t('userPortal.catalog.search')}
-                    value={state.globalFilter}
-                    maxLength={200}
-                    onChange={(e) => state.onGlobalFilterChange(e.target.value)}
-                    className='ps-9'
-                  />
-                </div>
-                <span className='text-muted-foreground text-sm'>
-                  {t('userPortal.catalog.count', { count: filtered.length })}
-                </span>
+        </div>
+        {query.data.items.length === 0 ? (
+          <Notice tone='info'>{t('userPortal.noModels')}</Notice>
+        ) : (
+          <>
+            <div className='flex flex-wrap items-center gap-3'>
+              <div className='relative min-w-0 flex-1'>
+                <Search
+                  className='text-muted-foreground pointer-events-none absolute start-3 top-2.5 size-4'
+                  aria-hidden='true'
+                />
+                <Input
+                  aria-label={t('userPortal.catalog.search')}
+                  placeholder={t('userPortal.catalog.search')}
+                  value={state.globalFilter}
+                  maxLength={200}
+                  onChange={(e) => state.onGlobalFilterChange(e.target.value)}
+                  className='ps-9'
+                />
               </div>
-              {filtered.length === 0 ? (
-                <Notice tone='info'>
-                  <span>{t('userPortal.catalog.noMatches')}</span>
+              <span className='text-muted-foreground text-sm tabular-nums'>
+                {t('userPortal.catalog.count', { count: filtered.length })}
+              </span>
+            </div>
+            {filtered.length === 0 ? (
+              <Notice tone='info'>
+                <span>{t('userPortal.catalog.noMatches')}</span>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => state.onGlobalFilterChange('')}
+                >
+                  {t('userPortal.catalog.clearSearch')}
+                </Button>
+              </Notice>
+            ) : (
+              <div className='bg-card divide-border divide-y rounded-xl border'>
+                {filtered
+                  .slice(pageIndex * 20, (pageIndex + 1) * 20)
+                  .map((model) => (
+                    <div
+                      className='flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between'
+                      key={model.routeId + ':' + model.id}
+                    >
+                      <div className='min-w-0 flex-1 space-y-2'>
+                        <ModelPill model={model.id} variant='inline' />
+                        <div className='flex flex-wrap gap-1.5'>
+                          {model.protocols.map((p) => (
+                            <Badge
+                              key={p}
+                              variant='secondary'
+                              className='font-mono text-xs'
+                            >
+                              {p}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        className='w-fit shrink-0'
+                        onClick={() => selectModel(model)}
+                        aria-label={t('userPortal.catalog.connectModel', {
+                          model: model.id,
+                        })}
+                      >
+                        {t('userPortal.catalog.details')}
+                        <ArrowRight aria-hidden='true' />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            )}
+            {pageCount > 1 && (
+              <div className='flex flex-wrap items-center justify-between gap-3 text-sm'>
+                <span className='text-muted-foreground tabular-nums'>
+                  {t('userPortal.pagination', {
+                    page: pageIndex + 1,
+                    total: pageCount,
+                    count: filtered.length,
+                  })}
+                </span>
+                <div className='flex gap-2'>
                   <Button
                     variant='outline'
                     size='sm'
-                    onClick={() => state.onGlobalFilterChange('')}
+                    disabled={pageIndex === 0}
+                    onClick={() =>
+                      state.onPaginationChange({
+                        pageIndex: pageIndex - 1,
+                        pageSize: 20,
+                      })
+                    }
                   >
-                    {t('userPortal.catalog.clearSearch')}
+                    {t('userPortal.previous')}
                   </Button>
-                </Notice>
-              ) : (
-                <div className='divide-border divide-y rounded-xl border'>
-                  {filtered
-                    .slice(pageIndex * 20, (pageIndex + 1) * 20)
-                    .map((model) => (
-                      <div
-                        className='flex flex-wrap items-center justify-between gap-3 p-4'
-                        key={model.routeId + ':' + model.id}
-                      >
-                        <div className='min-w-0 flex-1 space-y-2'>
-                          <ModelPill model={model.id} variant='inline' />
-                          <div className='flex flex-wrap gap-1.5'>
-                            {model.protocols.map((p) => (
-                              <Badge key={p} variant='secondary'>
-                                {p}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={() => selectModel(model)}
-                          aria-label={t('userPortal.catalog.connectModel', {
-                            model: model.id,
-                          })}
-                        >
-                          {t('userPortal.catalog.details')}
-                          <ArrowRight aria-hidden='true' />
-                        </Button>
-                      </div>
-                    ))}
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={pageIndex + 1 >= pageCount}
+                    onClick={() =>
+                      state.onPaginationChange({
+                        pageIndex: pageIndex + 1,
+                        pageSize: 20,
+                      })
+                    }
+                  >
+                    {t('userPortal.next')}
+                  </Button>
                 </div>
-              )}
-              {pageCount > 1 && (
-                <div className='flex items-center justify-between gap-3 text-sm'>
-                  <span>
-                    {t('userPortal.pagination', {
-                      page: pageIndex + 1,
-                      total: pageCount,
-                      count: filtered.length,
-                    })}
-                  </span>
-                  <div className='flex gap-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      disabled={pageIndex === 0}
-                      onClick={() =>
-                        state.onPaginationChange({
-                          pageIndex: pageIndex - 1,
-                          pageSize: 20,
-                        })
-                      }
-                    >
-                      {t('userPortal.previous')}
-                    </Button>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      disabled={pageIndex + 1 >= pageCount}
-                      onClick={() =>
-                        state.onPaginationChange({
-                          pageIndex: pageIndex + 1,
-                          pageSize: 20,
-                        })
-                      }
-                    >
-                      {t('userPortal.next')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
+              </div>
+            )}
+          </>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <div className='space-y-4'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <p className='text-muted-foreground text-sm'>
+          {t('userPortal.modelsHint')}
+        </p>
+        <QuietRefreshStatus
+          updatedAt={query.dataUpdatedAt}
+          hasError={query.isError}
+        />
+      </div>
+      {renderCatalogBody()}
       <Dialog
         open={!!selected}
         onOpenChange={(open) => {

@@ -28,16 +28,29 @@ function usableKey(key: PersonalKey): boolean {
 }
 
 function StepMark({ state }: { state: StepState }) {
-  if (state === 'pending') return <Spinner aria-hidden='true' />
+  if (state === 'pending') {
+    return (
+      <span className='flex size-7 shrink-0 items-center justify-center'>
+        <Spinner aria-hidden='true' />
+      </span>
+    )
+  }
   if (state === 'complete') {
     return (
-      <span className='bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-full'>
+      <span className='bg-success/10 text-success-soft-fg border-success/30 flex size-7 shrink-0 items-center justify-center rounded-full border'>
         <Check aria-hidden='true' className='size-4' />
       </span>
     )
   }
+  if (state === 'unknown') {
+    return (
+      <span className='bg-warning/10 text-warning-soft-fg border-warning/30 flex size-7 shrink-0 items-center justify-center rounded-full border'>
+        <CircleHelp aria-hidden='true' className='size-4' />
+      </span>
+    )
+  }
   return (
-    <span className='text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full border'>
+    <span className='bg-muted/40 text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full border'>
       <CircleHelp aria-hidden='true' className='size-4' />
     </span>
   )

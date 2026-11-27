@@ -110,9 +110,11 @@ describe('personal portal boundaries', () => {
     fireEvent.change(await screen.findByLabelText('Key name'), {
       target: { value: 'Fixture' },
     })
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Create key' }).at(-1)!
-    )
+    const submitCreate = screen
+      .getAllByRole('button', { name: 'Create key' })
+      .at(-1)
+    expect(submitCreate).toBeDefined()
+    if (submitCreate) fireEvent.click(submitCreate)
     await waitFor(() =>
       expect(calls.some((call) => call.method === 'post')).toBe(true)
     )
@@ -274,9 +276,11 @@ describe('personal portal boundaries', () => {
       target: { value: 'Editor' },
     })
     await act(async () => {
-      fireEvent.click(
-        screen.getAllByRole('button', { name: 'Create key' }).at(-1)!
-      )
+      const submitCreate = screen
+        .getAllByRole('button', { name: 'Create key' })
+        .at(-1)
+      expect(submitCreate).toBeDefined()
+      if (submitCreate) fireEvent.click(submitCreate)
     })
     expect(await screen.findByLabelText('Secret API key')).toHaveValue(
       'synthetic-once-only-key'

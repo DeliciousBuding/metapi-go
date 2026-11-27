@@ -6,6 +6,9 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
+import { SoftToneBadge } from '@/components/common/soft-tone-badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -36,7 +39,7 @@ import { useUndoableDelete } from '@/lib/undoable-delete'
 import { type PersonalKey, userPortalApi } from '../api'
 import type { ModelConnectionContext } from '../connection-context'
 import { connectionExample } from '../connection-example'
-import { personalKeyStatus } from '../key-status'
+import { personalKeyStatus, personalKeyStatusTone } from '../key-status'
 import { PortalField } from './portal-field'
 
 type CreatedPersonalKey = Awaited<ReturnType<typeof userPortalApi.createKey>>
@@ -330,39 +333,50 @@ function CreatedKey({
   const endpoint = window.location.origin + '/v1'
   return (
     <div className='grid gap-4'>
-      <Notice tone='warning'>{t('userPortal.oneTimeKey')}</Notice>
-      <div className='space-y-2'>
-        <Label htmlFor='created-personal-key'>
-          {t('userPortal.secretKey')}
-        </Label>
-        <div className='flex gap-2'>
-          <Input
-            id='created-personal-key'
-            type={visible ? 'text' : 'password'}
-            readOnly
-            value={secret}
-            className='font-mono'
-          />
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
-            aria-label={t(
-              visible ? 'userPortal.hideKey' : 'userPortal.showKey'
-            )}
-            onClick={() => setVisible(!visible)}
-          >
-            {visible ? <EyeOff /> : <Eye />}
-          </Button>
+      <Notice tone='warning' size='compact'>
+        {t('userPortal.oneTimeKey')}
+      </Notice>
+      <div className='bg-muted/40 space-y-3 rounded-lg border p-3'>
+        <div className='space-y-2'>
+          <Label htmlFor='created-personal-key' className='text-xs'>
+            {t('userPortal.secretKey')}
+          </Label>
+          <div className='flex gap-2'>
+            <Input
+              id='created-personal-key'
+              type={visible ? 'text' : 'password'}
+              readOnly
+              value={secret}
+              className='bg-background font-mono text-xs'
+            />
+            <Button
+              type='button'
+              variant='outline'
+              size='icon'
+              aria-label={t(
+                visible ? 'userPortal.hideKey' : 'userPortal.showKey'
+              )}
+              onClick={() => setVisible(!visible)}
+            >
+              {visible ? <EyeOff /> : <Eye />}
+            </Button>
+          </div>
+          <CopyValue value={secret} label={t('userPortal.copyKey')} />
         </div>
-        <CopyValue value={secret} label={t('userPortal.copyKey')} />
+        <div className='space-y-2 border-t pt-3'>
+          <Label htmlFor='personal-endpoint' className='text-xs'>
+            {t('userPortal.endpoint')}
+          </Label>
+          <Input
+            id='personal-endpoint'
+            readOnly
+            value={endpoint}
+            className='bg-background font-mono text-xs'
+          />
+          <CopyValue value={endpoint} label={t('userPortal.copyEndpoint')} />
+        </div>
       </div>
-      <div className='space-y-2'>
-        <Label htmlFor='personal-endpoint'>{t('userPortal.endpoint')}</Label>
-        <Input id='personal-endpoint' readOnly value={endpoint} />
-        <CopyValue value={endpoint} label={t('userPortal.copyEndpoint')} />
-      </div>
-      <p className='text-muted-foreground text-sm'>
+      <p className='text-muted-foreground text-xs leading-relaxed'>
         {t('userPortal.connectHint')}
       </p>
       {connection && <CreatedKeyConnection {...connection} />}
@@ -505,20 +519,12 @@ function OpenPortalKeys({ userId, connectionContext }: PortalKeysProps) {
       mounted.current = false
     }
   }, [])
-  return (
-    <div className='space-y-4'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <p className='text-muted-foreground text-sm'>
-          {t('userPortal.keysHint')}
-        </p>
-        <Button disabled={createPending} onClick={() => setCreating(true)}>
-          <Plus aria-hidden='true' />
-          {t('userPortal.createKey')}
-        </Button>
-      </div>
-      {query.isPending ? (
-        <Spinner aria-label={t('common.loading')} />
-      ) : query.isError ? (
+  function renderKeysList() {
+    if (query.isPending) {
+      return <Spinner aria-label={t('common.loading')} />
+    }
+    if (query.isError) {
+      return (
         <Notice tone='destructive' role='alert'>
           <span>{t('userPortal.loadFailed')}</span>
           <Button
@@ -529,41 +535,63 @@ function OpenPortalKeys({ userId, connectionContext }: PortalKeysProps) {
             {t('common.retry')}
           </Button>
         </Notice>
-      ) : query.data.items.length === 0 ? (
+      )
+    }
+    if (query.data.items.length === 0) {
+      return (
         <Card>
           <CardContent className='text-muted-foreground flex items-center gap-3 py-4'>
-            <KeyRound aria-hidden='true' />
-            {t('userPortal.noKeys')}
+            <KeyRound aria-hidden='true' className='size-4 shrink-0' />
+            <span>{t('userPortal.noKeys')}</span>
           </CardContent>
         </Card>
-      ) : (
-        <div className='divide-border divide-y rounded-xl border'>
-          {query.data.items.map((key) => (
+      )
+    }
+    return (
+      <div className='bg-card divide-border divide-y rounded-xl border'>
+        {query.data.items.map((key) => {
+          const status = personalKeyStatus(key)
+          return (
             <div
               key={key.id}
-              className='flex flex-wrap items-center justify-between gap-3 p-4'
+              className='flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between'
             >
-              <div className='min-w-0 space-y-1'>
-                <p className='font-medium wrap-anywhere'>{key.name}</p>
-                <p className='text-muted-foreground font-mono text-sm'>
+              <div className='min-w-0 space-y-1.5'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  <p className='font-medium wrap-anywhere'>{key.name}</p>
+                  <SoftToneBadge tone={personalKeyStatusTone(status)}>
+                    {t('userPortal.keyStatus.' + status)}
+                  </SoftToneBadge>
+                </div>
+                <p className='text-muted-foreground font-mono text-xs break-all'>
                   {key.keyMasked}
                 </p>
-                <p className='text-muted-foreground text-xs'>
-                  {t('userPortal.keyStatus.' + personalKeyStatus(key))}
-                  {' · '}
-                  {t('userPortal.requestCount', { count: key.usedRequests })}
-                  {' · '}
-                  {key.expiresAt
-                    ? new Date(key.expiresAt).toLocaleString()
-                    : t('userPortal.noExpiry')}
-                </p>
+                <div className='text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums'>
+                  <span>
+                    {t('userPortal.requestCount', { count: key.usedRequests })}
+                  </span>
+                  <span aria-hidden='true'>·</span>
+                  <span>
+                    {key.expiresAt
+                      ? new Date(key.expiresAt).toLocaleString()
+                      : t('userPortal.noExpiry')}
+                  </span>
+                </div>
                 {key.supportedModels.length > 0 && (
-                  <p className='text-muted-foreground text-xs wrap-anywhere'>
-                    {key.supportedModels.join(', ')}
-                  </p>
+                  <div className='flex flex-wrap gap-1 pt-0.5'>
+                    {key.supportedModels.map((modelName) => (
+                      <Badge
+                        key={modelName}
+                        variant='secondary'
+                        className='max-w-full font-mono text-xs break-all'
+                      >
+                        {modelName}
+                      </Badge>
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className='flex flex-wrap gap-2'>
+              <div className='flex shrink-0 flex-wrap gap-2'>
                 <Button
                   variant='outline'
                   size='sm'
@@ -597,9 +625,30 @@ function OpenPortalKeys({ userId, connectionContext }: PortalKeysProps) {
                 </Button>
               </div>
             </div>
-          ))}
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className='space-y-4'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <p className='text-muted-foreground text-sm'>
+          {t('userPortal.keysHint')}
+        </p>
+        <div className='flex flex-wrap items-center gap-2'>
+          <QuietRefreshStatus
+            updatedAt={query.dataUpdatedAt}
+            hasError={query.isError}
+          />
+          <Button disabled={createPending} onClick={() => setCreating(true)}>
+            <Plus aria-hidden='true' />
+            {t('userPortal.createKey')}
+          </Button>
         </div>
-      )}
+      </div>
+      {renderKeysList()}
       {rotating && (
         <RotateKeyDialog
           item={rotating}
