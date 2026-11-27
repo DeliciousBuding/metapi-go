@@ -184,9 +184,9 @@ func (p *pendingUpstreamFailure) recordFirstFailure(ctx *Ctx) {
 	}
 }
 
-func (p *pendingUpstreamFailure) write(w http.ResponseWriter, requestID, model string) {
+func (p *pendingUpstreamFailure) write(w http.ResponseWriter, db *store.DB, requestID, model string) {
 	if p == nil {
-		reportProxyAllFailed(model, "no available channels")
+		reportProxyAllFailed(db, model, "no available channels")
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "No available channels", "server_error", requestID)
 		return
 	}

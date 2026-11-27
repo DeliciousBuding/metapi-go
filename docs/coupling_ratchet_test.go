@@ -68,9 +68,7 @@ var legacyAdminSQLXFiles = map[string]bool{
 // references (including same-package calls inside package store). Increasing
 // any count or adding a new file fails the gate; lowering a count fails until
 // the ceiling here is lowered too.
-var legacyStoreGetDBCounts = map[string]int{
-	"handler/proxy/upstream.go": 2,
-}
+var legacyStoreGetDBCounts = map[string]int{}
 
 type couplingScan struct {
 	scannedByGroup map[string]int

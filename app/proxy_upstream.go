@@ -57,6 +57,7 @@ func ConfigureProxyUpstream(db *store.DB, cfg *config.Config) error {
 	decisionService := routing.NewRouteDecisionService(router, routingStore)
 	setTokenRouteDecisionRuntime(router, decisionService)
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
+		DB:             db,
 		Router:         router,
 		Executor:       proxy.NewRuntimeExecutor(requestTimeout),
 		ChannelPlugins: channelplugins.New(db.DB),
