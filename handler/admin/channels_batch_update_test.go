@@ -24,7 +24,7 @@ func seedBatchUpdateChannels(t *testing.T, db *store.DB, routeID, accountID, tok
 		if i > 0 {
 			sourceModel = "gpt-4o-mini-" + itoa(int64(i))
 		}
-		id, err := execInsertID(db.DB,
+		id, err := execInsertID(db,
 			`INSERT INTO route_channels
 				(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
 			 VALUES (?, ?, ?, ?, 3, 15, true, false)`,

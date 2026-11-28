@@ -28,14 +28,14 @@ func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{})
 	return db, r
 }
 
 func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, r := setupTokensPostgresTest(t)
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{})
 	return db, r
 }
 
@@ -53,7 +53,7 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 	// boolean literals keep PostgreSQL's strict BOOLEAN columns happy while
 	// SQLite accepts them too. The suffix keeps shared PG test databases
 	// isolated when a test reuses this fixture.
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES (?, ?, 'openai', 'active', ?, ?)`,
 		siteName, routeURL, now, now,
@@ -62,7 +62,7 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 		t.Fatalf("insert site: %v", err)
 	}
 
-	accountID, err = execInsertID(db.DB,
+	accountID, err = execInsertID(db,
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, ?, 'active', true, ?, ?)`,
 		siteID, sessionToken, now, now,
@@ -71,7 +71,7 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 		t.Fatalf("insert account: %v", err)
 	}
 
-	tokenID, err = execInsertID(db.DB,
+	tokenID, err = execInsertID(db,
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
 		 VALUES (?, ?, ?, 'ready', 'manual', true, false, ?, ?)`,
 		accountID, tokenName, tokenValue, now, now,
@@ -80,7 +80,7 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 		t.Fatalf("insert token: %v", err)
 	}
 
-	routeID, err = execInsertID(db.DB,
+	routeID, err = execInsertID(db,
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
 		 VALUES ('gpt-*', true, ?, ?)`,
 		now, now,
@@ -766,7 +766,7 @@ func setupTokenRoutesDecisionTest(t *testing.T, deps TokenRoutesDeps) (*store.DB
 	t.Helper()
 	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, deps)
+	RegisterTokenRoutesWithDeps(r, db, deps)
 	return db, r
 }
 
@@ -1082,7 +1082,7 @@ func TestRouteDecision_WithSQLiteRouterFixture(t *testing.T) {
 	}
 	refresher := &fakeDecisionRefresher{exact: 1}
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{Router: fake, Decisions: refresher})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{Router: fake, Decisions: refresher})
 	RegisterTasksRoutes(r, db)
 
 	resp := doGet(t, r, "/api/routes/decision?model=gpt-4o")

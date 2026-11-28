@@ -95,7 +95,7 @@ func TestRouteDecisionDirectPreviewReadOnlyAndSecretSafe(t *testing.T) {
 			defer routing.SetGlobalCache(nil)
 			router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
 			mux := chi.NewRouter()
-			RegisterTokenRoutesWithDeps(mux, db.DB, TokenRoutesDeps{Router: router})
+			RegisterTokenRoutesWithDeps(mux, db, TokenRoutesDeps{Router: router})
 			// Compare the persisted selection/cooldown/configuration and log rows;
 			// preview must not consume/rotate a candidate or save a snapshot.
 			capture := func() string {

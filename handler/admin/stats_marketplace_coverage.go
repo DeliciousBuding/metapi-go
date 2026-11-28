@@ -6,7 +6,7 @@ import (
 )
 
 func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) (map[string][]map[string]any, error) {
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			tma.model_name AS model_name,
 			a.id AS account_id,
@@ -72,7 +72,7 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) (map
 	// Accounts with available model_availability but no token_model_availability
 	// coverage for that model AND no enabled account_tokens at all (or none that
 	// list the model). Operators use this for zero-channel route hints.
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			a.id AS account_id,
@@ -147,7 +147,7 @@ func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}
 	// When an account has model availability and managed tokens, but none of the
 	// enabled tokens have a resolvable token_group label, group coverage is uncertain
 	// / missing. We do not invent required groups from a remote pricing catalog.
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			a.id AS account_id,
@@ -273,7 +273,7 @@ func resolveTokenGroupLabel(tokenGroup, tokenName string) string {
 func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) (map[string][]string, error) {
 	// Union of endpoint types inferred from model names present in availability.
 	models := map[string]struct{}{}
-	availModels, err := queryRowsErr(h.db.DB, `
+	availModels, err := queryRowsErr(h.db, `
 		SELECT DISTINCT model_name AS model_name FROM model_availability WHERE COALESCE(available, false) = true
 		UNION
 		SELECT DISTINCT model_name AS model_name FROM token_model_availability WHERE COALESCE(available, false) = true

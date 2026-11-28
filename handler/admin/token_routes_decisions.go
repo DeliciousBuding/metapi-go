@@ -71,7 +71,7 @@ func (h *tokenRoutesHandler) routeDecisionKeyContext(w http.ResponseWriter, r *h
 		return
 	}
 
-	keyCtx, err := auth.LoadManagedKeyContextByID(h.db, keyID)
+	keyCtx, err := auth.LoadManagedKeyContextByID(h.db.DB, keyID)
 	if err != nil {
 		slog.Error("route decision key-context load failed", "keyId", keyID, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load downstream key")

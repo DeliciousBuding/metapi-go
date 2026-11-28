@@ -104,7 +104,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 // GET /api/models/rates
 func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	// Accounts with their unit cost (nullable) and channel footprint.
-	accRows, err := queryRowsErr(h.db.DB, `
+	accRows, err := queryRowsErr(h.db, `
 		SELECT a.id AS account_id, COALESCE(a.username, '') AS username,
 			s.id AS site_id, COALESCE(s.name, '') AS site_name,
 			a.unit_cost AS unit_cost,
@@ -134,7 +134,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Channels with their weight (the effective routing multiplier).
-	chRows, err := queryRowsErr(h.db.DB, `
+	chRows, err := queryRowsErr(h.db, `
 		SELECT rc.id AS channel_id, rc.route_id, rc.account_id, rc.weight, rc.enabled,
 			COALESCE(rc.source_model, '') AS model_name,
 			COALESCE(tr.model_pattern, '') AS route_pattern,
@@ -163,7 +163,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sites with global weight.
-	siteRows, err := queryRowsErr(h.db.DB, `
+	siteRows, err := queryRowsErr(h.db, `
 		SELECT id AS site_id, COALESCE(name, '') AS site_name, global_weight
 		FROM sites ORDER BY global_weight DESC, id ASC
 	`)
@@ -181,7 +181,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Downstream keys with weight (the per-key multiplier).
-	keyRows, err := queryRowsErr(h.db.DB, `
+	keyRows, err := queryRowsErr(h.db, `
 		SELECT id AS key_id, COALESCE(name, '') AS name, key_weight
 		FROM downstream_api_keys
 		ORDER BY COALESCE(key_weight, 1.0) DESC, id ASC
@@ -200,7 +200,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Observed model costs (30d) — the effective price evidence.
-	modelRows, err := queryRowsErr(h.db.DB, `
+	modelRows, err := queryRowsErr(h.db, `
 		SELECT model,
 			COALESCE(SUM(total_calls), 0) AS calls,
 			COALESCE(SUM(total_spend), 0) AS spend,

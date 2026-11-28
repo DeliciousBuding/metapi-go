@@ -337,7 +337,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 
 			// Site availability over last 24h from proxy_logs join path.
 			since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-			rows, err := queryRowsErr(h.db.DB, `
+			rows, err := queryRowsErr(h.db, `
 			SELECT
 				s.id AS site_id,
 				s.name AS site_name,

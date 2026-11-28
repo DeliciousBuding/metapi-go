@@ -15,13 +15,13 @@ func setupTagsTest(t *testing.T, db *store.DB) (chi.Router, int64, int64) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	siteID, err := execInsertID(db.DB, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+	siteID, err := execInsertID(db, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, ?)`, "TagSite", "https://tags.example.test", "openai", now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
 
-	accountID, err := execInsertID(db.DB, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
+	accountID, err := execInsertID(db, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "tag-user", "sess", "sk-tag", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)

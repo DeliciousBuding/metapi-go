@@ -26,7 +26,7 @@ func setupCredsTest(t *testing.T) (*store.DB, chi.Router) {
 		t.Fatalf("migrate: %v", err)
 	}
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{})
 	RegisterSearchRoutes(r, db)
 	return db, r
 }

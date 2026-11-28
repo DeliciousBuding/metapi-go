@@ -52,7 +52,7 @@ func (h *modelRedirectHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	q += " ORDER BY mr.updated_at DESC, mr.id DESC"
 
-	rows, err := queryRowsErr(h.db.DB, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list model redirects")
 		return
@@ -170,7 +170,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		models := body.Models
 		if len(models) == 0 {
 			// Deterministic order: insertion order ≈ upstream return order.
-			rows, err := queryRowsErr(h.db.DB, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
+			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
 			if err != nil {
 				writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load account models")
 				return

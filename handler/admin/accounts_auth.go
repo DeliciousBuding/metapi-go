@@ -161,7 +161,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// model and was the user-visible #1179 failure. The refresh is reported
 	// honestly but remains partial initialization: the verified account and its
 	// synced relay keys stay saved when a particular upstream cannot list models.
-	modelRefresh := accountModelRefresher(r.Context(), h.db.DB, loginAcct.ID, false)
+	modelRefresh := accountModelRefresher(r.Context(), h.db, loginAcct.ID, false)
 
 	routing.InvalidateCache()
 	globalAccountsCache.clear()

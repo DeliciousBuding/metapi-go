@@ -7,145 +7,23 @@
 // OAuth flow in a new tab. Row actions: view details (opens the read-only
 // detail sheet), refresh quota, rebind (re-run the OAuth flow), delete.
 // Mobile cards are handled by `DataTablePage` via the column `meta` flags.
-//
-// Pagination is SERVER-side (manualPagination): the connections query
-// fetches one limit/offset page at a time and the pager reflects the
-// backend's real total — the old client-side mode fetched limit:1000 and
-// silently truncated larger fleets. The backend has no server-side
-// q/status/sort params, so the toolbar search + status filter remain
-// client-side over the fetched page and column sorting is disabled (a
-// sortable header would promise cross-page sorting the backend cannot
-// honour). Deep links keep parsing `sort` tolerantly for old URLs.
 
-import { KeyRound, Plus as PlusIcon, RefreshCw } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PageHeader } from '@/components/common/page-header'
-import { QuietRefreshStatus } from '@/components/common/quiet-refresh-status'
-import {
-  DataTablePage,
-  encodeSorting,
-  useDataTable,
-  useUrlTableState,
-  type UrlTableState,
-  type UrlTableStateUpdate,
-} from '@/components/data-table'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Spinner } from '@/components/ui/spinner'
-import { useDelayedSpin } from '@/hooks/use-quiet-refresh'
-import { toBcp47 } from '@/i18n/languages'
-import { formatInt } from '@/lib/format'
-import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import {
-  useDeleteOAuthConnection,
   useOAuthConnections,
   useRebindOAuthConnection,
   useRefreshOAuthQuota,
 } from '../api'
 import { resolveOAuthConnectionLabel } from '../lib/oauth-connection-label'
-import { resolveOAuthQuotaAvailability } from '../lib/oauth-quota'
-import { oauthSearchSchema } from '../lib/oauth-schema'
 import type { OAuthClient } from '../types'
-import { OAUTH_STATUS_FILTER_OPTIONS, useOAuthColumns } from './oauth-columns'
-import { OAuthDetailSheet } from './oauth-detail-sheet'
-import { OAuthStartDialog } from './oauth-start-dialog'
-
-const OAUTH_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:oauth:column-visibility'
-const OAUTH_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:oauth:column-sizing'
-
-type OAuthUrlFilters = { status: string | undefined }
-
-function readSearch(searchString?: string): UrlTableState<OAuthUrlFilters> {
-  if (typeof window === 'undefined') {
-    return {
-      q: '',
-      pageIndex: 0,
-      pageSize: 20,
-      sorting: [],
-      filters: { status: undefined },
-    }
-  }
-  const params = new URLSearchParams(searchString ?? window.location.search)
-  const parsed = oauthSearchSchema.safeParse({
-    q: params.get('q') ?? undefined,
-    page: params.get('page') ?? undefined,
-    pageSize: params.get('pageSize') ?? undefined,
-    sort: params.get('sort') ?? undefined,
-    status: params.get('status') ?? undefined,
-  })
-  if (!parsed.success) {
-    return {
-      q: '',
-      pageIndex: 0,
-      pageSize: 20,
-      sorting: [],
-      filters: { status: undefined },
-    }
-  }
-  const data = parsed.data
-  return {
-    q: asStringParam(data.q) ?? '',
-    pageIndex: data.page ?? 0,
-    pageSize: data.pageSize ?? 20,
-    sorting: parseSortingParam(data.sort),
-    filters: { status: asStringParam(data.status) },
-  }
-}
-
-function buildHref(next: UrlTableStateUpdate<OAuthUrlFilters>): string {
-  const current = readSearch()
-  const merged: UrlTableState<OAuthUrlFilters> = {
-    ...current,
-    ...next,
-    filters: { ...current.filters, ...next.filters },
-  }
-  const params = new URLSearchParams()
-  if (merged.q) params.set('q', merged.q)
-  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
-  if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
-  const sortString = encodeSorting(merged.sorting)
-  if (sortString) params.set('sort', sortString)
-  if (merged.filters.status) params.set('status', merged.filters.status)
-  const queryString = params.toString()
-  return queryString ? `/oauth?${queryString}` : '/oauth'
-}
-
-/**
- * The "feature useSearch" stage. Reads the URL on every render (cheap) and
- * hands the data-table controlled state + navigation-backed setters. The
- * shared {@link useUrlTableState} owns the router subscription and the
- * URL-sync guard.
- */
-function useOAuthUrlState() {
-  return useUrlTableState<OAuthUrlFilters>({
-    basePath: '/oauth',
-    read: readSearch,
-    buildHref,
-    toColumnFilters: (filters) =>
-      filters.status ? [{ id: 'status', value: filters.status }] : [],
-    fromColumnFilters: (filters) => {
-      const statusEntry = filters.find((filter) => filter.id === 'status')
-      return {
-        filters: {
-          status: Array.isArray(statusEntry?.value)
-            ? (statusEntry.value as string[])[0]
-            : (statusEntry?.value as string | undefined),
-        },
-      }
-    },
-  })
-}
+import { OAuthConnectionsTable } from './oauth-connections-table'
+import { OAuthPageDialogs, useOAuthDialogs } from './oauth-page-dialogs'
+import { OAuthPageHeader } from './oauth-page-header'
+import { useOAuthUrlState } from './use-oauth-url-state'
 
 /**
  * Pick the account id of whichever mutation (refresh-quota or rebind) is
@@ -164,46 +42,19 @@ function resolvePendingAccountId(
 }
 
 export function OAuthPage() {
-  const { t, i18n } = useTranslation()
-  const locale = toBcp47(i18n.language || 'en')
+  const { t } = useTranslation()
   const urlState = useOAuthUrlState()
   const connectionsQuery = useOAuthConnections({
     page: urlState.pagination.pageIndex,
     pageSize: urlState.pagination.pageSize,
   })
-  const showRefreshSpin = useDelayedSpin(connectionsQuery.isFetching)
   const rawConnections = connectionsQuery.data?.items
   const connections = useMemo(() => rawConnections ?? [], [rawConnections])
   const connectionsTotal = connectionsQuery.data?.total ?? 0
-  const pageStats = useMemo(() => {
-    let healthy = 0
-    let abnormal = 0
-    let quotaTracked = 0
-    for (const item of connections) {
-      if (item.status === 'abnormal') abnormal += 1
-      else healthy += 1
-      if (resolveOAuthQuotaAvailability(item.quota) === 'reported') {
-        quotaTracked += 1
-      }
-    }
-    return { healthy, abnormal, quotaTracked }
-  }, [connections])
-  const deleteConnection = useDeleteOAuthConnection()
   const refreshQuota = useRefreshOAuthQuota()
   const rebindConnection = useRebindOAuthConnection()
 
-  const [startOpen, setStartOpen] = useState(false)
-  const [deletingClient, setDeletingClient] = useState<OAuthClient | null>(null)
-  // The detail sheet tracks the account id rather than a row snapshot: the
-  // sheet's own refresh-quota action invalidates the connections query, and a
-  // frozen snapshot would keep showing the pre-refresh quota. Re-deriving
-  // from the current page makes the refreshed numbers appear in place.
-  const [detailAccountId, setDetailAccountId] = useState<number | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const detailConnection =
-    connections.find(
-      (connection) => connection.accountId === detailAccountId
-    ) ?? null
+  const dialogs = useOAuthDialogs(connections)
 
   // Derive the per-row pending account id from whichever mutation is in
   // flight. A single value is sufficient because BOTH row actions (refresh +
@@ -252,238 +103,40 @@ export function OAuthPage() {
     })
   }
 
-  const columns = useOAuthColumns(
-    {
-      onViewDetails: (client) => {
-        setDetailAccountId(client.accountId)
-        setDetailOpen(true)
-      },
-      onRefreshQuota: handleRefreshQuota,
-      onRebind: handleRebind,
-      onDelete: (client) => {
-        setDeletingClient(client)
-      },
-    },
-    pendingAccountId
-  )
-
-  const { table } = useDataTable<OAuthClient>({
-    data: connections,
-    columns,
-    manualPagination: true,
-    // The backend list endpoint has no sort param; keep headers static
-    // instead of offering sorting that cannot work across server pages.
-    manualSorting: true,
-    // Server-paged data changes on every page fetch; TanStack's auto page
-    // reset would snap deep-linked pages back to the first one.
-    autoResetPageIndex: false,
-    totalCount: connectionsTotal,
-    enableRowSelection: false,
-    enableColumnResizing: true,
-    columnVisibilityStorageKey: OAUTH_COLUMN_VISIBILITY_STORAGE_KEY,
-    columnSizingStorageKey: OAUTH_COLUMN_SIZING_STORAGE_KEY,
-    globalFilter: urlState.globalFilter,
-    onGlobalFilterChange: urlState.onGlobalFilterChange,
-    pagination: urlState.pagination,
-    onPaginationChange: urlState.onPaginationChange,
-    columnFilters: urlState.columnFilters,
-    onColumnFiltersChange: urlState.onColumnFiltersChange,
-    ensurePageInRange: urlState.ensurePageInRange,
-    getRowId: (row) => String(row.accountId),
-  })
-
-  function handleStart() {
-    setStartOpen(true)
-  }
-
-  async function confirmDelete() {
-    if (!deletingClient) return
-    const client = deletingClient
-    try {
-      await deleteConnection.mutateAsync(client.accountId)
-      toast.success(t('oauth.toast.deleted', { id: client.accountId }))
-    } catch {
-      // http-client toasted
-    } finally {
-      setDeletingClient(null)
-    }
-  }
-
-  const statusFilters = OAUTH_STATUS_FILTER_OPTIONS.map((option) => ({
-    label: t(option.label),
-    value: option.value,
-  }))
-
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
-      <PageHeader
-        title={t('oauth.page.title')}
-        description={t('oauth.page.description')}
-        actions={
-          <>
-            <QuietRefreshStatus
-              updatedAt={connectionsQuery.dataUpdatedAt ?? 0}
-              hasError={Boolean(connectionsQuery.error)}
-              className='hidden sm:inline'
-            />
-            <Button
-              type='button'
-              size='sm'
-              variant='outline'
-              disabled={connectionsQuery.isFetching}
-              onClick={() => void connectionsQuery.refetch?.()}
-            >
-              <RefreshCw
-                aria-hidden='true'
-                className={
-                  showRefreshSpin ? 'size-3.5 animate-spin' : 'size-3.5'
-                }
-              />
-              {t('oauth.toolbar.refresh')}
-            </Button>
-          </>
-        }
+      <OAuthPageHeader
+        connectionsQuery={connectionsQuery}
+        connections={connections}
+        connectionsTotal={connectionsTotal}
       />
-
-      {!connectionsQuery.error && connectionsTotal > 0 && (
-        <div
-          className='bg-muted/20 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border px-3 py-2'
-          data-testid='oauth-summary-strip'
-        >
-          <span className='inline-flex items-baseline gap-2 whitespace-nowrap'>
-            <span className='text-muted-foreground text-xs'>
-              {t('oauth.summary.total')}
-            </span>
-            <span className='text-foreground text-sm font-semibold tabular-nums'>
-              {formatInt(connectionsTotal, locale)}
-            </span>
-          </span>
-          <span className='inline-flex items-baseline gap-2 whitespace-nowrap'>
-            <span className='text-muted-foreground text-xs'>
-              {t('oauth.summary.healthy')}
-            </span>
-            <span className='text-success text-sm font-semibold tabular-nums'>
-              {formatInt(pageStats.healthy, locale)}
-            </span>
-          </span>
-          {pageStats.abnormal > 0 && (
-            <span className='inline-flex items-baseline gap-2 whitespace-nowrap'>
-              <span className='text-muted-foreground text-xs'>
-                {t('oauth.summary.abnormal')}
-              </span>
-              <span className='text-destructive text-sm font-semibold tabular-nums'>
-                {formatInt(pageStats.abnormal, locale)}
-              </span>
-            </span>
-          )}
-          <span className='inline-flex items-baseline gap-2 whitespace-nowrap'>
-            <span className='text-muted-foreground text-xs'>
-              {t('oauth.summary.quotaTracked')}
-            </span>
-            <span className='text-foreground text-sm font-semibold tabular-nums'>
-              {formatInt(pageStats.quotaTracked, locale)}
-            </span>
-          </span>
-        </div>
-      )}
-
-      <DataTablePage
-        table={table}
-        isLoading={connectionsQuery.isLoading}
-        isFetching={connectionsQuery.isFetching}
-        error={connectionsQuery.error as Error | null}
-        errorMessageKey='oauth.page.loadError'
-        onErrorRetry={() => connectionsQuery.refetch()}
-        isErrorRetrying={connectionsQuery.isFetching}
-        errorPlacement='inline'
-        emptyIcon={<KeyRound className='size-6' />}
-        emptyTitle={t('oauth.empty.title')}
-        emptyDescription={t('oauth.empty.description')}
-        emptyAction={
-          <Button onClick={handleStart}>
-            <PlusIcon className='size-4' />
-            {t('oauth.empty.startAuth')}
-          </Button>
-        }
-        skeletonKeyPrefix='oauth-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('oauth.toolbar.searchPlaceholder'),
-          searchDebounceMs: 400,
-          filters: [
-            {
-              columnId: 'status',
-              title: t('oauth.columns.status'),
-              options: statusFilters,
-              singleSelect: true,
-            },
-          ],
-          preActions: (
-            <Button onClick={handleStart}>
-              <PlusIcon className='size-4' />
-              {t('oauth.toolbar.startAuth')}
-            </Button>
-          ),
+      <OAuthConnectionsTable
+        urlState={urlState}
+        connectionsQuery={connectionsQuery}
+        connections={connections}
+        connectionsTotal={connectionsTotal}
+        pendingAccountId={pendingAccountId}
+        handleStart={dialogs.openStart}
+        actions={{
+          onViewDetails: dialogs.openDetails,
+          onRefreshQuota: handleRefreshQuota,
+          onRebind: handleRebind,
+          onDelete: dialogs.setDeletingClient,
         }}
       />
-
-      <OAuthStartDialog open={startOpen} onOpenChange={setStartOpen} />
-
-      <OAuthDetailSheet
-        connection={detailConnection}
-        // A row that leaves the current page (deleted, or the operator paged
-        // away) closes its own sheet instead of leaving an empty panel open.
-        open={detailOpen && detailConnection !== null}
-        onOpenChange={(open) => {
-          setDetailOpen(open)
-          if (!open) setDetailAccountId(null)
-        }}
-        onRefreshQuota={handleRefreshQuota}
-        onRebind={handleRebind}
+      <OAuthPageDialogs
+        dialogs={dialogs}
+        handleRefreshQuota={handleRefreshQuota}
+        handleRebind={handleRebind}
         isRefreshingQuota={
           refreshQuota.isPending &&
-          refreshQuota.variables === detailConnection?.accountId
+          refreshQuota.variables === dialogs.detailConnection?.accountId
         }
         isRebinding={
           rebindConnection.isPending &&
-          rebindConnection.variables === detailConnection?.accountId
+          rebindConnection.variables === dialogs.detailConnection?.accountId
         }
       />
-
-      <Dialog
-        open={deletingClient !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeletingClient(null)
-        }}
-      >
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle>{t('oauth.delete.title')}</DialogTitle>
-            <DialogDescription>
-              {t('oauth.delete.description', {
-                provider: deletingClient?.provider ?? '',
-                id: deletingClient?.accountId ?? 0,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant='outline'
-              onClick={() => setDeletingClient(null)}
-              disabled={deleteConnection.isPending}
-            >
-              {t('oauth.delete.cancel')}
-            </Button>
-            <Button
-              variant='destructive'
-              onClick={confirmDelete}
-              disabled={deleteConnection.isPending}
-            >
-              {deleteConnection.isPending && <Spinner />}
-              {t('oauth.delete.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -22,8 +22,8 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 
 	channelRows, err := queryRowsErr(h.db,
 		`SELECT rc.*, a.username, `+
-			store.CredentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
-			store.CredentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
+			store.CredentialFragmentsSelect(h.db.DB, "a.access_token", "access_token")+`, `+
+			store.CredentialFragmentsSelect(h.db.DB, "a.api_token", "api_token")+`,
 		        a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status,
 		        t.name as token_name, t.enabled as token_enabled, t.is_default as token_is_default
@@ -108,10 +108,10 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 	// Check for duplicates
 	var dupCount int
 	if err := h.db.Get(&dupCount,
-		h.db.Rebind(`SELECT COUNT(*) FROM route_channels
+		`SELECT COUNT(*) FROM route_channels
 		 WHERE route_id = ? AND account_id = ?
 		 AND (token_id = ? OR (token_id IS NULL AND CAST(? AS BIGINT) IS NULL))
-		 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`),
+		 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`,
 		routeID, body.AccountID, body.TokenID, body.TokenID, body.SourceModel, body.SourceModel); err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to check existing channel")
 		return
@@ -177,10 +177,10 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 		}
 		var dupCount int
 		if err := h.db.Get(&dupCount,
-			h.db.Rebind(`SELECT COUNT(*) FROM route_channels
+			`SELECT COUNT(*) FROM route_channels
 			 WHERE route_id = ? AND account_id = ?
 			 AND (token_id = ? OR (token_id IS NULL AND CAST(? AS BIGINT) IS NULL))
-			 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`),
+			 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`,
 			routeID, ch.AccountID, ch.TokenID, ch.TokenID, ch.SourceModel, ch.SourceModel); err != nil {
 			errors = append(errors, "failed to check existing channel")
 			continue
@@ -191,7 +191,7 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 		}
 
 		_, err := h.db.Exec(
-			h.db.Rebind("INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"),
+			"INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 			routeID, ch.AccountID, ch.TokenID, ch.SourceModel, 0, 10, true, true,
 		)
 		if err != nil {
@@ -222,7 +222,7 @@ func (h *tokenRoutesHandler) validateChannelToken(accountID int64, tokenID *int6
 		return "tokenId must be a positive integer", nil
 	}
 	var ownerID int64
-	err := h.db.Get(&ownerID, h.db.Rebind("SELECT account_id FROM account_tokens WHERE id = ?"), *tokenID)
+	err := h.db.Get(&ownerID, "SELECT account_id FROM account_tokens WHERE id = ?", *tokenID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "account token not found", nil
 	}
@@ -247,7 +247,7 @@ func (h *tokenRoutesHandler) clearChannelCooldown(w http.ResponseWriter, r *http
 		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeChannelNotFound, "channel not found")
 		return
 	}
-	res, err := h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE id = ?`), channelID)
+	res, err := h.db.Exec(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE id = ?`, channelID)
 	if err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to clear channel cooldown: "+err.Error())
 		return
@@ -268,7 +268,7 @@ func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, err := h.db.ExecContext(r.Context(), h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE route_id = ?`), routeID)
+	_, err := h.db.ExecContext(r.Context(), `UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE route_id = ?`, routeID)
 	if err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to clear route cooldown: "+err.Error())
 		return
@@ -356,7 +356,7 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 		args = append(args, true)
 		args = append(args, update.ID)
 
-		res, err := h.db.Exec(h.db.Rebind("UPDATE route_channels SET "+strings.Join(sets, ", ")+" WHERE id = ?"), args...)
+		res, err := h.db.Exec("UPDATE route_channels SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
 		if err != nil {
 			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": err.Error()})
 			continue
@@ -443,9 +443,9 @@ func (h *tokenRoutesHandler) reorderRoutes(w http.ResponseWriter, r *http.Reques
 		}
 		seen[item.ID] = true
 
-		res, err := h.db.Exec(h.db.Rebind(`
+		res, err := h.db.Exec(`
 			UPDATE token_routes SET sort_order = ?, updated_at = ? WHERE id = ?
-		`), item.SortOrder, now, item.ID)
+		`, item.SortOrder, now, item.ID)
 		if err != nil {
 			failedItems = append(failedItems, map[string]any{"id": item.ID, "message": err.Error()})
 			continue
@@ -482,13 +482,13 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 	// Any intentional channel edit marks manual_override so rebuild cannot
 	// wipe operator-tuned priority/weight/enabled/sourceModel.
 	if v, ok := body["priority"]; ok {
-		h.db.Exec(h.db.Rebind("UPDATE route_channels SET priority = ?, manual_override = ? WHERE id = ?"), coerceFloat(v), true, channelID)
+		h.db.Exec("UPDATE route_channels SET priority = ?, manual_override = ? WHERE id = ?", coerceFloat(v), true, channelID)
 	}
 	if v, ok := body["weight"]; ok {
-		h.db.Exec(h.db.Rebind("UPDATE route_channels SET weight = ?, manual_override = ? WHERE id = ?"), coerceFloat(v), true, channelID)
+		h.db.Exec("UPDATE route_channels SET weight = ?, manual_override = ? WHERE id = ?", coerceFloat(v), true, channelID)
 	}
 	if v, ok := body["enabled"]; ok {
-		h.db.Exec(h.db.Rebind("UPDATE route_channels SET enabled = ?, manual_override = ? WHERE id = ?"), toBool(v), true, channelID)
+		h.db.Exec("UPDATE route_channels SET enabled = ?, manual_override = ? WHERE id = ?", toBool(v), true, channelID)
 	}
 	if v, ok := body["sourceModel"]; ok {
 		var sourceModel any
@@ -505,7 +505,7 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 		default:
 			sourceModel = fmt.Sprint(v)
 		}
-		h.db.Exec(h.db.Rebind("UPDATE route_channels SET source_model = ?, manual_override = ? WHERE id = ?"), sourceModel, true, channelID)
+		h.db.Exec("UPDATE route_channels SET source_model = ?, manual_override = ? WHERE id = ?", sourceModel, true, channelID)
 	}
 
 	routing.InvalidateCache()
@@ -532,7 +532,7 @@ func (h *tokenRoutesHandler) deleteChannel(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.db.Exec(h.db.Rebind("DELETE FROM route_channels WHERE id = ?"), channelID)
+	h.db.Exec("DELETE FROM route_channels WHERE id = ?", channelID)
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})

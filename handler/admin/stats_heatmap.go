@@ -24,7 +24,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	if dimension == "site" {
 		// Prefer projected hour aggregates (cheap, already limited by projector).
-		rows, err := queryRowsErr(h.db.DB, `
+		rows, err := queryRowsErr(h.db, `
 			SELECT
 				u.bucket_start_utc AS bucket,
 				CAST(u.site_id AS TEXT) AS key,
@@ -48,7 +48,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Fallback: bounded live aggregate from proxy_logs when projection is empty.
 			hourExpr := hourBucketSQLExpr(h.db, "pl.created_at")
-			rows, err = queryRowsErr(h.db.DB, `
+			rows, err = queryRowsErr(h.db, `
 				SELECT
 					`+hourExpr+` AS bucket,
 					CAST(s.id AS TEXT) AS key,
@@ -74,7 +74,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 		// Model density: no model_hour_usage table; aggregate proxy_logs with LIMIT.
 		hourExpr := hourBucketSQLExpr(h.db, "pl.created_at")
 		modelExpr := `COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), 'unknown')`
-		rows, err := queryRowsErr(h.db.DB, `
+		rows, err := queryRowsErr(h.db, `
 			SELECT
 				`+hourExpr+` AS bucket,
 				`+modelExpr+` AS key,

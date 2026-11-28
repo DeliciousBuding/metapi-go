@@ -102,7 +102,7 @@ func TestConfiguredRoutesReachUpstreamThroughRealRouter(t *testing.T) {
 				r.Use(auth.AdminAuth(nil))
 				admin.RegisterSitesRoutes(r, db)
 				admin.RegisterAccountsRoutes(r, db, cfg)
-				admin.RegisterTokenRoutesWithDeps(r, db.DB, admin.TokenRoutesDeps{})
+				admin.RegisterTokenRoutesWithDeps(r, db, admin.TokenRoutesDeps{})
 				admin.RegisterSettingsRoutes(r, db, cfg)
 			})
 			r.Route("/v1", func(r chi.Router) { r.Use(auth.ProxyAuth(db)); proxyhandler.RegisterProxyRoutes(r) })

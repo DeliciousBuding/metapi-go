@@ -98,7 +98,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY rc.id ASC LIMIT ?`
 	args = append(args, limit)
 
-	rows, err := queryRowsErr(h.db.DB, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification targets")
 		return
@@ -199,7 +199,7 @@ func (h *statsHandler) verifyHistory(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY v.created_at DESC, v.id DESC LIMIT ?`
 	args = append(args, limit)
 
-	rows, err := queryRowsErr(h.db.DB, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification history")
 		return

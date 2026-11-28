@@ -185,7 +185,7 @@ func (h *statsHandler) gatewayRequestDetail(w http.ResponseWriter, r *http.Reque
 		h.gatewayRequestLoadError(w, r, err)
 		return
 	}
-	attempts, err := queryRowsErr(h.db.DB, `SELECT pl.*, a.username, s.id AS site_id,s.name AS site_name,
+	attempts, err := queryRowsErr(h.db, `SELECT pl.*, a.username, s.id AS site_id,s.name AS site_name,
 		dk.name AS downstream_key_name FROM proxy_logs pl
 		LEFT JOIN accounts a ON a.id = pl.account_id LEFT JOIN sites s ON s.id = a.site_id
 		LEFT JOIN downstream_api_keys dk ON dk.id = pl.downstream_api_key_id
@@ -232,7 +232,7 @@ func (h *statsHandler) gatewayRequestOverview(period string, from, to time.Time)
 	if period == "24h" {
 		bucket = hourBucketSQLExpr(h.db, "gr.started_at")
 	}
-	points, err := queryRowsErr(h.db.DB, `SELECT `+bucket+` AS date, `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where+` GROUP BY `+bucket+` ORDER BY date`, args...)
+	points, err := queryRowsErr(h.db, `SELECT `+bucket+` AS date, `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where+` GROUP BY `+bucket+` ORDER BY date`, args...)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -42,7 +42,7 @@ func (h *downstreamKeysHandler) summary(w http.ResponseWriter, r *http.Request) 
 	}
 	query += " ORDER BY id DESC"
 
-	rows, err := queryRowsErr(h.db.DB, query, args...)
+	rows, err := queryRowsErr(h.db, query, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load downstream keys")
 		return
@@ -97,7 +97,7 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 		page = config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
 		pageSize = config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
-		rows, queryErr = queryRowsErr(h.db.DB,
+		rows, queryErr = queryRowsErr(h.db,
 			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?",
 			pageSize, offset)
 		if queryErr != nil {
@@ -109,7 +109,7 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	} else {
-		rows, queryErr = queryRowsErr(h.db.DB, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
+		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
 		if queryErr != nil {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load downstream keys")
 			return
@@ -239,7 +239,7 @@ func (h *downstreamKeysHandler) enrichKeyUsage24h(rows []map[string]any) {
 		return
 	}
 	since := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-	aggRows, err := queryRowsErr(h.db.DB, `
+	aggRows, err := queryRowsErr(h.db, `
 		SELECT
 			pl.downstream_api_key_id AS key_id,
 			COUNT(*) AS requests,

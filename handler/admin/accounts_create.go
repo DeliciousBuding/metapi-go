@@ -222,7 +222,7 @@ func (h *accountsHandler) refreshModelsAfterAccountCreate(ctx context.Context, b
 	if body.SkipModelFetch != nil && *body.SkipModelFetch {
 		return 0, map[string]any{"success": true, "skipped": true, "reason": "skipModelFetch"}
 	}
-	result := accountModelRefresher(ctx, h.db.DB, accountID, false)
+	result := accountModelRefresher(ctx, h.db, accountID, false)
 	count := 0
 	if success, _ := result["success"].(bool); success {
 		if refresh, ok := result["refresh"].(map[string]any); ok {

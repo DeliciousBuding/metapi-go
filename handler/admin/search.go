@@ -100,7 +100,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	// Search sites. Each query surfaces its error so a DB failure yields an
 	// explicit HTTP 500 instead of an empty 200 (silent swallows from the old
 	// queryRows helper masked real outages as "no results").
-	sites, err := queryRowsErr(h.db.DB, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE LOWER(name) LIKE ? OR LOWER(url) LIKE ? OR LOWER(platform) LIKE ? LIMIT ?",
+	sites, err := queryRowsErr(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE LOWER(name) LIKE ? OR LOWER(url) LIKE ? OR LOWER(platform) LIKE ? LIMIT ?",
 		likePattern, likePattern, likePattern, perCategory)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search query failed")
@@ -111,7 +111,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	// instead of a.* — the plaintext access_token/api_token never cross the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak them. The masked
 	// form is rebuilt in Go by redactSearchAccountSecrets().
-	accounts, err := queryRowsErr(h.db.DB,
+	accounts, err := queryRowsErr(h.db,
 		`SELECT `+accountPublicSelectColumns+`, `+
 			store.CredentialFragmentsSelect(h.db.DB, "a.access_token", "access_token")+`, `+
 			store.CredentialFragmentsSelect(h.db.DB, "a.api_token", "api_token")+`,
@@ -126,7 +126,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search account tokens. Same fragment pattern for at.token.
-	accountTokens, err := queryRowsErr(h.db.DB,
+	accountTokens, err := queryRowsErr(h.db,
 		`SELECT `+accountTokenPublicSelectColumns+`, `+
 			store.CredentialFragmentsSelect(h.db.DB, "at.token", "token")+`,
 			a.username as account_username, s.name as site_name
@@ -142,7 +142,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search checkin logs
-	checkinLogs, err := queryRowsErr(h.db.DB,
+	checkinLogs, err := queryRowsErr(h.db,
 		`SELECT cl.*, a.username as account_username
 		 FROM checkin_logs cl
 		 INNER JOIN accounts a ON cl.account_id = a.id
@@ -155,7 +155,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search proxy logs
-	proxyLogs, err := queryRowsErr(h.db.DB,
+	proxyLogs, err := queryRowsErr(h.db,
 		"SELECT * FROM proxy_logs WHERE LOWER(coalesce(model_requested,'')) LIKE ? ORDER BY created_at DESC LIMIT ?",
 		likePattern, perCategory)
 	if err != nil {
@@ -164,7 +164,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search models
-	modelRows, err := queryRowsErr(h.db.DB,
+	modelRows, err := queryRowsErr(h.db,
 		`SELECT DISTINCT tma.model_name, COUNT(DISTINCT at.id) as token_count,
 		        COUNT(DISTINCT a.id) as account_count, COUNT(DISTINCT s.id) as site_count
 		 FROM token_model_availability tma

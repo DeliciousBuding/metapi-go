@@ -9,7 +9,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // Shared admin handler helpers: secret masking, value coercers, coalesce,
@@ -142,19 +141,24 @@ func coalescePtr[T any](v *T, fallback T) T {
 
 // ---- DB row helpers (moved from search.go) ----
 
-func queryRowsErr(db *sqlx.DB, query string, args ...any) ([]map[string]any, error) {
-	rows, err := store.SelectMaps(db, query, args...)
-	for i, row := range rows {
-		rows[i] = mapKeysToCamel(row)
+func queryRowsErr(db *store.DB, query string, args ...any) ([]map[string]any, error) {
+	rows, err := db.Queryx(query, args...)
+	if err != nil {
+		return nil, err
 	}
-	return rows, err
-}
-
-func rebindAdminQuery(db *sqlx.DB, query string) string {
-	if db == nil {
-		return query
+	defer rows.Close()
+	var result []map[string]any
+	for rows.Next() {
+		row := make(map[string]any)
+		if err := rows.MapScan(row); err != nil {
+			return nil, err
+		}
+		result = append(result, mapKeysToCamel(row))
 	}
-	return db.Rebind(query)
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func normalizeSlice(rows []map[string]any) []map[string]any {

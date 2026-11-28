@@ -297,7 +297,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
 		qArgs = append(qArgs, limit, offset)
-		items, err := queryRowsErr(h.db.DB, query, qArgs...)
+		items, err := queryRowsErr(h.db, query, qArgs...)
 		if err != nil {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy logs")
 			return
@@ -353,7 +353,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			"totalTokensAll": summary.TotalTokensAll,
 		}
 
-		sites, err := queryRowsErr(h.db.DB, "SELECT id, name, status FROM sites")
+		sites, err := queryRowsErr(h.db, "SELECT id, name, status FROM sites")
 		if err != nil {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load sites")
 			return

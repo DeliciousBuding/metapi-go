@@ -21,17 +21,22 @@ func TestQueryRowErrorContract(t *testing.T) {
 		t.Run(fixture.name, func(t *testing.T) {
 			db, router := fixture.setup(t)
 			RegisterDownstreamKeysRoutes(router, db)
-			RegisterTokenRoutesWithDeps(router, db.DB, TokenRoutesDeps{})
+			RegisterTokenRoutesWithDeps(router, db, TokenRoutesDeps{})
 
-			row, err := queryRow(db.DB, "SELECT ? AS site_name, NULL AS optional_value", "example")
+			rows, err := queryRowsErr(db, "SELECT id AS route_id FROM token_routes WHERE id = ? UNION ALL SELECT CAST(? AS BIGINT) AS route_id", -1, 42)
+			if err != nil || len(rows) != 1 || coerceInt64(rows[0]["routeId"]) != 42 {
+				t.Fatalf("parameterized list projection: rows=%v err=%v", rows, err)
+			}
+
+			row, err := queryRow(db, "SELECT ? AS site_name, NULL AS optional_value", "example")
 			if err != nil || row["siteName"] != "example" || row["optionalValue"] != nil {
 				t.Fatalf("camelCase/null projection: row=%v err=%v", row, err)
 			}
-			row, err = queryRow(db.DB, "SELECT id FROM downstream_api_keys WHERE id = ?", -1)
+			row, err = queryRow(db, "SELECT id FROM downstream_api_keys WHERE id = ?", -1)
 			if err != nil || row != nil {
 				t.Fatalf("missing record: row=%v err=%v", row, err)
 			}
-			if _, err := queryRow(db.DB, "SELECT * FROM missing_query_row_fixture"); err == nil {
+			if _, err := queryRow(db, "SELECT * FROM missing_query_row_fixture"); err == nil {
 				t.Fatal("invalid SQL must not look like a missing record")
 			}
 
@@ -63,7 +68,7 @@ func TestQueryRowErrorContract(t *testing.T) {
 			if err := db.Close(); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := queryRow(db.DB, "SELECT 1"); err == nil {
+			if _, err := queryRow(db, "SELECT 1"); err == nil {
 				t.Fatal("closed database must return an error")
 			}
 			for _, request := range requests {

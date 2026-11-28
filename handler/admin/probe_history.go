@@ -60,7 +60,7 @@ func writeProbeHistoryResponse(w http.ResponseWriter, groupKey string, limit int
 // domain; auth is the shared admin Bearer middleware on the router.
 func (h *tokenRoutesHandler) channelProbeHistory(w http.ResponseWriter, r *http.Request) {
 	limit, _ := parseLimitOffset(r, probeHistoryDefaultLimit, probeHistoryMaxLimit)
-	rows, err := store.RecentProbeHistory(h.db, "channel_id", limit)
+	rows, err := store.RecentProbeHistory(h.db.DB, "channel_id", limit)
 	writeProbeHistoryResponse(w, "channelId", limit, rows, err)
 }
 

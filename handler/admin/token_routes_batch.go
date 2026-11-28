@@ -35,7 +35,7 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 	now := time.Now().UTC().Format(time.RFC3339)
 	updated := 0
 	for _, id := range body.IDs {
-		res, err := h.db.Exec(h.db.Rebind("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?"), enabled, now, id)
+		res, err := h.db.Exec("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?", enabled, now, id)
 		if err == nil {
 			n, _ := res.RowsAffected()
 			updated += int(n)

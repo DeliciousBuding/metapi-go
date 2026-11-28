@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RouteDecisionExplainer is the router surface used by decision admin APIs.
@@ -28,7 +28,7 @@ type TokenRoutesDeps struct {
 }
 
 // RegisterTokenRoutesWithDeps registers routes with optional decision engine deps.
-func RegisterTokenRoutesWithDeps(r chi.Router, db *sqlx.DB, deps TokenRoutesDeps) {
+func RegisterTokenRoutesWithDeps(r chi.Router, db *store.DB, deps TokenRoutesDeps) {
 	handler := &tokenRoutesHandler{db: db, router: deps.Router, decisions: deps.Decisions}
 
 	// Route list
@@ -69,19 +69,19 @@ func RegisterTokenRoutesWithDeps(r chi.Router, db *sqlx.DB, deps TokenRoutesDeps
 }
 
 type tokenRoutesHandler struct {
-	db        *sqlx.DB
+	db        *store.DB
 	router    RouteDecisionExplainer
 	decisions RouteDecisionRefresher
 }
 
-func execInsertID(db *sqlx.DB, query string, args ...any) (int64, error) {
-	if db.DriverName() == "pgx" {
+func execInsertID(db *store.DB, query string, args ...any) (int64, error) {
+	if db.Dialect == store.DialectPostgres {
 		var id int64
-		err := db.QueryRowx(db.Rebind(query+" RETURNING id"), args...).Scan(&id)
+		err := db.QueryRowx(query+" RETURNING id", args...).Scan(&id)
 		return id, err
 	}
 
-	result, err := db.Exec(db.Rebind(query), args...)
+	result, err := db.Exec(query, args...)
 	if err != nil {
 		return 0, err
 	}

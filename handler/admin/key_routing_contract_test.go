@@ -19,7 +19,7 @@ func TestKeyRoutingAdminAndPortableBackup(t *testing.T) {
 			db := catalogTestDB(t, dialect, ":memory:")
 			router := chi.NewRouter()
 			RegisterDownstreamKeysRoutes(router, db)
-			RegisterTokenRoutesWithDeps(router, db.DB, TokenRoutesDeps{})
+			RegisterTokenRoutesWithDeps(router, db, TokenRoutesDeps{})
 			body := `{"name":"routing-key","key":"sk-fixture","supportedModels":["*"],"accessPolicy":{"routingStrategy":"least_busy","traceStickyMode":"prefer_previous_channel"}}`
 			out := catalogRequest(router, http.MethodPost, "/api/downstream-keys", body)
 			if out.Code != 201 && out.Code != 200 {

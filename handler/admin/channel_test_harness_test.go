@@ -47,26 +47,26 @@ func insertHarnessFixtures(t *testing.T, db *store.DB) (siteID, accountID, route
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	var err error
-	siteID, err = execInsertID(db.DB, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+	siteID, err = execInsertID(db, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, ?)`, "HarnessSite", "https://upstream.example.test", "openai", now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
 
 	apiTok := "sk-harness-api-token-xyz"
-	accountID, err = execInsertID(db.DB, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
+	accountID, err = execInsertID(db, `INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 
-	routeID, err = execInsertID(db.DB, `INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
+	routeID, err = execInsertID(db, `INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
 		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "gpt-*", "Harness Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
 
-	channelID, err = execInsertID(db.DB, `INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
+	channelID, err = execInsertID(db, `INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
 		VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
@@ -515,7 +515,7 @@ func TestChannelProbeOAuthUnit(t *testing.T) {
 		site, account, _, channel := insertHarnessFixtures(t, db)
 		insert := func(query string, args ...any) int64 {
 			t.Helper()
-			id, err := execInsertID(db.DB, query, args...)
+			id, err := execInsertID(db, query, args...)
 			if err != nil {
 				t.Fatal(err)
 			}

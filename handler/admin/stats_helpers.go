@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // Stats handler helper functions extracted from stats.go for readability.
@@ -26,13 +28,9 @@ func parseTruthyQuery(v string) bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-// Both store-backed handlers and legacy route handlers use the same row projection.
-func queryRow[R interface{ MapScan(map[string]any) error }](db interface {
-	Rebind(string) string
-	QueryRowx(string, ...any) R
-}, query string, args ...any) (map[string]any, error) {
+func queryRow(db *store.DB, query string, args ...any) (map[string]any, error) {
 	row := make(map[string]any)
-	err := db.QueryRowx(db.Rebind(query), args...).MapScan(row)
+	err := db.QueryRowx(query, args...).MapScan(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
