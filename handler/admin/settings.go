@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -16,8 +17,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // sensitiveRuntimeFieldPresent reports whether a runtime-settings patch
@@ -55,7 +56,7 @@ func sensitiveRuntimeFieldPresent(body map[string]any) bool {
 }
 
 // RegisterSettingsRoutes registers all /api/settings routes (runtime, brand-list, system-proxy/test).
-func RegisterSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterSettingsRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &settingsHandler{db: db, cfg: cfg}
 
 	r.Get("/api/settings/runtime", handler.getRuntime)
@@ -67,7 +68,7 @@ func RegisterSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 }
 
 type settingsHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 }
 
@@ -424,7 +425,7 @@ func toBoolStrict(v any) (bool, error) {
 	return false, fmt.Errorf("expected a boolean (true/false), got %T", v)
 }
 
-func applyBoolSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey string, set func(*config.RuntimeSettings, bool)) error {
+func applyBoolSettingDB(db *store.DB, body map[string]any, key string, dbKey string, set func(*config.RuntimeSettings, bool)) error {
 	if v, ok := body[key]; ok {
 		val, err := toBoolStrict(v)
 		if err != nil {
@@ -438,7 +439,12 @@ func applyBoolSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey stri
 	return nil
 }
 
-func upsertSettingDB(db sqlx.Ext, key string, value any) error {
+type settingExecer interface {
+	Rebind(string) string
+	Exec(string, ...any) (sql.Result, error)
+}
+
+func upsertSettingDB(db settingExecer, key string, value any) error {
 	// Normalize nil string slices to empty arrays so we never persist JSON null
 	// for list settings (null historically rehydrated as a wiped allowlist).
 	if value == nil {
@@ -494,11 +500,11 @@ func stringSliceOrEmpty(in []string) []string {
 	return in
 }
 
-func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
+func logSettingsEvent(db *store.DB, eventType, title, message, level, createdAt string) {
 	// read is a BOOLEAN column on PostgreSQL: bind FALSE, not the integer
 	// literal 0 (PG rejects integer literals for booleans).
-	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'settings', ?, FALSE)`)
+	const query = `INSERT INTO events (type, title, message, level, related_type, created_at, "read")
+		VALUES (?, ?, ?, ?, 'settings', ?, FALSE)`
 	if _, err := db.Exec(query, eventType, title, message, level, createdAt); err != nil {
 		slog.Warn("settings: failed to log settings event", "type", eventType, "error", err)
 	}

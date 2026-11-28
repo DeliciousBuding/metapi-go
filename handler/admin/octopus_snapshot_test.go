@@ -16,7 +16,7 @@ func TestOctopusReplacementRequiresReviewedRemovalConfirmation(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := chi.NewRouter()
-	RegisterBackupRoutes(mux, db.DB)
+	RegisterBackupRoutes(mux, db)
 	snapshot, err := backupsvc.ParseOctopusV5([]byte(backupsvcFixtureV5))
 	if err != nil {
 		t.Fatal(err)

@@ -63,7 +63,7 @@ func TestDownstreamAccessPolicyAdminAndBackupRoundtrip(t *testing.T) {
 			if _, err := db.Exec(`DELETE FROM downstream_api_keys WHERE id=?`, id); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := importBackupTables(db.DB, tables, true); err != nil {
+			if _, err := importBackupTables(db, tables, true); err != nil {
 				t.Fatal(err)
 			}
 			_ = db.Get(&after, db.Rebind(`SELECT access_policy FROM downstream_api_keys WHERE id=?`), id)
@@ -75,7 +75,7 @@ func TestDownstreamAccessPolicyAdminAndBackupRoundtrip(t *testing.T) {
 			if count != 1 {
 				t.Fatal("restore lost quota usage")
 			}
-			preview, err := previewBackupImportTables(db.DB, tables)
+			preview, err := previewBackupImportTables(db, tables)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -249,7 +249,7 @@ func queryExistingDownstreamKeysOnConn(conn backupImportConn, keys []string) map
 		}
 		query := fmt.Sprintf(`SELECT "key" FROM "downstream_api_keys" WHERE "key" IN (%s)`,
 			strings.Join(placeholders, ","))
-		rows, err := conn.Queryx(query, args...)
+		rows, err := conn.Query(query, args...)
 		if err != nil {
 			// Best-effort reporting: a read failure degrades to "no existing
 			// keys known" rather than blocking the import itself.
@@ -395,7 +395,7 @@ func tableColumns(conn backupImportConn, table string) (map[string]bool, map[str
 	}
 
 	query := fmt.Sprintf("SELECT * FROM %s LIMIT 0", quoteIdentifier(table))
-	rows, err := conn.Queryx(query)
+	rows, err := conn.Query(query)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read table columns: %w", err)
 	}

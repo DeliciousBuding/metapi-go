@@ -8,7 +8,7 @@ import (
 
 // GET /api/settings/migration/preview
 func (h *settingsHandler) previewSettingsMigration(w http.ResponseWriter, r *http.Request) {
-	plan, err := settingsmigration.BuildPlan(h.db)
+	plan, err := settingsmigration.BuildPlan(h.db.DB)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate settings migration preview")
 		return
@@ -26,7 +26,7 @@ func (h *settingsHandler) previewSettingsMigration(w http.ResponseWriter, r *htt
 
 // POST /api/settings/migration/apply
 func (h *settingsHandler) applySettingsMigration(w http.ResponseWriter, r *http.Request) {
-	result, err := settingsmigration.Apply(h.db)
+	result, err := settingsmigration.Apply(h.db.DB)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to run settings migration")
 		return

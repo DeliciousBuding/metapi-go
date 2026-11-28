@@ -9,7 +9,7 @@ import (
 
 func TestAxonHubRateLimitMalformedHTTP(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 	// The same malformed field must fail in preview and commit without echoing
 	// the field value or partially persisting any of the otherwise valid graph.
 	payload := strings.Replace(backupFixtureAxonHubV14, `"id":11,`, `"settings":{"rateLimit":{"rpm":"fixture-private-rate-limit"}},"id":11,`, 1)

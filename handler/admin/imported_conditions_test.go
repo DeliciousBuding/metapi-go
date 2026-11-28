@@ -95,7 +95,7 @@ func TestImportedConditionManagementPreservesPredicates(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := importBackupTables(db.DB, importBody, false); err != nil {
+			if _, err := importBackupTables(db, importBody, false); err != nil {
 				t.Fatal(err)
 			}
 			if err = db.Get(&after, `SELECT association_conditions FROM upstream_group_items`); err != nil || after != before {

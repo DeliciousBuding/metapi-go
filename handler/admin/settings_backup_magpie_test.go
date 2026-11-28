@@ -14,7 +14,7 @@ import (
 
 func TestMagpieBackupPreviewAndCommitRequireBodyPassphrase(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	passphrase := "fixture-magpie-passphrase"
 	envelope := adminSealMagpie(t, map[string]any{
 		"version": 2, "created": "2026-10-20T00:00:00Z", "app": "fixture", "keys": true,

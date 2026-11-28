@@ -143,7 +143,7 @@ func runBackupTableSetRoundTrip(t *testing.T, db *store.DB) {
 	t.Helper()
 	fx := seedBackupTableSetFixture(t, db)
 
-	payload, err := buildBackupPayload(db.DB, "all")
+	payload, err := buildBackupPayload(db, "all")
 	if err != nil {
 		t.Fatalf("buildBackupPayload: %v", err)
 	}
@@ -182,7 +182,7 @@ func runBackupTableSetRoundTrip(t *testing.T, db *store.DB) {
 		t.Fatalf("product_announcements still has %d rows after the wipe", n)
 	}
 
-	result, err := importBackupTables(db.DB, importBody, false)
+	result, err := importBackupTables(db, importBody, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestBackupExportCarriesTypedDirectProxyLogReferences(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO proxy_logs (upstream_channel_id, upstream_grant_id, model_requested, status, created_at) VALUES (?, ?, ?, ?, ?)`, 22, 33, "octopus-model", "success", time.Now().UTC().Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
-	payload, err := buildBackupPayload(db.DB, "all")
+	payload, err := buildBackupPayload(db, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestBackupTableSetRoundTripPostgres(t *testing.T) {
 // the historical 28-key set.
 func TestImportAcceptsBackupWithoutTheNewTables(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	legacy := map[string]any{"metadata": map[string]any{
 		"exported_at": "2026-01-01T00:00:00Z",
@@ -382,7 +382,7 @@ func TestImportUnknownTableKeyDependsOnProvenance(t *testing.T) {
 
 	t.Run("hand written payload is rejected", func(t *testing.T) {
 		db := setupBackupTestDB(t)
-		handler := &backupHandler{db: db.DB}
+		handler := &backupHandler{db: db}
 
 		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(handWritten))
 		rec := httptest.NewRecorder()
@@ -400,7 +400,7 @@ func TestImportUnknownTableKeyDependsOnProvenance(t *testing.T) {
 
 	t.Run("exported backup is accepted and reports the key", func(t *testing.T) {
 		db := setupBackupTestDB(t)
-		handler := &backupHandler{db: db.DB}
+		handler := &backupHandler{db: db}
 
 		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(fromExport))
 		rec := httptest.NewRecorder()
@@ -429,7 +429,7 @@ func TestImportRefusesBackupExcludedTables(t *testing.T) {
 	for table := range store.BackupExcludedTables() {
 		t.Run(table, func(t *testing.T) {
 			db := setupBackupTestDB(t)
-			handler := &backupHandler{db: db.DB}
+			handler := &backupHandler{db: db}
 
 			payload := fmt.Sprintf(`{"tables":{%s:[]}}`, strconv.Quote(table))
 			req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
@@ -450,7 +450,7 @@ func TestImportRefusesBackupExcludedTables(t *testing.T) {
 // backup does not carry and why, without changing the pre-existing fields.
 func TestExportResponseDisclosesExcludedTables(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/backup/export?type=all", nil)
 	rec := httptest.NewRecorder()

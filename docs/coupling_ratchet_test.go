@@ -38,13 +38,10 @@ import (
 // legacyAdminSQLXFiles freezes handler/admin/... production files that directly
 // import github.com/jmoiron/sqlx.
 var legacyAdminSQLXFiles = map[string]bool{
-	"handler/admin/helpers.go":                true,
-	"handler/admin/model_refresh.go":          true,
-	"handler/admin/settings.go":               true,
-	"handler/admin/settings_apply.go":         true,
-	"handler/admin/settings_backup.go":        true,
-	"handler/admin/settings_backup_webdav.go": true,
-	"handler/admin/token_routes.go":           true,
+	"handler/admin/helpers.go":         true,
+	"handler/admin/model_refresh.go":   true,
+	"handler/admin/settings_backup.go": true,
+	"handler/admin/token_routes.go":    true,
 }
 
 // legacyStoreGetDBCounts freezes the exact per-file count of store.GetDB

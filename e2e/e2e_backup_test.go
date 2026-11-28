@@ -41,7 +41,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
@@ -467,7 +467,7 @@ func TestBackupExportImportAccountsOnly(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
@@ -537,7 +537,7 @@ func TestBackupExportImportPreferencesOnly(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 
@@ -582,7 +582,7 @@ func TestBackupExportInvalidType(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 
 	rec := doGet(t, r, "/api/settings/backup/export?type=invalid")
 	if rec.Code != 400 {
@@ -608,7 +608,7 @@ func TestBackupEmptyDatabaseRoundtrip(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 	admin.RegisterMaintenanceRoutes(r, db)
 
 	// Export empty database.
@@ -676,7 +676,7 @@ func TestBackupImportMalformedJSON(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 
 	rec := doPostJSON_Raw(t, r, "/api/settings/backup/import", `{"not_tables": "wrong"}`)
 	if rec.Code != 400 {
@@ -702,7 +702,7 @@ func TestBackupSettingsJSONFidelity(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
@@ -768,7 +768,7 @@ func TestBackupRouteChannelTokenNullFK(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	admin.RegisterBackupRoutes(r, db.DB)
+	admin.RegisterBackupRoutes(r, db)
 	admin.RegisterMaintenanceRoutes(r, db)
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")

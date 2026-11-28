@@ -111,7 +111,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// Only on success — failed change must not clear a still-valid session cookie.
 	clearMonitorAuthCookies(w, r)
 
-	logSettingsEvent(h.db.DB, "token", "Admin login token updated", "The admin login token was changed. Use the new token to log in.", "warning", now)
+	logSettingsEvent(h.db, "token", "Admin login token updated", "The admin login token was changed. Use the new token to log in.", "warning", now)
 
 	// Keep the 0600 handoff file in sync when this deployment uses it. A
 	// custom rotation overwrites the previous value instead of leaving a dead

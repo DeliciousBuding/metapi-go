@@ -319,7 +319,7 @@ func TestBackupImportExcludedTableRejectionsStayClosed(t *testing.T) {
 
 func exportBackupAll(t *testing.T, db *store.DB) []byte {
 	t.Helper()
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/backup/export?type=all", nil)
 	rec := httptest.NewRecorder()
 	handler.exportBackup(rec, req)
@@ -331,7 +331,7 @@ func exportBackupAll(t *testing.T, db *store.DB) []byte {
 
 func postBackupJSON(t *testing.T, db *store.DB, path string, body []byte) (int, []byte) {
 	t.Helper()
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	switch path {
