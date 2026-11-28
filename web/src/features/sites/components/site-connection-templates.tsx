@@ -1,23 +1,27 @@
-import { ArrowUpRight, ChevronDown, Check } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
-import { PlatformBadge } from '@/components/common/platform-badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { SiteInitializationPreset } from '@/lib/api/sites'
 import {
   PLATFORM_CONNECTION_TEMPLATES,
-  getConnectionPresetIcon,
   getConnectionPresetNameKey,
   type ConnectionTemplate,
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
 import { useSiteInitializationPresets } from '../api'
+import {
+  TEMPLATE_CATEGORIES,
+  type TemplateCategory,
+  templatesForCategory,
+  templateFromPreset,
+} from './site-connection-template-catalog'
+import { SiteConnectionTemplateList } from './site-connection-template-list'
+import { SiteConnectionTemplatePreview } from './site-connection-template-preview'
 
 type Props = {
   selected: ConnectionTemplate | null
@@ -25,164 +29,6 @@ type Props = {
   url: string
   platform: string
   onSelect: (template: ConnectionTemplate) => boolean
-}
-
-const TEMPLATE_CATEGORIES = [
-  'common',
-  'gateway',
-  'api',
-  'coding',
-  'oauth',
-] as const
-type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number]
-
-const COMMON_TEMPLATE_IDS = [
-  'new-api-connection',
-  'bailian',
-  'codingplan-openai',
-  'siliconflow',
-  'deepseek-openai',
-  'moonshot-openai',
-  'minimax-openai',
-  'zhipu-coding-plan-openai',
-  'zai-coding-plan-openai',
-  'kimi-coding-openai',
-  'doubao-coding-openai',
-  'xiaomi-token-plan-claude',
-]
-const DOMESTIC_PROVIDERS = [
-  'bailian',
-  'siliconflow',
-  'deepseek',
-  'moonshot',
-  'minimax',
-  'modelscope',
-  'zhipu',
-  'zai',
-  'doubao',
-  'xiaomi',
-  'stepfun',
-  'mimo',
-  'xiaomimimo',
-  'ppio',
-  'qiniu',
-]
-
-function isCodingPlan(template: ConnectionTemplate) {
-  return (
-    template.group === 'api' &&
-    (/coding|token-plan/.test(template.id) ||
-      template.id.startsWith('minimax-'))
-  )
-}
-
-function providerFamily(template: ConnectionTemplate) {
-  const family = template.id.split('-')[0]
-  if (family === 'codingplan') return 'bailian'
-  if (family === 'kimi') return 'moonshot'
-  if (family === 'volcengine') return 'doubao'
-  return family
-}
-
-function protocolOrder(template: ConnectionTemplate) {
-  return ['openai', 'claude', 'gemini'].indexOf(template.platform)
-}
-
-function compareWithinBrand(a: ConnectionTemplate, b: ConnectionTemplate) {
-  return (
-    providerFamily(a).localeCompare(providerFamily(b), 'en') ||
-    protocolOrder(a) - protocolOrder(b) ||
-    a.id.localeCompare(b.id, 'en')
-  )
-}
-
-const CODING_PROVIDERS = [
-  'bailian',
-  'zhipu',
-  'moonshot',
-  'doubao',
-  'minimax',
-  'xiaomi',
-  'zai',
-]
-
-function codingOrder(template: ConnectionTemplate) {
-  const index = CODING_PROVIDERS.indexOf(providerFamily(template))
-  return index === -1 ? CODING_PROVIDERS.length : index
-}
-
-function serviceOrder(template: ConnectionTemplate) {
-  const domestic = DOMESTIC_PROVIDERS.indexOf(providerFamily(template))
-  if (domestic !== -1) return domestic
-  const official = ['openai-api', 'anthropic-api', 'gemini-api'].indexOf(
-    template.id
-  )
-  if (official !== -1) return 100 + official
-  return 50
-}
-
-function templatesForCategory(
-  templates: ConnectionTemplate[],
-  category: TemplateCategory,
-  query: string
-) {
-  if (query) {
-    return templates
-      .filter((template) =>
-        `${template.name} ${template.providerLabel ?? ''} ${template.label ?? ''} ${template.platform} ${template.url}`
-          .toLowerCase()
-          .includes(query)
-      )
-      .sort(
-        (a, b) => serviceOrder(a) - serviceOrder(b) || compareWithinBrand(a, b)
-      )
-  }
-  if (category === 'common') {
-    return COMMON_TEMPLATE_IDS.flatMap((id) =>
-      templates.filter((template) => template.id === id)
-    )
-  }
-  if (category === 'coding') {
-    return templates
-      .filter(isCodingPlan)
-      .sort(
-        (a, b) => codingOrder(a) - codingOrder(b) || compareWithinBrand(a, b)
-      )
-  }
-  if (category === 'api') {
-    return templates
-      .filter(
-        (template) =>
-          template.group === 'api' &&
-          (!isCodingPlan(template) || template.id.startsWith('minimax-'))
-      )
-      .sort(
-        (a, b) => serviceOrder(a) - serviceOrder(b) || compareWithinBrand(a, b)
-      )
-  }
-  return templates.filter((template) => template.group === category)
-}
-
-function templateFromPreset(
-  preset: SiteInitializationPreset,
-  name: string
-): ConnectionTemplate {
-  let protocols: ConnectionTemplate['protocols'] = ['chat']
-  if (preset.id === 'openai-api') protocols = ['chat', 'responses']
-  else if (preset.platform === 'claude') protocols = ['messages']
-  else if (preset.platform === 'gemini') protocols = ['gemini']
-  return {
-    id: preset.id,
-    name,
-    providerLabel: preset.providerLabel,
-    label: preset.label,
-    platform: preset.platform,
-    icon: getConnectionPresetIcon(preset.id),
-    url: preset.defaultUrl,
-    group: 'api',
-    protocols,
-    available: true,
-  }
 }
 
 export function SiteConnectionTemplates(props: Props) {
@@ -203,11 +49,6 @@ export function SiteConnectionTemplates(props: Props) {
   const [search, setSearch] = useState('')
   const toggleRef = useRef<HTMLButtonElement>(null)
   const query = search.trim().toLowerCase()
-  const selectedNameKey =
-    props.selected && getConnectionPresetNameKey(props.selected.id)
-  const selectedName = selectedNameKey
-    ? t(selectedNameKey)
-    : props.selected?.name
 
   function select(template: ConnectionTemplate) {
     if (!props.onSelect(template)) return
@@ -239,25 +80,11 @@ export function SiteConnectionTemplates(props: Props) {
         </Button>
       </div>
       {!expanded && props.selected && (
-        <div className='bg-muted/20 flex items-start gap-3 rounded-lg border p-3'>
-          <span aria-hidden='true' className='pt-0.5'>
-            <BrandGlyph
-              icon={props.selected.icon}
-              size={22}
-              fallbackText={props.selected.name}
-            />
-          </span>
-          <div className='min-w-0 flex-1 space-y-1'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='font-medium'>{selectedName}</span>
-              <PlatformBadge platform={props.platform} />
-            </div>
-            <p className='text-muted-foreground text-xs break-all'>
-              {props.url || t('sites.templates.enterAddress')}
-            </p>
-          </div>
-          <Check className='text-primary size-4 shrink-0' aria-hidden='true' />
-        </div>
+        <SiteConnectionTemplatePreview
+          selected={props.selected}
+          platform={props.platform}
+          url={props.url}
+        />
       )}
       {expanded && (
         <Tabs
@@ -317,90 +144,11 @@ export function SiteConnectionTemplates(props: Props) {
                     </Button>
                   </div>
                 )}
-                <div className='grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1 max-[420px]:grid-cols-1'>
-                  {templates.map((template) => {
-                    let detail = t('sites.templates.notAvailable')
-                    if (template.available) {
-                      detail =
-                        template.group === 'api'
-                          ? `${template.protocols?.map((protocol) => t(`sites.templates.protocols.${protocol}`)).join(' / ')} · API Key`
-                          : t(`sites.templates.auth.${template.group}`)
-                    }
-                    const contents = (
-                      <>
-                        <span
-                          className='bg-muted/50 flex size-8 shrink-0 items-center justify-center rounded-md'
-                          aria-hidden='true'
-                        >
-                          <BrandGlyph
-                            icon={template.icon}
-                            size={20}
-                            fallbackText={template.name}
-                          />
-                        </span>
-                        <span className='min-w-0 flex-1 space-y-1 text-left'>
-                          <span className='block truncate text-sm font-medium'>
-                            {template.name}
-                          </span>
-                          <span className='text-muted-foreground block text-xs font-normal'>
-                            {detail}
-                          </span>
-                        </span>
-                        {template.group === 'oauth' && (
-                          <ArrowUpRight
-                            className='size-3.5 shrink-0'
-                            aria-hidden='true'
-                          />
-                        )}
-                      </>
-                    )
-                    const className = cn(
-                      'h-auto min-h-18 justify-start gap-2.5 whitespace-normal rounded-lg px-3 py-2.5',
-                      props.selected?.id === template.id &&
-                        'border-primary bg-primary/5'
-                    )
-                    if (template.group === 'oauth' && template.available) {
-                      return (
-                        <a
-                          key={template.id}
-                          className={cn(
-                            buttonVariants({ variant: 'outline' }),
-                            className
-                          )}
-                          href='/oauth'
-                          target='_blank'
-                          rel='noopener noreferrer'
-                          aria-label={t('sites.templates.openOAuth', {
-                            name: template.name,
-                          })}
-                        >
-                          {contents}
-                        </a>
-                      )
-                    }
-                    return (
-                      <Button
-                        key={template.id}
-                        type='button'
-                        variant='outline'
-                        className={className}
-                        disabled={!template.available}
-                        aria-label={
-                          template.available
-                            ? t('sites.templates.use', {
-                                name: template.label ?? template.name,
-                              })
-                            : t('sites.templates.unavailable', {
-                                name: template.label ?? template.name,
-                              })
-                        }
-                        onClick={() => select(template)}
-                      >
-                        {contents}
-                      </Button>
-                    )
-                  })}
-                </div>
+                <SiteConnectionTemplateList
+                  templates={templates}
+                  selectedId={props.selected?.id}
+                  onSelect={select}
+                />
                 {templates.length === 0 &&
                   !(
                     usesApiPresets &&
