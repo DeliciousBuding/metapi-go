@@ -1,74 +1,15 @@
 package proxyhandler
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/json"
-	"errors"
-	"io"
 	"log/slog"
-	"net"
 	"net/http"
-	"os"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
-	"github.com/deliciousbuding/metapi-go/transform/ollama"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 )
-
-// streamOutcome classifies how an SSE relay ended so the dispatcher can
-// record upstream faults distinctly from clean or client-driven endings.
-// Every value except streamEndedNormally and streamEndedClientDisconnect is an
-// upstream-side fault and MUST be recorded through the failure path.
-type streamOutcome int
-
-const (
-	// streamEndedNormally covers the clean EOF case: the upstream finished the
-	// stream and the whole body was relayed.
-	streamEndedNormally streamOutcome = iota
-	// streamEndedIdleTimeout means the upstream stopped sending chunks for
-	// longer than PROXY_STREAM_IDLE_TIMEOUT_SEC and the idle guard aborted
-	// the stream. The dispatcher records this via the failure path.
-	streamEndedIdleTimeout
-	// streamEndedUpstreamFault means the upstream body failed mid-stream
-	// (network reset, upstream crash, truncated transfer) after the relay had
-	// already begun. The client got a partial answer plus an SSE error event.
-	streamEndedUpstreamFault
-	// streamEndedTruncated means the relay hit PROXY_MAX_STREAM_RESPONSE_BYTES
-	// and stopped early, so the client received an incomplete answer.
-	streamEndedTruncated
-	// streamEndedClientDisconnect means the downstream client cancelled or its
-	// write side went away. This ending alone is NOT an upstream fault:
-	// without an explicit upstream error, recording it as a failure would
-	// poison channel health with user cancel behaviour. Usage already
-	// extracted is still returned for accounting.
-	streamEndedClientDisconnect
-)
-
-// String keeps log lines and test failure messages readable now that the
-// classification has more than two members.
-func (o streamOutcome) String() string {
-	switch o {
-	case streamEndedNormally:
-		return "normally"
-	case streamEndedIdleTimeout:
-		return "idleTimeout"
-	case streamEndedUpstreamFault:
-		return "upstreamFault"
-	case streamEndedTruncated:
-		return "truncated"
-	case streamEndedClientDisconnect:
-		return "clientDisconnect"
-	}
-	return "unknown"
-}
 
 func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{}, nil)
@@ -248,588 +189,63 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			analyzer.timing = timing
 		}
 	}
-	sawStreamBytes := false
-	var streamedBytes int64
-	outcome := streamEndedNormally
-	buf := make([]byte, 4096)
-
-	readChunk := func() ([]byte, error) {
-		n, err := resp.Body.Read(buf)
-		return buf[:n], err
+	relay := streamChunkRelay{maxBytes: maxStreamBytes, writeBudget: writeBudget, idleGuard: idleBody.guard}
+	if bodyReadable && !codexImage && !routerChatStream && !imageTaskStream {
+		relay.analyzer = analyzer
 	}
-	var responsesFrames *responsesFrameReader
 	if endpoint, _ := proxy.EndpointFromPath(r.URL.Path); relayStream != nil && endpoint == proxy.EndpointResponses && messageBridge != nil && !codexImage && !imageTaskStream {
-		// Apply the output budget after conversion and public model mapping.
-		// Reserve complete frames so truncation cannot splice an error into JSON.
-		responsesFrames = &responsesFrameReader{reader: bufio.NewReader(resp.Body), remaining: maxStreamBytes}
-		readChunk = responsesFrames.readFrame
+		relay.responsesBridge = messageBridge
 	}
+	end, logDetail := relay.copy(w, r, resp, latencyMs)
 
-	// emitStreamError attempts the single terminal error event that abnormal
-	// endings share. A client that stopped reading is bounded by one write
-	// window here too; a failure is logged and never retried.
-	emitStreamError := func(message string) {
-		if responsesFrames != nil {
-			if terminal := messageBridge.ResponsesFailureEvents(message, responsesFrames.delivered); len(terminal) != 0 {
-				if err := writeDownstreamChunk(w, terminal, writeBudget); err != nil {
-					slog.Debug("SSE terminal error event not delivered", "err", err, "latency_ms", latencyMs, "streamed_bytes", streamedBytes)
-				}
-				return
-			}
-		}
-		var sequence int64
-		if native, ok := resp.Body.(*nativeTerminalBody); ok {
-			sequence = native.nextSequence
-		}
-		err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget, sequence)
-		if err != nil {
-			slog.Debug("SSE terminal error event not delivered",
-				"err", err,
-				"latency_ms", latencyMs,
-				"streamed_bytes", streamedBytes,
-			)
-		}
+	// Post-stream SSE analysis uses bounded incremental state instead of
+	// retaining the complete upstream body.
+	result := analyzer.Result()
+	native, _ := resp.Body.(*nativeTerminalBody)
+	if native != nil && native.original != nil {
+		result.Usage = native.original.Result().Usage
 	}
-
-	// endStream is the single exit for every relay ending: it runs the same
-	// pure content judge the buffered path calls over what the bounded analyzer
-	// kept, so no exit path can skip content judgement and the streaming path
-	// can no longer reach a different verdict than buffered for the same
-	// upstream content. logDetail keeps the historical post-stream warnings on
-	// the paths that always had them.
-	endStream := func(end streamOutcome, logDetail bool) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
-		// Post-stream SSE analysis uses bounded incremental state instead of
-		// retaining the complete upstream body.
-		result := analyzer.Result()
-		native, _ := resp.Body.(*nativeTerminalBody)
-		if native != nil && native.original != nil {
-			result.Usage = native.original.Result().Usage
-		}
-		if messageBridge != nil {
-			// Billing consumes the actual Chat usage, not synthetic Messages start
-			// counters or a lossy protocol projection.
-			result.Usage = messageBridge.original.Result().Usage
-			if codexImage {
-				result = messageBridge.original.Result()
-			}
-		}
-		if imageTaskStream {
+	if messageBridge != nil {
+		// Billing consumes the actual Chat usage, not synthetic Messages start
+		// counters or a lossy protocol projection.
+		result.Usage = messageBridge.original.Result().Usage
+		if codexImage {
 			result = messageBridge.original.Result()
-			// Includes raw polling usage even when no preview/complete event
-			// arrived, or the frame itself failed before downstream delivery.
-			if wire.DriverImageUsage != nil {
-				result.Usage = *wire.DriverImageUsage
-			}
 		}
-		if logDetail {
-			if result.DroppedOversizedEvent {
-				slog.Warn("SSE stream event exceeded analysis buffer",
-					"latency_ms", latencyMs,
-					"pending_limit_bytes", maxIncrementalSsePendingBytes,
-				)
-			}
-
-			// Log SSE error events at WARN level
-			if result.HasErrorEvent {
-				LogSseErrorEvents(result.ErrorEvents)
-			}
-		}
-		if end == streamEndedClientDisconnect && !result.HasErrorEvent {
-			// Without an explicit upstream error already observed, a client
-			// disconnect leaves no complete answer to judge. Do not penalize a
-			// channel that never got to finish. Still return
-			// any usage already extracted from earlier SSE events (best-effort
-			// partial) — never invent tokens.
-			return result.Usage, end, nil
-		}
-		// A native incomplete terminal can legitimately have zero output.
-		if native != nil && native.responseIncomplete && !native.terminalFailed && end == streamEndedNormally && !result.HasErrorEvent {
-			return result.Usage, end, nil
-		}
-		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
-		return result.Usage, end, &verdict
 	}
-
-	for {
-		select {
-		case <-r.Context().Done():
-			// Client disconnect / request cancel: still return any usage already
-			// extracted from earlier SSE events (best-effort partial). Do not
-			// invent tokens when upstream never emitted a usage event.
-			slog.Debug("SSE downstream context ended",
-				"err", r.Context().Err(),
+	if imageTaskStream {
+		result = messageBridge.original.Result()
+		// Includes raw polling usage even when no preview/complete event
+		// arrived, or the frame itself failed before downstream delivery.
+		if wire.DriverImageUsage != nil {
+			result.Usage = *wire.DriverImageUsage
+		}
+	}
+	if logDetail {
+		if result.DroppedOversizedEvent {
+			slog.Warn("SSE stream event exceeded analysis buffer",
 				"latency_ms", latencyMs,
-				"streamed_bytes", streamedBytes,
+				"pending_limit_bytes", maxIncrementalSsePendingBytes,
 			)
-			return endStream(streamEndedClientDisconnect, false)
-		default:
 		}
 
-		chunk, err := readChunk()
-		if len(chunk) > 0 {
-			remaining := maxStreamBytes - streamedBytes
-			if remaining <= 0 {
-				emitStreamError("stream response exceeded configured byte limit")
-				slog.Warn("SSE stream exceeded byte limit",
-					"latency_ms", latencyMs,
-					"streamed_bytes", streamedBytes,
-					"limit_bytes", maxStreamBytes,
-				)
-				outcome = streamEndedTruncated
-				break
-			}
-			exceededLimit := int64(len(chunk)) > remaining
-			if exceededLimit {
-				chunk = chunk[:int(remaining)]
-			}
-
-			sawStreamBytes = true
-			if len(chunk) > 0 {
-				// Extract usage before downstream write so client disconnect
-				// on the final usage-bearing chunk still counts tokens.
-				// Undecodable bytes are never fed to the analyzer: it would
-				// "analyze" noise, find no data events and hand the judge an
-				// empty-content fact for a perfectly healthy answer.
-				if bodyReadable && !codexImage && !routerChatStream && !imageTaskStream {
-					analyzer.Push(chunk)
-				}
-				if writeErr := writeDownstreamChunk(w, chunk, writeBudget); writeErr != nil {
-					message := "SSE downstream write failed"
-					if isDownstreamWriteTimeout(writeErr) {
-						message = "SSE downstream write timed out: client stopped reading"
-					}
-					slog.Warn(message,
-						"err", writeErr,
-						"write_timeout_sec", int(writeBudget.Seconds()),
-						"latency_ms", latencyMs,
-						"streamed_bytes", streamedBytes,
-					)
-					// Downstream gone or no longer reading: keep any usage already
-					// extracted (including the chunk that failed to write), never
-					// invent tokens and never record this as an upstream fault.
-					// The caller's defer closes the upstream body and releases
-					// the site slot, which is what bounds the stalled client.
-					return endStream(streamEndedClientDisconnect, false)
-				}
-				streamedBytes += int64(len(chunk))
-			}
-			if exceededLimit {
-				emitStreamError("stream response exceeded configured byte limit")
-				slog.Warn("SSE stream exceeded byte limit",
-					"latency_ms", latencyMs,
-					"streamed_bytes", streamedBytes,
-					"limit_bytes", maxStreamBytes,
-				)
-				outcome = streamEndedTruncated
-				break
-			}
-		}
-		if err != nil {
-			if err != io.EOF {
-				switch {
-				case (idleBody.guard.fired.Load() || errors.Is(err, ollama.ErrIdleTimeout) || errors.Is(err, errDirectClineIdleTimeout)) && r.Context().Err() == nil:
-					// Upstream stalled: the idle guard closed the body to
-					// unblock this read. Emit a distinct final SSE error event
-					// and report the idle outcome so the dispatcher records
-					// the failure.
-					emitStreamError("upstream stream idle timeout")
-					slog.Warn("SSE stream idle timeout: upstream sent no chunk within window",
-						"idle_timeout_sec", int(idleTimeout.Seconds()),
-						"latency_ms", latencyMs,
-						"streamed_bytes", streamedBytes,
-					)
-					outcome = streamEndedIdleTimeout
-				case r.Context().Err() != nil:
-					// Downstream went away while a read was in flight: this read
-					// error is a consequence of the client cancel, not an
-					// upstream fault. Classified separately so user cancels can
-					// never be recorded as channel failures.
-					slog.Debug("SSE stream read aborted by downstream disconnect",
-						"err", err,
-						"latency_ms", latencyMs,
-						"streamed_bytes", streamedBytes,
-					)
-					outcome = streamEndedClientDisconnect
-				case errors.Is(err, errResponsesOutputLimit):
-					emitStreamError(errResponsesOutputLimit.Error())
-					outcome = streamEndedTruncated
-				case errors.Is(err, errMessagesChatStreamLimit) || errors.Is(err, ollama.ErrStreamLimit):
-					emitStreamError("upstream stream exceeded configured byte limit")
-					outcome = streamEndedTruncated
-				default:
-					// Mid-stream upstream failure (network reset, upstream crash,
-					// truncated body): emit a final SSE error event so the client
-					// can surface the failure explicitly instead of inferring it
-					// from a missing [DONE] marker. Mirrors the byte-limit path.
-					emitStreamError("upstream stream interrupted")
-					slog.Warn("SSE stream read error", "err", err, "latency_ms", latencyMs)
-					outcome = streamEndedUpstreamFault
-				}
-			}
-			break
+		// Log SSE error events at WARN level
+		if result.HasErrorEvent {
+			LogSseErrorEvents(result.ErrorEvents)
 		}
 	}
-
-	return endStream(outcome, sawStreamBytes)
-}
-
-var errResponsesOutputLimit = errors.New("stream response exceeded configured byte limit")
-
-// RelayKit emits LF-delimited SSE events. Inspect bounded line fragments so
-// even a single oversized JSON payload is charged before it is buffered.
-type responsesFrameReader struct {
-	reader    *bufio.Reader
-	remaining int64
-	delivered int
-}
-
-func (r *responsesFrameReader) readFrame() ([]byte, error) {
-	var frame []byte
-	for {
-		fragment, err := r.reader.ReadSlice('\n')
-		r.remaining -= int64(len(fragment))
-		if r.remaining < 0 {
-			return nil, errResponsesOutputLimit
-		}
-		frame = append(frame, fragment...)
-		if err == bufio.ErrBufferFull {
-			continue
-		}
-		if err != nil {
-			if err == io.EOF && len(frame) > 0 {
-				r.delivered++
-				return frame, nil
-			}
-			return nil, err
-		}
-		if bytes.HasSuffix(frame, []byte("\n\n")) || bytes.HasSuffix(frame, []byte("\r\n\r\n")) {
-			r.delivered++
-			return frame, nil
-		}
+	if end == streamEndedClientDisconnect && !result.HasErrorEvent {
+		// Without an explicit upstream error already observed, a client
+		// disconnect leaves no complete answer to judge. Do not penalize a
+		// channel that never got to finish. Still return
+		// any usage already extracted from earlier SSE events (best-effort
+		// partial) — never invent tokens.
+		return result.Usage, end, nil
 	}
-}
-
-// judgeStreamContent feeds the streaming path parsed facts into the same pure
-// content judge the buffered path calls (proxy.JudgeUpstreamContent). It
-// replaces the historical log-only parallel implementation that merely warned
-// about missing data events while the dispatcher still recorded a success.
-//
-// bodyUnreadable is the streaming half of the encoding-honesty contract: when
-// the upstream used a Content-Encoding we do not decode, the analyzer saw bytes
-// nobody could parse, so HasOutput=false here means "no evidence" and not "empty
-// answer". It is passed to the judge as an explicit Unreadable fact rather than
-// being special-cased here, keeping one owner of the verdict.
-func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, latencyMs int64, bodyUnreadable bool) proxy.UpstreamVerdict {
-	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
-		StatusCode:    statusCode,
-		Streaming:     true,
-		RawText:       sseErrorEventText(result.ErrorEvents),
-		HasOutput:     result.HasGeneratedOutput,
-		HasErrorEvent: result.HasErrorEvent,
-		Usage:         result.Usage.ToUsageSummary(),
-		Unreadable:    bodyUnreadable,
-	})
-	if verdict.Failed {
-		slog.Warn("stream content-based failure detected",
-			"code", string(verdict.Code),
-			"reason", verdict.Reason,
-			"status", verdict.Status,
-			"latency_ms", latencyMs,
-			"event_count", result.EventCount,
-			"has_done_marker", result.HasDoneMarker,
-		)
-	} else if !result.HasDataEvent {
-		slog.Debug("SSE stream contained no data events",
-			"latency_ms", latencyMs,
-			"event_count", result.EventCount,
-			"has_done_marker", result.HasDoneMarker,
-		)
+	// A native incomplete terminal can legitimately have zero output.
+	if native != nil && native.responseIncomplete && !native.terminalFailed && end == streamEndedNormally && !result.HasErrorEvent {
+		return result.Usage, end, nil
 	}
-	return verdict
-}
-
-// sseErrorEventText joins the SSE error-event payloads the analyzer kept. The
-// bounded analyzer never retains the raw stream body, so error events are the
-// only content signal the streaming path can hand to the shared judge.
-func sseErrorEventText(events []SseEvent) string {
-	if len(events) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(events))
-	for _, ev := range events {
-		if data := strings.TrimSpace(ev.Data); data != "" {
-			parts = append(parts, data)
-		}
-	}
-	return strings.Join(parts, "\n")
-}
-
-// streamResponseByteLimit returns the configured max SSE stream response size
-// in bytes from the startup-loaded config singleton. Falls back to
-// DefaultProxyMaxStreamResponseBytes when config is not yet loaded (e.g. tests
-// that bypass TestMain) or when the operator left the value at zero/negative.
-// Reading a struct field per request is materially cheaper than re-parsing
-// os.Getenv on every SSE stream and keeps the hot path allocation-free here.
-func streamResponseByteLimit() int64 {
-	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyMaxStreamResponseBytes > 0 {
-		return int64(cfg.ProxyMaxStreamResponseBytes)
-	}
-	return int64(config.DefaultProxyMaxStreamResponseBytes)
-}
-
-// writeSSEStreamError writes one terminal SSE error event (plus [DONE] on
-// Chat Completions and legacy endpoints). The whole sequence shares a single downstream
-// write window so a client that stopped reading cannot hold the relay past
-// the budget, and a stale deadline from an earlier chunk cannot make these
-// writes fail instantly.
-func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration, sequence int64) error {
-	clear := armStreamWriteDeadline(w, budget)
-	defer clear()
-
-	endpoint, _ := proxy.EndpointFromPath(path)
-	if endpoint == proxy.EndpointMessages {
-		// Anthropic errors are terminal error events, not OpenAI [DONE].
-		typ = "api_error"
-	}
-	body := map[string]any{
-		"error": map[string]string{
-			"message": message,
-			"type":    typ,
-		},
-	}
-	if endpoint == proxy.EndpointResponses {
-		body = map[string]any{"code": typ, "message": message, "param": nil, "sequence_number": sequence}
-	}
-	if endpoint == proxy.EndpointMessages || endpoint == proxy.EndpointResponses {
-		body["type"] = "error"
-		if _, err := w.Write([]byte("event: error\n")); err != nil {
-			return err
-		}
-	}
-	payload, _ := json.Marshal(body)
-	if _, err := w.Write(sseEvent(string(payload))); err != nil {
-		return err
-	}
-	if endpoint != proxy.EndpointMessages && endpoint != proxy.EndpointResponses {
-		if _, err := w.Write(sseDone()); err != nil {
-			return err
-		}
-	}
-	return flushStream(w)
-}
-
-func relayUpstreamErrorResponse(w http.ResponseWriter, resp *http.Response, latencyMs int64) {
-	bodyBytes, err := proxy.ReadBufferedResponseBody(resp.Body)
-	if err != nil {
-		slog.Warn("failed to read upstream error response", "err", err, "latency_ms", latencyMs, "status", resp.StatusCode)
-		writeJSONError(w, 502, "Failed to read upstream response", "upstream_error")
-		return
-	}
-
-	relayUpstreamResponseHeaders(w, resp.Header)
-	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(bodyBytes)
-}
-
-func relayBufferedUpstreamErrorResponse(w http.ResponseWriter, resp *http.Response, bodyBytes []byte) {
-	relayBufferedUpstreamResponse(w, resp, bodyBytes)
-}
-
-// streamIdleTimeout returns the configured SSE chunk-gap timeout from the
-// startup-loaded config singleton, falling back to
-// DefaultProxyStreamIdleTimeoutSec when config is not yet loaded (tests that
-// bypass TestMain) or the operator value is non-positive. Mirrors the
-// per-request config.GetSafe() pattern of streamResponseByteLimit; like the
-// other PROXY_* timeouts the value itself is frozen at startup.
-func streamIdleTimeout() time.Duration {
-	sec := config.DefaultProxyStreamIdleTimeoutSec
-	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyStreamIdleTimeoutSec > 0 {
-		sec = cfg.ProxyStreamIdleTimeoutSec
-	}
-	return time.Duration(sec) * time.Second
-}
-
-// streamWriteTimeout returns the downstream per-write deadline for every
-// relayed stream (SSE and native media byte streams) from the startup-loaded
-// config singleton, falling back to DefaultProxyStreamWriteTimeoutSec when
-// config is not loaded (tests) or the operator value is non-positive. Like the
-// other PROXY_* timeouts the value is frozen at startup.
-func streamWriteTimeout() time.Duration {
-	sec := config.DefaultProxyStreamWriteTimeoutSec
-	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyStreamWriteTimeoutSec > 0 {
-		sec = cfg.ProxyStreamWriteTimeoutSec
-	}
-	return time.Duration(sec) * time.Second
-}
-
-// writeDownstreamChunk relays one upstream chunk as a single bounded downstream
-// write+flush. Both halves matter: net/http buffers small writes, so the
-// socket write that can stall on a client that stopped reading usually happens
-// in Flush, and a flush error means the connection is gone even when Write
-// accepted the bytes.
-func writeDownstreamChunk(w http.ResponseWriter, chunk []byte, budget time.Duration) error {
-	clear := armStreamWriteDeadline(w, budget)
-	defer clear()
-
-	if _, err := w.Write(chunk); err != nil {
-		return err
-	}
-	return flushStream(w)
-}
-
-// armStreamWriteDeadline bounds the caller's immediately following write and
-// returns the function that clears the deadline again. Callers MUST clear it:
-// the HTTP/2 server implements SetWriteDeadline with a per-stream timer that
-// resets the stream when it fires, even while the handler is idle waiting for
-// the next upstream chunk. Keeping it armed between writes would kill healthy
-// streams whose chunk gaps exceed the write budget.
-//
-// Writers without SetWriteDeadline support (httptest recorders and custom test
-// writers) keep their existing unbounded behavior. http.ResponseController
-// unwraps middleware wrappers such as router.statusRecorder.
-func armStreamWriteDeadline(w http.ResponseWriter, budget time.Duration) func() {
-	clear := func() {}
-	if budget <= 0 {
-		return clear
-	}
-	rc := http.NewResponseController(w)
-	if err := rc.SetWriteDeadline(time.Now().Add(budget)); err != nil {
-		return clear
-	}
-	return func() { clearStreamWriteDeadline(w) }
-}
-
-// clearStreamWriteDeadline removes any write deadline currently armed on the
-// downstream connection. Writers without deadline support are left as-is.
-func clearStreamWriteDeadline(w http.ResponseWriter) {
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-}
-
-// flushStream flushes the current downstream buffer. A writer without flush
-// support keeps the historical no-op behavior (it cannot be a real streaming
-// transport); any other error is a downstream failure the relay must act on
-// instead of silently continuing to read the upstream.
-func flushStream(w http.ResponseWriter) error {
-	err := http.NewResponseController(w).Flush()
-	if err != nil && errors.Is(err, http.ErrNotSupported) {
-		return nil
-	}
-	return err
-}
-
-// isDownstreamWriteTimeout reports whether a failed Write/Flush failed because
-// the per-write deadline expired (the client stopped reading). The relay still
-// classifies it as a client disconnect; this only distinguishes the log line.
-func isDownstreamWriteTimeout(err error) bool {
-	var netErr net.Error
-	return errors.Is(err, os.ErrDeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout())
-}
-
-// streamIdleBody wraps the upstream SSE body with the chunk-gap guard. Read
-// pushes the idle deadline forward for every non-empty chunk; Close stops
-// the watchdog and closes the underlying body exactly once. When the idle
-// deadline passes with no chunk, the watchdog closes the underlying body to
-// unblock a pending Read with an error, which the relay loop classifies via
-// the guard's fired flag.
-type streamIdleBody struct {
-	io.ReadCloser
-	timing    *attemptStreamTiming
-	guard     *streamIdleGuard
-	closeOnce sync.Once
-	closeErr  error
-}
-
-func (b *streamIdleBody) Read(p []byte) (int, error) {
-	n, err := b.ReadCloser.Read(p)
-	if n > 0 {
-		if b.timing != nil {
-			b.timing.arrival = time.Now()
-		}
-		b.guard.reset()
-	}
-	return n, err
-}
-
-// closeUnderlying closes the wrapped body exactly once. Invoked both by the
-// idle watchdog (to interrupt a blocked Read) and by Close.
-func (b *streamIdleBody) closeUnderlying() {
-	b.closeOnce.Do(func() { b.closeErr = b.ReadCloser.Close() })
-}
-
-func (b *streamIdleBody) Close() error {
-	if b.guard != nil {
-		b.guard.stop()
-	}
-	b.closeUnderlying()
-	return b.closeErr
-}
-
-// streamIdleGuard bounds the gap between upstream SSE chunks. A single
-// watchdog goroutine sleeps until the current deadline; every relayed chunk
-// stores a later deadline (atomic, lock-free on the hot path). When the
-// deadline passes with no new chunk the guard fires closeFn exactly once.
-type streamIdleGuard struct {
-	idle     time.Duration
-	closeFn  func()
-	deadline atomic.Int64 // unixnano of the current idle cutoff
-	fired    atomic.Bool
-	stopOnce sync.Once
-	stopCh   chan struct{}
-}
-
-func newStreamIdleGuard(idle time.Duration, closeFn func()) *streamIdleGuard {
-	g := &streamIdleGuard{
-		idle:    idle,
-		closeFn: closeFn,
-		stopCh:  make(chan struct{}),
-	}
-	g.deadline.Store(time.Now().Add(idle).UnixNano())
-	go g.watch()
-	return g
-}
-
-// reset extends the idle window; called for every non-empty relayed chunk.
-func (g *streamIdleGuard) reset() {
-	g.deadline.Store(time.Now().Add(g.idle).UnixNano())
-}
-
-func (g *streamIdleGuard) stop() {
-	g.stopOnce.Do(func() { close(g.stopCh) })
-}
-
-func (g *streamIdleGuard) watch() {
-	for {
-		wait := time.Until(time.Unix(0, g.deadline.Load()))
-		if wait <= 0 {
-			if g.tryFire() {
-				return
-			}
-			continue // a chunk moved the deadline; re-arm
-		}
-		timer := time.NewTimer(wait)
-		select {
-		case <-g.stopCh:
-			timer.Stop()
-			return
-		case <-timer.C:
-			if g.tryFire() {
-				return
-			}
-			// A chunk moved the deadline while the timer was running; loop
-			// and re-arm with the remaining window.
-		}
-	}
-}
-
-// tryFire fires the guard unless a chunk arrived between timer expiry and
-// now. Returns true when the guard fired (or had already fired) so the
-// watchdog can exit.
-func (g *streamIdleGuard) tryFire() bool {
-	if time.Now().UnixNano() < g.deadline.Load() {
-		return false
-	}
-	if g.fired.CompareAndSwap(false, true) {
-		g.closeFn()
-	}
-	return true
+	verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
+	return result.Usage, end, &verdict
 }
