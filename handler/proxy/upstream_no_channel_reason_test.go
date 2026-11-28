@@ -53,7 +53,7 @@ func TestDispatchNoAvailableChannelsCarriesTheRealReason(t *testing.T) {
 			},
 		},
 	}
-	SetUpstreamConfig(&UpstreamConfig{Router: router})
+	SetUpstreamConfig(&UpstreamConfig{DB: db, Router: router})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	req := makeProxyReq("POST", "/v1/chat/completions",
@@ -98,8 +98,8 @@ func TestDispatchNoAvailableChannelsCarriesTheRealReason(t *testing.T) {
 func TestDispatchNoAvailableChannelsWithoutExplainerKeepsTheOldMessage(t *testing.T) {
 	// Unit stubs do not implement SelectionExplainer. A missing reason must
 	// degrade to the previous message, never into a harder failure.
-	setupAllFailedAlertDB(t)
-	SetUpstreamConfig(&UpstreamConfig{Router: &allFailedAlertRouter{}})
+	db := setupAllFailedAlertDB(t)
+	SetUpstreamConfig(&UpstreamConfig{DB: db, Router: &allFailedAlertRouter{}})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	req := makeProxyReq("POST", "/v1/chat/completions",
