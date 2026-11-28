@@ -32,9 +32,9 @@ func setupProxyURLReauthTest(t *testing.T) (chi.Router, *store.DB) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterSitesRoutes(r, db.DB)
+	RegisterSitesRoutes(r, db)
 	RegisterAccountsRoutes(r, db.DB, cfg)
-	RegisterDownstreamKeysRoutes(r, db.DB)
+	RegisterDownstreamKeysRoutes(r, db)
 	RegisterOauthRoutes(r, db)
 	RegisterSettingsRoutes(r, db.DB, cfg)
 	return r, db

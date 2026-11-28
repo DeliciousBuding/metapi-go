@@ -28,7 +28,7 @@ func TestMarketplaceDirectSupplySourcesPostgres(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	checkMarketplaceSupplySources(t, db.DB)
+	checkMarketplaceSupplySources(t, db)
 }
 
 // TestStatsMarketplaceBuildersPostgres is the regression test for the
@@ -140,7 +140,7 @@ func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 	// Exercise all four builders. Before the dialect-safe SQL fix, every one
 	// of these would fail with PG 42804 because the SQL used
 	// COALESCE(<bool>, 0) = 1 and <bool> = 1.
-	h := &statsHandler{db: db.DB}
+	h := &statsHandler{db: db}
 	allowed := h.loadGlobalAllowedModels()
 
 	t.Run("buildTokenCandidateModels", func(t *testing.T) {

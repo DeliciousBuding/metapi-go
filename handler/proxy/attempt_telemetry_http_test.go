@@ -53,7 +53,7 @@ func TestAttemptTelemetryDetailHTTP(t *testing.T) {
 					t.Fatalf("%v, HTTP %d %s", err, rec.Code, rec.Body.String())
 				}
 				api := chi.NewRouter()
-				admin.RegisterStatsRoutes(api, db.DB)
+				admin.RegisterStatsRoutes(api, db)
 				for _, detailPath := range []string{fmt.Sprintf("/api/stats/proxy-logs/%d", id), "/api/stats/requests/" + gatewayID} {
 					out := httptest.NewRecorder()
 					api.ServeHTTP(out, httptest.NewRequest("GET", detailPath, nil))

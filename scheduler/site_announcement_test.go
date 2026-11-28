@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func TestSiteAnnouncementSyncFuncInvoked(t *testing.T) {
 	t.Cleanup(func() { SetDefaultSiteAnnouncementSyncFunc(nil) })
 
 	var called atomic.Int64
-	SetDefaultSiteAnnouncementSyncFunc(func(db *sqlx.DB) SiteAnnouncementSyncResult {
+	SetDefaultSiteAnnouncementSyncFunc(func(db *store.DB) SiteAnnouncementSyncResult {
 		called.Add(1)
 		return SiteAnnouncementSyncResult{ScannedSites: 2, Inserted: 1}
 	})

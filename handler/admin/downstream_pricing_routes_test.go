@@ -19,7 +19,7 @@ func TestRegisterDownstreamPricingRoutes_MountsUnderV1(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		RegisterDownstreamPricingRoutes(r, db.DB)
+		RegisterDownstreamPricingRoutes(r, db)
 	})
 
 	for _, path := range []string{"/v1/pricing", "/v1/models/price-compare"} {

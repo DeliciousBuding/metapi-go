@@ -25,7 +25,7 @@ func setupEventsAnnouncementsTest(t *testing.T) (*store.DB, chi.Router) {
 
 	r := chi.NewRouter()
 	RegisterEventsRoutes(r, db)
-	RegisterSiteAnnouncementsRoutes(r, db.DB)
+	RegisterSiteAnnouncementsRoutes(r, db)
 	return db, r
 }
 
@@ -33,7 +33,7 @@ func setupEventsAnnouncementsPostgresTest(t *testing.T) (*store.DB, chi.Router) 
 	t.Helper()
 	db, r := setupSitesPostgresTest(t)
 	RegisterEventsRoutes(r, db)
-	RegisterSiteAnnouncementsRoutes(r, db.DB)
+	RegisterSiteAnnouncementsRoutes(r, db)
 	return db, r
 }
 

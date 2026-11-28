@@ -42,7 +42,7 @@ func marketplaceExactModel(pattern string) bool {
 func (h *statsHandler) marketplaceDirectSources() (map[string][]marketplaceModelSource, error) {
 	// Two fleet-wide batches, independent of model/page size; no per-model or
 	// per-credential queries and no secret-bearing routing-store structs.
-	rows, err := queryRowsErr(h.db, `SELECT g.id, m.name AS model_name, c.id AS channel_id,
+	rows, err := queryRowsErr(h.db.DB, `SELECT g.id, m.name AS model_name, c.id AS channel_id,
 		c.name AS connection_name, k.id AS credential_id, k.name AS credential_name, k.kind AS credential_kind,
 		c.enabled AS channel_enabled, m.enabled AS model_enabled, k.enabled AS credential_enabled,
 		g.enabled AS grant_enabled, g.success_count, g.fail_count
@@ -53,7 +53,7 @@ func (h *statsHandler) marketplaceDirectSources() (map[string][]marketplaceModel
 	if err != nil {
 		return nil, err
 	}
-	bindings, err := queryRowsErr(h.db, `SELECT i.id AS item_id, i.grant_id, r.id AS route_id,
+	bindings, err := queryRowsErr(h.db.DB, `SELECT i.id AS item_id, i.grant_id, r.id AS route_id,
 		r.model_pattern AS public_model, r.enabled AS route_enabled, u.enabled AS group_enabled,
 		u.mode, u.active_item_id, r.route_mode
 		FROM upstream_group_items i JOIN upstream_groups u ON u.id = i.group_id

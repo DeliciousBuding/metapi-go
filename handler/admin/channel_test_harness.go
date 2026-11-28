@@ -22,7 +22,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -45,14 +44,14 @@ var secretLikeRE = regexp.MustCompile(`(?i)(sk-[a-z0-9_\-]{8,}|Bearer\s+[A-Za-z0
 //
 //	POST /api/admin/test-channel
 //	POST /api/debug/channel-probe (alias)
-func RegisterChannelTestRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterChannelTestRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	h := &channelTestHandler{db: db, cfg: cfg}
 	r.Post("/api/admin/test-channel", h.testChannel)
 	r.Post("/api/debug/channel-probe", h.testChannel)
 }
 
 type channelTestHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 
 	// transport is an optional override for tests (stub upstream).
@@ -226,9 +225,9 @@ func (h *channelTestHandler) resolveTarget(ctx context.Context, channelID, siteI
 
 func (h *channelTestHandler) loadByChannelID(ctx context.Context, channelID int64) (*channelTestTarget, error) {
 	var ch harnessChannelRow
-	err := h.db.GetContext(ctx, &ch, h.db.Rebind(`
+	err := h.db.GetContext(ctx, &ch, `
 		SELECT id, route_id, account_id, token_id, oauth_route_unit_id, source_model, enabled
-		FROM route_channels WHERE id = ?`), channelID)
+		FROM route_channels WHERE id = ?`, channelID)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("channel not found")
 	}
@@ -244,35 +243,35 @@ func (h *channelTestHandler) loadBySiteID(ctx context.Context, siteID int64, mod
 	modelHint = strings.TrimSpace(modelHint)
 	var err error
 	if modelHint != "" {
-		err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
+		err = h.db.GetContext(ctx, &ch, `
 			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 			FROM route_channels rc
 			JOIN accounts a ON a.id = rc.account_id
 			WHERE a.site_id = ? AND rc.enabled = ?
 			  AND LOWER(COALESCE(rc.source_model, '')) = LOWER(?)
 			ORDER BY rc.priority DESC, rc.id ASC
-			LIMIT 1`), siteID, true, modelHint)
+			LIMIT 1`, siteID, true, modelHint)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("load channel by site/model: %w", err)
 		}
 	}
 	if ch.ID == 0 {
-		err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
+		err = h.db.GetContext(ctx, &ch, `
 			SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 			FROM route_channels rc
 			JOIN accounts a ON a.id = rc.account_id
 			WHERE a.site_id = ? AND rc.enabled = ?
 			ORDER BY rc.priority DESC, rc.id ASC
-			LIMIT 1`), siteID, true)
+			LIMIT 1`, siteID, true)
 		if err == sql.ErrNoRows {
 			// Fall back to any channel on site even if disabled.
-			err = h.db.GetContext(ctx, &ch, h.db.Rebind(`
+			err = h.db.GetContext(ctx, &ch, `
 				SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model, rc.enabled
 				FROM route_channels rc
 				JOIN accounts a ON a.id = rc.account_id
 				WHERE a.site_id = ?
 				ORDER BY rc.priority DESC, rc.id ASC
-				LIMIT 1`), siteID)
+				LIMIT 1`, siteID)
 		}
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no channel found for site")
@@ -289,9 +288,9 @@ func (h *channelTestHandler) assembleTarget(ctx context.Context, ch harnessChann
 		return h.loadRouteUnitTarget(ctx, ch)
 	}
 	var acc harnessAccountRow
-	if err := h.db.GetContext(ctx, &acc, h.db.Rebind(`
+	if err := h.db.GetContext(ctx, &acc, `
 		SELECT id, site_id, access_token, api_token, oauth_provider, extra_config, status
-		FROM accounts WHERE id = ?`), ch.AccountID); err != nil {
+		FROM accounts WHERE id = ?`, ch.AccountID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("account not found")
 		}
@@ -299,9 +298,9 @@ func (h *channelTestHandler) assembleTarget(ctx context.Context, ch harnessChann
 	}
 
 	var site harnessSiteRow
-	if err := h.db.GetContext(ctx, &site, h.db.Rebind(`
+	if err := h.db.GetContext(ctx, &site, `
 		SELECT id, name, url, platform, proxy_url, use_system_proxy, custom_headers, custom_headers_override_request_headers, status
-		FROM sites WHERE id = ?`), acc.SiteID); err != nil {
+		FROM sites WHERE id = ?`, acc.SiteID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("site not found")
 		}
@@ -311,8 +310,8 @@ func (h *channelTestHandler) assembleTarget(ctx context.Context, ch harnessChann
 	var token *harnessTokenRow
 	if ch.TokenID != nil && *ch.TokenID > 0 {
 		var tr harnessTokenRow
-		if err := h.db.GetContext(ctx, &tr, h.db.Rebind(`
-			SELECT id, token, enabled FROM account_tokens WHERE id = ?`), *ch.TokenID); err == nil {
+		if err := h.db.GetContext(ctx, &tr, `
+			SELECT id, token, enabled FROM account_tokens WHERE id = ?`, *ch.TokenID); err == nil {
 			token = &tr
 		}
 	}
@@ -360,7 +359,7 @@ func (h *channelTestHandler) loadRouteUnitTarget(ctx context.Context, ch harness
 	if ch.SourceModel != nil {
 		target.SourceModel = strings.TrimSpace(*ch.SourceModel)
 	}
-	routes := service.NewProxyRoutingStore(wrapStoreDB(h.db))
+	routes := service.NewProxyRoutingStore(h.db)
 	ids := []int64{id}
 	units, err := routes.LoadOAuthRouteUnitSummaries(ctx, ids)
 	if err != nil {

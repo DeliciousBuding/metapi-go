@@ -98,7 +98,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY rc.id ASC LIMIT ?`
 	args = append(args, limit)
 
-	rows, err := queryRowsErr(h.db, q, args...)
+	rows, err := queryRowsErr(h.db.DB, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification targets")
 		return
@@ -154,10 +154,10 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 			e := res.Outcome.ErrorText
 			errText = &e
 		}
-		_, _ = h.db.Exec(rebindAdminQuery(h.db, `
+		_, _ = h.db.Exec(`
 			INSERT INTO model_verify_history
 				(batch_id, model_name, channel_id, account_id, site_id, status, latency_ms, http_status, error_text, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			batchID,
 			res.Target.ModelName,
 			nullableInt64(res.Target.ChannelID),
@@ -199,7 +199,7 @@ func (h *statsHandler) verifyHistory(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY v.created_at DESC, v.id DESC LIMIT ?`
 	args = append(args, limit)
 
-	rows, err := queryRowsErr(h.db, q, args...)
+	rows, err := queryRowsErr(h.db.DB, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification history")
 		return

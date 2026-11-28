@@ -148,7 +148,7 @@ func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 			// Load the in-process redirect registry so routing eligibility
 			// and forward rewriting see canonical→actual mappings from boot.
 			service.ReloadRedirectRegistry(context.Background(), db.DB)
-			admin.RegisterSitesRoutes(r, db.DB)
+			admin.RegisterSitesRoutes(r, db)
 			admin.RegisterGatewayUserRoutes(r, db)
 			admin.RegisterUserBudgetRoutes(r, db)
 			admin.RegisterUserActivationRoutes(r, db, userSessions)
@@ -156,36 +156,36 @@ func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterAccountTokensRoutes(r, db.DB)
 
 			// Admin API routes
-			admin.RegisterStatsRoutes(r, db.DB)
+			admin.RegisterStatsRoutes(r, db)
 			admin.RegisterSettingsRoutes(r, db.DB, cfg)
 			admin.RegisterDatabaseRoutes(r, db, cfg)
 			admin.RegisterBackupRoutes(r, db.DB)
 			admin.RegisterNotifyRoutes(r)
 			admin.RegisterMaintenanceRoutes(r, db)
-			admin.RegisterDownstreamKeysRoutes(r, db.DB)
+			admin.RegisterDownstreamKeysRoutes(r, db)
 			admin.RegisterEventsRoutes(r, db)
-			admin.RegisterSearchRoutes(r, db.DB)
-			admin.RegisterTasksRoutes(r, db.DB)
+			admin.RegisterSearchRoutes(r, db)
+			admin.RegisterTasksRoutes(r, db)
 			// I1: accounts/sites global tag system.
 			admin.RegisterTagsRoutes(r, db)
 			// H1: product risk banners.
 			admin.RegisterAnnouncementsRoutes(r, db)
 			// K1a: model name redirects.
-			admin.RegisterModelRedirectRoutes(r, db.DB)
+			admin.RegisterModelRedirectRoutes(r, db)
 			// Read-only multiplier/rate overview.
-			admin.RegisterModelRatesRoutes(r, db.DB)
+			admin.RegisterModelRatesRoutes(r, db)
 			// Model-catalog data source registry + manual/auto sync control.
 			admin.RegisterCatalogSourceRoutes(r, catalogsync.NewStore(db.DB))
 			// B1: admin write-operation audit log.
 			admin.RegisterAuditLogsRoutes(r, db)
 			// C1: unified recurring-scheduler run history.
 			admin.RegisterSchedulerStatusRoutes(r, db)
-			admin.RegisterTestRoutes(r, db.DB, cfg)
-			admin.RegisterSiteAnnouncementsRoutes(r, db.DB)
+			admin.RegisterTestRoutes(r, db, cfg)
+			admin.RegisterSiteAnnouncementsRoutes(r, db)
 			admin.RegisterAuthSettingsRoutes(r, db, sessions)
 			admin.RegisterCheckinRoutes(r, db, cfg)
 			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
-			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
+			admin.RegisterChannelTestRoutes(r, db, cfg)
 			admin.RegisterImportedUpstreamRoutes(r, db)
 			admin.RegisterUpdateCenterRoutes(r)
 			admin.RegisterOauthRoutes(r, db)
@@ -229,7 +229,7 @@ func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
 		// modelPriceCompare data surface (no separate catalog to drift).
 		if db != nil {
-			admin.RegisterDownstreamPricingRoutes(r, db.DB)
+			admin.RegisterDownstreamPricingRoutes(r, db)
 		}
 	})
 

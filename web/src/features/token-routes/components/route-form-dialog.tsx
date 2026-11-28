@@ -1,17 +1,7 @@
-/* eslint-disable react/only-export-components -- dialog component co-located with exported type */
-// metapi-go features/token-routes/components — add/edit route form dialog.
-// i18n: all user-visible strings migrated to t() calls.
-// `getModelPatternError()` returns pre-translated strings via i18n.t().
-
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ChevronDown, Search } from 'lucide-react'
-import { useEffect, useId, useMemo, useState } from 'react'
-import { useForm, type SubmitErrorHandler } from 'react-hook-form'
+import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,14 +9,10 @@ import {
 } from '@/components/ui/collapsible'
 import {
   Form,
-  FormControl,
   FormDescription,
-  FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import {
   Sheet,
   SheetContent,
@@ -37,39 +23,22 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { toast } from '@/lib/toast'
 
-import {
-  resolveCreatedRouteId,
-  useBatchAddChannels,
-  useCreateRoute,
-  useUpdateRoute,
-} from '../api'
-import {
-  buildChannelDraftSeed,
-  getRouteFormDefaultValues,
-  getRouteFormSchema,
-  setChannelDraftSelection,
-  transformFormToPayload,
-  transformRouteToFormValues,
-  type RouteFormValues,
-} from '../lib/routes-schema'
 import type { RouteMode, RouteSummaryRow } from '../types'
-import { getModelPatternError, isRegexModelPattern } from '../utils'
 import { RouteAdvancedFields } from './route-advanced-fields'
+import {
+  RouteChannelDraftField,
+  type RouteAccountOption,
+} from './route-channel-draft-field'
 import { RouteChannelEditor } from './route-channel-editor'
-import { showRouteCompletionToast } from './route-completion-toast'
+import { RoutePatternField, GroupModeFields } from './route-match-fields'
+import { useRouteForm, type RouteFormOptions } from './use-route-form'
 
-export type RouteAccountOption = { id: number; label: string }
+export type { RouteAccountOption } from './route-channel-draft-field'
 
-interface RouteFormDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  mode: 'create' | 'edit'
-  route?: RouteSummaryRow | null
+interface RouteFormDialogProps extends RouteFormOptions {
   availableRoutes: RouteSummaryRow[]
   accountOptions: RouteAccountOption[]
-  chainContext?: { accountId?: number; tokenId?: number; siteId?: number }
 }
 
 export function RouteFormDialog({
@@ -82,130 +51,19 @@ export function RouteFormDialog({
   chainContext,
 }: RouteFormDialogProps) {
   const { t } = useTranslation()
-  const createMutation = useCreateRoute()
-  const updateMutation = useUpdateRoute()
-  const batchAddChannelsMutation = useBatchAddChannels()
-  const isEdit = mode === 'edit' && !!route
-
-  const schema = useMemo(() => getRouteFormSchema(), [])
-  const form = useForm<RouteFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: getRouteFormDefaultValues(),
-  })
-  const { handleOpenChange, guard } = useDirtyDialogClose({
-    enabled: form.formState.isDirty,
-    onDiscard: () => form.reset(),
-    onOpenChange,
-  })
-  const routeMode = form.watch('routeMode') as RouteMode
-  const modelPattern = form.watch('modelPattern') ?? ''
-  const [initializedFor, setInitializedFor] = useState<string | null>(null)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const isInitialized = initializedFor !== null
-
-  useEffect(() => {
-    if (!open) {
-      setInitializedFor(null)
-      return
-    }
-    const targetKey = isEdit && route ? `edit:${route.id}` : 'create'
-    if (initializedFor === targetKey) return
-    setInitializedFor(targetKey)
-    setAdvancedOpen(
-      Boolean(
-        isEdit &&
-        route &&
-        (route.displayIcon ||
-          route.contextLength ||
-          route.modelMapping ||
-          (route.routingStrategy && route.routingStrategy !== 'weighted'))
-      )
-    )
-    const baseDefaults = getRouteFormDefaultValues(
-      route?.routeMode === 'explicit_group' ? 'explicit_group' : 'pattern'
-    )
-    if (isEdit && route) {
-      form.reset({ ...baseDefaults, ...transformRouteToFormValues(route) })
-    } else {
-      form.reset({
-        ...baseDefaults,
-        channelDrafts: buildChannelDraftSeed(
-          chainContext?.accountId,
-          chainContext?.tokenId
-        ),
-      })
-    }
-  }, [open, isEdit, route, initializedFor, chainContext, form])
-
-  const patternError = useMemo(
-    () => (modelPattern ? getModelPatternError(modelPattern) : null),
-    [modelPattern]
-  )
-
-  const onSubmit = async (values: RouteFormValues) => {
-    const payload = transformFormToPayload(values)
-    const drafts = (
-      values.routeMode === 'pattern' ? (values.channelDrafts ?? []) : []
-    ).filter((draft) => draft.accountId > 0)
-    try {
-      let routeId: number | undefined
-      let channelBatchHadErrors = false
-      if (isEdit && route) {
-        await updateMutation.mutateAsync({ id: route.id, payload })
-        routeId = route.id
-      } else {
-        const result = await createMutation.mutateAsync(payload)
-        routeId = resolveCreatedRouteId(result)
-        if (!routeId) {
-          toast.error(t('tokenRoutes.toast.createFailed'))
-          return
-        }
-      }
-      if (routeId && drafts.length > 0) {
-        const batchResult = await batchAddChannelsMutation.mutateAsync({
-          routeId,
-          channels: drafts,
-        })
-        const channelErrors = batchResult.errors ?? []
-        channelBatchHadErrors = channelErrors.length > 0
-        if (channelBatchHadErrors) {
-          toast.warning(
-            t('tokenRoutes.toast.channelAddPartial', {
-              created: batchResult.created ?? 0,
-              failed: channelErrors.length,
-              error: channelErrors[0],
-            })
-          )
-        }
-      }
-      if (!isEdit && !channelBatchHadErrors) {
-        showRouteCompletionToast(routeId, chainContext)
-      }
-      form.reset()
-      onOpenChange(false)
-    } catch {
-      // Mutation failures (non-2xx and business errors) are already toasted
-      // by the http-client response interceptor; swallowing here keeps the
-      // sheet open with the user's edits intact so they can retry.
-    }
-  }
-
-  const onInvalid: SubmitErrorHandler<RouteFormValues> = (errors) => {
-    if (
-      errors.displayIcon ||
-      errors.contextLength ||
-      errors.routingStrategy ||
-      errors.modelMapping
-    ) {
-      setAdvancedOpen(true)
-    }
-    toast.error(t('tokenRoutes.form.invalid'))
-  }
-  const isSubmitting =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    batchAddChannelsMutation.isPending
-
+  const {
+    isEdit,
+    form,
+    handleOpenChange,
+    guard,
+    routeMode,
+    advancedOpen,
+    setAdvancedOpen,
+    isInitialized,
+    onSubmit,
+    onInvalid,
+    isSubmitting,
+  } = useRouteForm({ open, onOpenChange, mode, route, chainContext })
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
@@ -262,13 +120,15 @@ export function RouteFormDialog({
               <RouteChannelEditor routeId={route.id} />
             )}
             {routeMode === 'pattern' ? (
-              <PatternModeFields
-                form={form}
-                patternError={patternError}
-                accountOptions={accountOptions}
-                isEdit={isEdit}
-                chainContext={isEdit ? undefined : chainContext}
-              />
+              <>
+                <RoutePatternField form={form} />
+                <RouteChannelDraftField
+                  form={form}
+                  accountOptions={accountOptions}
+                  isEdit={isEdit}
+                  chainContext={isEdit ? undefined : chainContext}
+                />
+              </>
             ) : (
               <GroupModeFields form={form} availableRoutes={availableRoutes} />
             )}
@@ -319,290 +179,5 @@ export function RouteFormDialog({
       </SheetContent>
       {guard}
     </Sheet>
-  )
-}
-
-function PatternModeFields({
-  form,
-  patternError,
-  accountOptions,
-  isEdit,
-  chainContext,
-}: {
-  form: ReturnType<typeof useForm<RouteFormValues>>
-  patternError: string | null
-  accountOptions: RouteAccountOption[]
-  isEdit: boolean
-  chainContext?: { accountId?: number; tokenId?: number }
-}) {
-  const { t } = useTranslation()
-  const bulkLabelId = useId()
-  const [accountSearch, setAccountSearch] = useState('')
-  const visibleAccounts = useMemo(() => {
-    const query = accountSearch.trim().toLocaleLowerCase()
-    return query
-      ? accountOptions.filter((account) =>
-          account.label.toLocaleLowerCase().includes(query)
-        )
-      : accountOptions
-  }, [accountOptions, accountSearch])
-  const modelPattern = form.watch('modelPattern') ?? ''
-  const isRegex = isRegexModelPattern(modelPattern)
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name='modelPattern'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('tokenRoutes.formPattern.modelRule')}</FormLabel>
-            <FormControl>
-              <Input
-                placeholder={t('tokenRoutes.formPattern.modelRulePlaceholder')}
-                className='font-mono'
-                aria-invalid={Boolean(patternError)}
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormDescription>
-              {isRegex
-                ? t('tokenRoutes.formPattern.regexHint')
-                : t('tokenRoutes.formPattern.exactHint')}
-            </FormDescription>
-            {patternError && (
-              <p className='text-destructive text-sm'>{patternError}</p>
-            )}
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name='channelDrafts'
-        render={({ field }) => {
-          const selected = field.value ?? []
-          const selectedIds = new Set(selected.map((draft) => draft.accountId))
-          const accountIds = visibleAccounts.map((account) => account.id)
-          const selectedCount = accountIds.filter((id) =>
-            selectedIds.has(id)
-          ).length
-          const allSelected =
-            accountIds.length > 0 && selectedCount === accountIds.length
-          const someSelected = selectedCount > 0 && !allSelected
-          const toggleAccounts = (ids: number[], checked: boolean) => {
-            const next = setChannelDraftSelection(selected, ids, checked)
-            // Re-selecting the originating account still means the chosen key,
-            // not an implicit fallback to that account's default credential.
-            field.onChange(
-              next.map((draft) =>
-                draft.accountId === chainContext?.accountId &&
-                chainContext.tokenId
-                  ? { ...draft, tokenId: chainContext.tokenId }
-                  : draft
-              )
-            )
-          }
-          let selectKey = allSelected
-            ? 'tokenRoutes.formPattern.channelsDeselectAll'
-            : 'tokenRoutes.formPattern.channelsSelectAll'
-          if (accountSearch.trim()) {
-            selectKey = allSelected
-              ? 'tokenRoutes.formPattern.channelsDeselectFiltered'
-              : 'tokenRoutes.formPattern.channelsSelectFiltered'
-          }
-          const bulkLabel = t(selectKey)
-          const totalSelected = accountOptions.filter((account) =>
-            selectedIds.has(account.id)
-          ).length
-          return (
-            <FormItem>
-              <FormLabel>{t('tokenRoutes.formPattern.channels')}</FormLabel>
-              <FormDescription>
-                {t('tokenRoutes.formPattern.channelsHint')}
-              </FormDescription>
-              {accountOptions.length > 0 ? (
-                <div className='overflow-hidden rounded-lg border'>
-                  <div className='relative border-b p-2'>
-                    <Search
-                      className='text-muted-foreground pointer-events-none absolute top-1/2 left-5 size-4 -translate-y-1/2'
-                      aria-hidden='true'
-                    />
-                    <Input
-                      type='search'
-                      aria-label={t('tokenRoutes.formPattern.searchAccounts')}
-                      placeholder={t('tokenRoutes.formPattern.searchAccounts')}
-                      value={accountSearch}
-                      onChange={(event) => setAccountSearch(event.target.value)}
-                      className='border-0 bg-transparent pl-9 shadow-none'
-                    />
-                  </div>
-                  <div className='bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2'>
-                    <label className='flex items-center gap-2 text-sm'>
-                      <FormControl>
-                        <Checkbox
-                          ref={field.ref}
-                          checked={allSelected}
-                          disabled={accountIds.length === 0}
-                          indeterminate={someSelected}
-                          onCheckedChange={(checked) =>
-                            toggleAccounts(accountIds, checked)
-                          }
-                          onBlur={field.onBlur}
-                          aria-labelledby={bulkLabelId}
-                        />
-                      </FormControl>
-                      <span id={bulkLabelId}>{bulkLabel}</span>
-                    </label>
-                    <span
-                      role='status'
-                      className='text-muted-foreground text-xs tabular-nums'
-                    >
-                      {t('tokenRoutes.formPattern.channelsSelectedCount', {
-                        selected: totalSelected,
-                        total: accountOptions.length,
-                      })}
-                    </span>
-                  </div>
-                  <div className='max-h-56 space-y-1 overflow-y-auto p-2'>
-                    {visibleAccounts.length === 0 && (
-                      <p
-                        className='text-muted-foreground px-3 py-5 text-center text-sm'
-                        role='status'
-                      >
-                        {t('tokenRoutes.formPattern.noMatchingAccounts')}
-                      </p>
-                    )}
-                    {visibleAccounts.map((account) => (
-                      <label
-                        key={account.id}
-                        className='hover:bg-muted flex min-h-9 items-center gap-3 rounded-md px-2.5 py-2'
-                      >
-                        <Checkbox
-                          checked={selectedIds.has(account.id)}
-                          onCheckedChange={(checked) =>
-                            toggleAccounts([account.id], checked)
-                          }
-                        />
-                        <span className='truncate text-sm'>
-                          {account.label}
-                        </span>
-                        {selected
-                          .filter(
-                            (draft) =>
-                              draft.accountId === account.id && draft.tokenId
-                          )
-                          .map((draft) => (
-                            <span
-                              key={draft.tokenId}
-                              className='text-muted-foreground ml-auto shrink-0 text-xs'
-                            >
-                              {t('tokenRoutes.formPattern.selectedKey', {
-                                id: draft.tokenId,
-                              })}
-                            </span>
-                          ))}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className='flex flex-col gap-2 rounded-lg border border-dashed p-3'>
-                  <p className='text-muted-foreground text-sm'>
-                    {t(
-                      isEdit
-                        ? 'tokenRoutes.formPattern.channelsEmptyHintEdit'
-                        : 'tokenRoutes.formPattern.channelsEmptyHint'
-                    )}
-                  </p>
-                </div>
-              )}
-              <FormMessage />
-            </FormItem>
-          )
-        }}
-      />
-    </>
-  )
-}
-
-function GroupModeFields({
-  form,
-  availableRoutes,
-}: {
-  form: ReturnType<typeof useForm<RouteFormValues>>
-  availableRoutes: RouteSummaryRow[]
-}) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name='displayName'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('tokenRoutes.formGroup.displayName')}</FormLabel>
-            <FormControl>
-              <Input
-                placeholder={t('tokenRoutes.formGroup.displayNamePlaceholder')}
-                {...field}
-                value={field.value ?? ''}
-              />
-            </FormControl>
-            <FormDescription>
-              {t('tokenRoutes.formGroup.displayNameHint')}
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name='sourceRouteIds'
-        render={({ field }) => {
-          const selected = field.value ?? []
-          const selectedSet = new Set(selected)
-          const toggleRoute = (routeId: number, checked: boolean) => {
-            if (checked) {
-              field.onChange([...selected, routeId])
-            } else {
-              field.onChange(selected.filter((id) => id !== routeId))
-            }
-          }
-          return (
-            <FormItem>
-              <FormLabel>{t('tokenRoutes.formGroup.sourceRoutes')}</FormLabel>
-              <FormDescription>
-                {t('tokenRoutes.formGroup.sourceRoutesHint')}
-              </FormDescription>
-              <div className='max-h-56 space-y-1 overflow-y-auto rounded-lg border p-2'>
-                {availableRoutes.length === 0 && (
-                  <p className='text-muted-foreground px-2 py-4 text-center text-sm'>
-                    {t('tokenRoutes.formGroup.sourceRoutesEmpty')}
-                  </p>
-                )}
-                {availableRoutes.map((route) => (
-                  <label
-                    key={route.id}
-                    className='hover:bg-muted flex items-center gap-2 rounded px-2 py-1'
-                  >
-                    <Checkbox
-                      checked={selectedSet.has(route.id)}
-                      onCheckedChange={(value) =>
-                        toggleRoute(route.id, Boolean(value))
-                      }
-                    />
-                    <span className='truncate font-mono text-sm'>
-                      {route.modelPattern}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )
-        }}
-      />
-    </>
   )
 }

@@ -137,12 +137,12 @@ func (h *statsHandler) gatewayRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var summary gatewayRequestSummary
-	if err := h.db.GetContext(r.Context(), &summary, rebindAdminQuery(h.db, `SELECT `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where), args...); err != nil {
+	if err := h.db.GetContext(r.Context(), &summary, `SELECT `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where, args...); err != nil {
 		h.gatewayRequestLoadError(w, r, err)
 		return
 	}
 	var coverage *string
-	if err := h.db.GetContext(r.Context(), &coverage, rebindAdminQuery(h.db, `SELECT MIN(gr.started_at) FROM gateway_requests gr WHERE `+where), args...); err != nil {
+	if err := h.db.GetContext(r.Context(), &coverage, `SELECT MIN(gr.started_at) FROM gateway_requests gr WHERE `+where, args...); err != nil {
 		h.gatewayRequestLoadError(w, r, err)
 		return
 	}
@@ -150,7 +150,7 @@ func (h *statsHandler) gatewayRequests(w http.ResponseWriter, r *http.Request) {
 	pageArgs := append(append([]any{}, args...), limit, offset)
 	// Indexed correlated aggregates cover only the requested page and work in
 	// both dialects. NULL is unknown; an incomplete sum is explicitly labelled.
-	if err := h.db.SelectContext(r.Context(), &items, rebindAdminQuery(h.db, `SELECT page.*, dk.name AS downstream_key_name,
+	if err := h.db.SelectContext(r.Context(), &items, `SELECT page.*, dk.name AS downstream_key_name,
 		(SELECT SUM(pl.prompt_tokens) FROM proxy_logs pl WHERE pl.gateway_request_id = page.id) AS prompt_tokens,
 		(SELECT SUM(pl.completion_tokens) FROM proxy_logs pl WHERE pl.gateway_request_id = page.id) AS completion_tokens,
 		(SELECT SUM(pl.total_tokens) FROM proxy_logs pl WHERE pl.gateway_request_id = page.id) AS total_tokens,
@@ -162,7 +162,7 @@ func (h *statsHandler) gatewayRequests(w http.ResponseWriter, r *http.Request) {
 		FROM (SELECT gr.* FROM gateway_requests gr WHERE `+where+`
 		 ORDER BY gr.started_at DESC,gr.id DESC LIMIT ? OFFSET ?) page
 		LEFT JOIN downstream_api_keys dk ON dk.id = page.downstream_api_key_id
-		ORDER BY page.started_at DESC,page.id DESC`), pageArgs...); err != nil {
+		ORDER BY page.started_at DESC,page.id DESC`, pageArgs...); err != nil {
 		h.gatewayRequestLoadError(w, r, err)
 		return
 	}
@@ -176,7 +176,7 @@ func (h *statsHandler) gatewayRequestDetail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var entry store.GatewayRequest
-	err := h.db.GetContext(r.Context(), &entry, rebindAdminQuery(h.db, `SELECT * FROM gateway_requests WHERE id = ?`), id)
+	err := h.db.GetContext(r.Context(), &entry, `SELECT * FROM gateway_requests WHERE id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, 404, "request not found")
 		return
@@ -185,7 +185,7 @@ func (h *statsHandler) gatewayRequestDetail(w http.ResponseWriter, r *http.Reque
 		h.gatewayRequestLoadError(w, r, err)
 		return
 	}
-	attempts, err := queryRowsErr(h.db, `SELECT pl.*, a.username, s.id AS site_id,s.name AS site_name,
+	attempts, err := queryRowsErr(h.db.DB, `SELECT pl.*, a.username, s.id AS site_id,s.name AS site_name,
 		dk.name AS downstream_key_name FROM proxy_logs pl
 		LEFT JOIN accounts a ON a.id = pl.account_id LEFT JOIN sites s ON s.id = a.site_id
 		LEFT JOIN downstream_api_keys dk ON dk.id = pl.downstream_api_key_id
@@ -232,7 +232,7 @@ func (h *statsHandler) gatewayRequestOverview(period string, from, to time.Time)
 	if period == "24h" {
 		bucket = hourBucketSQLExpr(h.db, "gr.started_at")
 	}
-	points, err := queryRowsErr(h.db, `SELECT `+bucket+` AS date, `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where+` GROUP BY `+bucket+` ORDER BY date`, args...)
+	points, err := queryRowsErr(h.db.DB, `SELECT `+bucket+` AS date, `+gatewayRequestAggregateSQL+` FROM gateway_requests gr WHERE `+where+` GROUP BY `+bucket+` ORDER BY date`, args...)
 	if err != nil {
 		return nil, nil, err
 	}

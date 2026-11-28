@@ -27,7 +27,7 @@ func setupTestRoutes(t *testing.T) (*store.DB, *channelTestHandler, chi.Router) 
 	cfg := &config.Config{}
 	config.SetRuntime(&config.RuntimeSettings{AuthToken: "test-routes-token"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	channel := &channelTestHandler{db: db.DB, cfg: cfg}
+	channel := &channelTestHandler{db: db, cfg: cfg}
 	r := chi.NewRouter()
 	h := &testHandler{channel: channel}
 	r.Post("/api/test/chat", h.chatTest)

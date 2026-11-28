@@ -401,7 +401,7 @@ func (h *statsHandler) downstreamTopModels(scope *downstreamPricingScope, limit 
 		LIMIT ?`
 	args := append([]any{since}, filterArgs...)
 	args = append(args, fetchLimit)
-	rows, err := queryRowsErr(h.db, query, args...)
+	rows, err := queryRowsErr(h.db.DB, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +439,7 @@ func (h *statsHandler) downstreamTopModels(scope *downstreamPricingScope, limit 
 		ORDER BY cnt DESC
 		LIMIT ?`
 	args = append(filterArgs, fetchLimit)
-	availRows, err := queryRowsErr(h.db, availQuery, args...)
+	availRows, err := queryRowsErr(h.db.DB, availQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +480,7 @@ func (h *statsHandler) downstreamObservedSignals(scope *downstreamPricingScope, 
 		args = append(args, normalizeModelKey(model))
 	}
 	args = append(args, filterArgs...)
-	rows, err := queryRowsErr(h.db, query, args...)
+	rows, err := queryRowsErr(h.db.DB, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +537,7 @@ func (h *statsHandler) downstreamAvailability(scope *downstreamPricingScope, mod
 		args = append(args, normalizeModelKey(model))
 	}
 	args = append(args, filterArgs...)
-	rows, err := queryRowsErr(h.db, query, args...)
+	rows, err := queryRowsErr(h.db.DB, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -589,7 +589,7 @@ func (h *statsHandler) downstreamCurrentPriceComparison(r *http.Request, scope *
 		ORDER BY s.name, a.id`
 
 	accounts := make([]downstreamPricingAccount, 0)
-	if err := h.db.SelectContext(r.Context(), &accounts, rebindAdminQuery(h.db, query), filterArgs...); err != nil {
+	if err := h.db.SelectContext(r.Context(), &accounts, query, filterArgs...); err != nil {
 		return nil, nil, page, err
 	}
 

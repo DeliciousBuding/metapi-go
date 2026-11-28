@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // ---- Model Name Redirects ----
 //
 
 // RegisterModelRedirectRoutes mounts the redirect endpoints.
-func RegisterModelRedirectRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterModelRedirectRoutes(r chi.Router, db *store.DB) {
 	h := &modelRedirectHandler{db: db}
 	r.Get("/api/model-redirects", h.list)
 	r.Put("/api/model-redirects/{id}", h.update)
@@ -24,7 +24,7 @@ func RegisterModelRedirectRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type modelRedirectHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // GET /api/model-redirects?accountId=&source=
@@ -52,7 +52,7 @@ func (h *modelRedirectHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	q += " ORDER BY mr.updated_at DESC, mr.id DESC"
 
-	rows, err := queryRowsErr(h.db, q, args...)
+	rows, err := queryRowsErr(h.db.DB, q, args...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list model redirects")
 		return
@@ -121,7 +121,7 @@ func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
 	setParts = append(setParts, "updated_at = ?")
 	args = append(args, now, id)
 
-	res, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE model_name_redirects SET "+strings.Join(setParts, ", ")+" WHERE id = ?"), args...)
+	res, err := h.db.Exec("UPDATE model_name_redirects SET "+strings.Join(setParts, ", ")+" WHERE id = ?", args...)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update redirect"})
 		return
@@ -130,7 +130,7 @@ func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db.DB) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -140,7 +140,7 @@ func (h *modelRedirectHandler) remove(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	res, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM model_name_redirects WHERE id = ?"), id)
+	res, err := h.db.Exec("DELETE FROM model_name_redirects WHERE id = ?", id)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to delete redirect"})
 		return
@@ -149,7 +149,7 @@ func (h *modelRedirectHandler) remove(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db.DB) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -170,7 +170,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		models := body.Models
 		if len(models) == 0 {
 			// Deterministic order: insertion order ≈ upstream return order.
-			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
+			rows, err := queryRowsErr(h.db.DB, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
 			if err != nil {
 				writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load account models")
 				return
@@ -179,13 +179,13 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 				models = append(models, coerceString(row["modelName"]))
 			}
 		}
-		created, err := service.GenerateModelRedirects(r.Context(), h.db, body.AccountID, models)
+		created, err := service.GenerateModelRedirects(r.Context(), h.db.DB, body.AccountID, models)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "generate failed: " + err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": created})
-		service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
+		service.ReloadRedirectRegistry(r.Context(), h.db.DB) // keep the hot-path redirect registry fresh
 		return
 	}
 
@@ -205,14 +205,14 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 	}
 	total := 0
 	for accountID, models := range byAccount {
-		n, err := service.GenerateModelRedirects(r.Context(), h.db, accountID, models)
+		n, err := service.GenerateModelRedirects(r.Context(), h.db.DB, accountID, models)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "generate failed: " + err.Error()})
 			return
 		}
 		total += n
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db.DB) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": total, "accounts": len(byAccount)})
 }
 
@@ -234,7 +234,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 		dryRun = *body.DryRun
 	}
 
-	candidates, err := service.ListRedirectFixCandidates(r.Context(), h.db)
+	candidates, err := service.ListRedirectFixCandidates(r.Context(), h.db.DB)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to list fix candidates"})
 		return
@@ -250,7 +250,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	removed, err := service.ApplyRedirectFixes(r.Context(), h.db, candidates)
+	removed, err := service.ApplyRedirectFixes(r.Context(), h.db.DB, candidates)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "apply failed: " + err.Error()})
 		return
@@ -259,7 +259,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 	for _, c := range candidates {
 		_ = recordRedirectEvent(h.db, c)
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db.DB) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"dryRun":  false,
@@ -270,11 +270,11 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 
 // recordRedirectEvent logs a disabled-model re-enable to the events table
 // (type model_redirect_applied) so the attention surface / ops can trace it.
-func recordRedirectEvent(db *sqlx.DB, c service.RedirectFixCandidate) error {
+func recordRedirectEvent(db *store.DB, c service.RedirectFixCandidate) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := db.Exec(rebindAdminQuery(db, `
+	_, err := db.Exec(`
 		INSERT INTO events (type, title, message, level, related_id, related_type, created_at, read)
-		VALUES ('model_redirect_applied', ?, ?, 'info', ?, 'site', ?, FALSE)`),
+		VALUES ('model_redirect_applied', ?, ?, 'info', ?, 'site', ?, FALSE)`,
 		"Disabled model repaired (mapping auto-restored)",
 		"Disabled model "+c.ModelName+" on site "+c.SiteName+" was restored via mapping "+c.Canonical+" → "+c.Actual+".",
 		c.SiteID, now)

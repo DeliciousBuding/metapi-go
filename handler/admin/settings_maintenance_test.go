@@ -38,7 +38,7 @@ func setupMaintenanceTest(t *testing.T) (*store.DB, chi.Router, *routing.RouteCa
 
 	r := chi.NewRouter()
 	RegisterMaintenanceRoutes(r, db)
-	RegisterTasksRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
 	return db, r, rc
 }
 

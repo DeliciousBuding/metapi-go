@@ -22,7 +22,7 @@ func setupDownstreamKeysTest(t *testing.T) (*store.DB, chi.Router) {
 	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
-	RegisterDownstreamKeysRoutes(r, db.DB)
+	RegisterDownstreamKeysRoutes(r, db)
 	return db, r
 }
 
@@ -52,7 +52,7 @@ func setupDownstreamKeysPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 
 	r := chi.NewRouter()
-	RegisterDownstreamKeysRoutes(r, db.DB)
+	RegisterDownstreamKeysRoutes(r, db)
 	return db, r
 }
 

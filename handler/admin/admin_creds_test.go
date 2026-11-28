@@ -27,7 +27,7 @@ func setupCredsTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
-	RegisterSearchRoutes(r, db.DB)
+	RegisterSearchRoutes(r, db)
 	return db, r
 }
 

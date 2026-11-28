@@ -1,15 +1,5 @@
-// metapi-go/features/downstream-keys/components — the downstream API-key
-// list: table + create/edit sheet + enable/disable/delete/connect actions.
-// Rendered by `../downstream-keys-page` (the /downstream-keys route) through a
-// lazy import, so the table and form dependencies stay in their own chunk.
-//
-// The sheet form lives in key-sheet-form.tsx, the table cells in key-cells.tsx,
-// the scope cell in key-scope-cell.tsx, and the zod schemas + value mappers in
-// key-form-shared.ts; the wire contract is the sibling `../types`.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
-import { KeySquare, Pencil, ScrollText } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { KeySquare } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -17,53 +7,28 @@ import {
   CredentialExportDialog,
   type CredentialExportTarget,
 } from '@/components/common/credential-export-dialog'
-import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
-import { useAccounts, useAllAccountTokens } from '@/features/accounts'
-import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
-import { toast } from '@/lib/toast'
-import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
-import {
-  isKeyRestricted,
-  KEY_RESTRICTION_DIMENSIONS,
-  keyRestrictionDimensions,
-  type KeyRestrictionDimension,
-} from '../lib/key-restrictions'
 import {
   downstreamKeysQueryKeys,
   type DownstreamApiKeyItem,
   type DownstreamKeysResponse,
 } from '../types'
-import { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
 import {
   extractMarketplaceModelNames,
   resolveKeyScopeControl,
 } from './key-form-shared'
 import { KeyPermissionCheckDialog } from './key-permission-check-dialog'
-import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
-
-// Stable empty list so the memos below do not re-run on every render when
-// the query has no data yet.
-const EMPTY_KEY_ITEMS: DownstreamApiKeyItem[] = []
+import { useKeyColumns } from './use-key-columns'
+import { useKeyRestrictionFilter } from './use-key-restriction-filter'
 
 type KeysSectionProps = {
   editId?: number
@@ -77,8 +42,6 @@ export function KeysSection({
   onEditDrilldownConsumed,
 }: KeysSectionProps = {}) {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const handleReauth = useReauthReplay()
   const [createOpen, setCreateOpen] = useState(false)
   const [formDirty, setFormDirty] = useState(false)
   // #1430: data-key-scope anchor of the restriction badge that opened the
@@ -113,34 +76,6 @@ export function KeysSection({
   const candidateModels = useMemo(
     () => extractMarketplaceModelNames(modelInventoryQuery.data),
     [modelInventoryQuery.data]
-  )
-
-  // Routing-scope display resolves raw site/account/token IDs to names.
-  // These share their query keys with the sites/accounts/tokens surfaces
-  // (and with the credential pickers inside the edit sheet), so the list
-  // pays at most one extra fetch per inventory dimension.
-  const scopeSitesQuery = useSites()
-  const scopeAccountsQuery = useAccounts()
-  const scopeTokensQuery = useAllAccountTokens()
-  const scopeNames = useMemo<ScopeNameMaps>(
-    () => ({
-      sites: new Map(
-        (scopeSitesQuery.data ?? []).map((site) => [site.id, site.name])
-      ),
-      accounts: new Map(
-        (scopeAccountsQuery.data?.accounts ?? []).map((account) => [
-          account.id,
-          accountDisplayName(account),
-        ])
-      ),
-      tokens: new Map(
-        (scopeTokensQuery.data ?? []).map((token) => [
-          token.id,
-          tokenDisplayName(token),
-        ])
-      ),
-    }),
-    [scopeSitesQuery.data, scopeAccountsQuery.data, scopeTokensQuery.data]
   )
 
   const [editingKey, setEditingKey] = useState<DownstreamApiKeyItem | null>(
@@ -201,264 +136,8 @@ export function KeysSection({
       onOpenChange: onSheetOpenChange,
     })
 
-  const toggleMutation = useMutation({
-    mutationFn: async (input: {
-      id: number
-      enabled: boolean
-      confirmToken?: string
-    }) =>
-      input.confirmToken
-        ? api.updateDownstreamApiKey(
-            input.id,
-            { enabled: input.enabled },
-            input.confirmToken
-          )
-        : api.updateDownstreamApiKey(input.id, { enabled: input.enabled }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: downstreamKeysQueryKeys.all,
-      })
-      toast.success(t('settings.downstream.keys.toast.updated'))
-    },
-    onError: (error, input) => {
-      // Enable/disable rides the same sensitive PUT; a reauth demand must not
-      // be reported as an ordinary update failure.
-      if (
-        handleReauth(
-          error,
-          t('reauth.operations.downstreamKey'),
-          (confirmToken) =>
-            toggleMutation.mutateAsync({ ...input, confirmToken })
-        )
-      ) {
-        return
-      }
-      toast.error(t('settings.downstream.keys.toast.updateFailed'))
-    },
-  })
-
-  // Delete-with-undo tier: key revoke is leaf (no cascade) — no confirm dialog;
-  // the row leaves immediately and a 6s undo toast gates the real DELETE.
-  const undoableDelete = useUndoableDelete()
-  const deleteKey = useCallback(
-    (item: DownstreamApiKeyItem) =>
-      undoableDelete<DownstreamKeysResponse, DownstreamApiKeyItem>({
-        item,
-        queryKey: downstreamKeysQueryKeys.list(),
-        removeFromCache: (data, target) => ({
-          ...data,
-          items: data.items.filter((entry) => entry.id !== target.id),
-        }),
-        deleteFn: (target) => api.deleteDownstreamApiKey(target.id),
-        title: t('settings.downstream.keys.toast.deleted'),
-        undoLabel: t('common.undo'),
-        errorTitle: t('settings.downstream.keys.toast.deleteFailed'),
-      }),
-    [undoableDelete, t]
-  )
-
-  // 'all' | 'restricted' | 'unrestricted' | `dim:<dimension>` (#1430
-  // per-dimension filter for "which keys touch IP lists" style audits).
-  const [restrictionFilter, setRestrictionFilter] = useState<string>('all')
-  const allItems = useMemo(
-    () => keysQuery.data?.items ?? EMPTY_KEY_ITEMS,
-    [keysQuery.data]
-  )
-  const restrictedCount = useMemo(
-    () => allItems.filter(isKeyRestricted).length,
-    [allItems]
-  )
-  const items = useMemo(() => {
-    if (restrictionFilter === 'restricted') {
-      return allItems.filter(isKeyRestricted)
-    }
-    if (restrictionFilter === 'unrestricted') {
-      return allItems.filter((item) => !isKeyRestricted(item))
-    }
-    if (restrictionFilter.startsWith('dim:')) {
-      const dimension = restrictionFilter.slice(4) as KeyRestrictionDimension
-      return allItems.filter((item) =>
-        keyRestrictionDimensions(item).includes(dimension)
-      )
-    }
-    return allItems
-  }, [allItems, restrictionFilter])
-  const restrictionFilterItems = useMemo(
-    () => [
-      {
-        value: 'all',
-        label: t('settings.downstream.keys.restriction.filterAll'),
-      },
-      {
-        value: 'restricted',
-        label: t('settings.downstream.keys.restriction.filterRestricted'),
-      },
-      {
-        value: 'unrestricted',
-        label: t('settings.downstream.keys.restriction.filterUnrestricted'),
-      },
-      ...KEY_RESTRICTION_DIMENSIONS.map((dimension) => ({
-        value: `dim:${dimension}`,
-        label: t(`settings.downstream.keys.restriction.dim.${dimension}`),
-      })),
-    ],
-    [t]
-  )
-  const isLoading = keysQuery.isLoading
-
-  // Stable top-level refs for the columns memo (same pattern as the
-  // accounts page's toggleStatusMutate): the mutation object's identity
-  // changes every render, the memo only needs the stable mutate fn plus the
-  // derived pending flag.
-  const toggleKeyMutate = toggleMutation.mutate
-  const toggleKeyPending = toggleMutation.isPending
-
-  // One column set serves the desktop table and the ≤640px card list — the
-  // same DataTablePage contract every list page uses: `mobileTitle` lifts
-  // the key name into the card header, `mobileBadge` docks the enable
-  // switch beside it, and the `actions` column id renders the
-  // Connect/Edit/Delete buttons at the card bottom. Before this migration
-  // the section rendered a bare <Table> that horizontally scrolled the
-  // whole row set on phones, pushing Connect/Delete off-screen.
-  const columns = useMemo<ColumnDef<DownstreamApiKeyItem, unknown>[]>(
-    () => [
-      {
-        id: 'name',
-        header: t('settings.downstream.keys.columns.name'),
-        meta: { mobileTitle: true },
-        cell: ({ row }) => (
-          <div className='flex flex-col'>
-            <span className='font-medium'>{row.original.name}</span>
-            {row.original.keyMasked ? (
-              <code className='text-muted-foreground text-xs'>
-                {row.original.keyMasked}
-              </code>
-            ) : null}
-          </div>
-        ),
-      },
-      {
-        id: 'group',
-        header: t('settings.downstream.keys.columns.group'),
-        cell: ({ row }) =>
-          row.original.groupName ? (
-            <Badge variant='secondary'>{row.original.groupName}</Badge>
-          ) : (
-            <span className='text-muted-foreground'>—</span>
-          ),
-      },
-      {
-        id: 'models',
-        header: t('settings.downstream.keys.columns.models', {
-          defaultValue: 'Models',
-        }),
-        cell: ({ row }) => (
-          <KeyModelPolicyCell
-            supportedModels={row.original.supportedModels}
-            allowedRouteIds={row.original.allowedRouteIds}
-          />
-        ),
-      },
-      {
-        id: 'scope',
-        header: t('settings.downstream.keys.columns.scope'),
-        cell: ({ row }) => (
-          <KeyScopeCell
-            item={row.original}
-            names={scopeNames}
-            onOpenDetails={(anchor) => openEdit(row.original, anchor)}
-          />
-        ),
-      },
-      {
-        id: 'enabled',
-        header: t('settings.downstream.keys.columns.enabled'),
-        meta: { mobileBadge: true },
-        cell: ({ row }) => (
-          <Switch
-            checked={row.original.enabled}
-            disabled={toggleKeyPending}
-            onCheckedChange={(checked) =>
-              toggleKeyMutate({ id: row.original.id, enabled: checked })
-            }
-            aria-label={t('settings.downstream.keys.columns.enabledAria', {
-              name: row.original.name,
-            })}
-          />
-        ),
-      },
-      {
-        id: 'usage',
-        header: t('settings.downstream.keys.columns.usage'),
-        cell: ({ row }) => (
-          <div className='text-muted-foreground text-xs'>
-            <KeyUsageCell item={row.original} />
-          </div>
-        ),
-      },
-      {
-        id: 'actions',
-        header: t('settings.downstream.keys.columns.actions'),
-        cell: ({ row }) => (
-          <div className='flex justify-end gap-1'>
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
-              onClick={() => setExportTarget(row.original)}
-            >
-              {t('settings.downstream.keys.connect')}
-            </Button>
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
-              onClick={() => setCheckTarget(row.original)}
-            >
-              {t('settings.downstream.keys.check.action')}
-            </Button>
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              aria-label={t('settings.downstream.keys.viewLogsAria', {
-                name: row.original.name,
-              })}
-              title={t('settings.downstream.keys.viewLogs')}
-              render={
-                <Link
-                  to='/proxy-logs'
-                  search={{ downstreamKeyId: row.original.id }}
-                />
-              }
-            >
-              <ScrollText />
-            </Button>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon-sm'
-              aria-label={t('settings.downstream.keys.columns.editAria', {
-                name: row.original.name,
-              })}
-              onClick={() => openEdit(row.original)}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
-              onClick={() => deleteKey(row.original)}
-            >
-              {t('settings.common.delete')}
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    [t, toggleKeyPending, toggleKeyMutate, scopeNames, deleteKey, openEdit]
-  )
-
+  const { items, toolbar } = useKeyRestrictionFilter(keysQuery.data?.items)
+  const columns = useKeyColumns({ openEdit, setCheckTarget, setExportTarget })
   const { table } = useDataTable<DownstreamApiKeyItem>({
     data: items,
     columns,
@@ -502,7 +181,7 @@ export function KeysSection({
       ) : (
         <DataTablePage
           table={table}
-          isLoading={isLoading}
+          isLoading={keysQuery.isLoading}
           emptyIcon={<KeySquare className='size-6' />}
           emptyTitle={t('settings.downstream.keys.empty')}
           emptyAction={
@@ -510,57 +189,7 @@ export function KeysSection({
               {t('settings.downstream.keys.create')}
             </Button>
           }
-          toolbarProps={{
-            additionalSearch: (
-              <>
-                <Select
-                  items={restrictionFilterItems}
-                  value={restrictionFilter}
-                  onValueChange={(value) =>
-                    setRestrictionFilter(value ?? 'all')
-                  }
-                >
-                  <SelectTrigger
-                    size='sm'
-                    aria-label={t(
-                      'settings.downstream.keys.restriction.filterAria'
-                    )}
-                    className='w-44'
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='all'>
-                      {t('settings.downstream.keys.restriction.filterAll')}
-                    </SelectItem>
-                    <SelectItem value='restricted'>
-                      {t(
-                        'settings.downstream.keys.restriction.filterRestricted'
-                      )}
-                    </SelectItem>
-                    <SelectItem value='unrestricted'>
-                      {t(
-                        'settings.downstream.keys.restriction.filterUnrestricted'
-                      )}
-                    </SelectItem>
-                    {KEY_RESTRICTION_DIMENSIONS.map((dimension) => (
-                      <SelectItem key={dimension} value={`dim:${dimension}`}>
-                        {t(
-                          `settings.downstream.keys.restriction.dim.${dimension}`
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className='text-muted-foreground self-center text-xs'>
-                  {t('settings.downstream.keys.restriction.count', {
-                    restricted: restrictedCount,
-                    total: allItems.length,
-                  })}
-                </span>
-              </>
-            ),
-          }}
+          toolbarProps={{ additionalSearch: toolbar }}
           fixedHeight={false}
           skeletonKeyPrefix='downstream-keys-skeleton'
         />

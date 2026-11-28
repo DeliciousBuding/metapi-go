@@ -34,7 +34,7 @@ func setupChannelTestHarness(t *testing.T) (*store.DB, *channelTestHandler, chi.
 	}
 
 	cfg := &config.Config{}
-	h := &channelTestHandler{db: db.DB, cfg: cfg}
+	h := &channelTestHandler{db: db, cfg: cfg}
 	r := chi.NewRouter()
 	// Register using the same handler instance so tests can inject transport.
 	r.Post("/api/admin/test-channel", h.testChannel)
@@ -451,7 +451,7 @@ func (f probeBodyReader) Read(buf []byte) (int, error) { return f(buf) }
 
 func TestChannelProbeObservations(t *testing.T) {
 	bothStatsDatabases(t, func(t *testing.T, db *store.DB, r chi.Router) {
-		h := &channelTestHandler{db: db.DB, cfg: &config.Config{}}
+		h := &channelTestHandler{db: db, cfg: &config.Config{}}
 		r.Post("/api/admin/test-channel", h.testChannel)
 		r.Post("/api/debug/channel-probe", h.testChannel)
 		_, _, _, id := insertHarnessFixtures(t, db)
@@ -533,7 +533,7 @@ func TestChannelProbeOAuthUnit(t *testing.T) {
 		token := insert(`INSERT INTO account_tokens (account_id,name,token,enabled) VALUES (?,'fixture','explicit-fixture',TRUE)`, account)
 		calls := 0
 		var wantToken string
-		h := &channelTestHandler{db: db.DB, cfg: &config.Config{}, transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		h := &channelTestHandler{db: db, cfg: &config.Config{}, transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 			calls++
 			if wantToken == "" || req.Header.Get("Authorization") != "Bearer "+wantToken {
 				t.Error("probe dispatched with unexpected credentials")

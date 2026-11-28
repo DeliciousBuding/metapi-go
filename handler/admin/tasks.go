@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // BackgroundTaskStatus mirrors the TS background task lifecycle.
@@ -80,7 +80,7 @@ var (
 // RegisterTasksRoutes registers /api/tasks routes.
 // list/get observe memory-visible tasks AND durable tasks from admin_background_tasks
 // when the handler DB is set. Cold DB fallback enables cross-instance visibility.
-func RegisterTasksRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterTasksRoutes(r chi.Router, db *store.DB) {
 	SetBackgroundTaskDB(db)
 	handler := &tasksHandler{db: db}
 	r.Get("/api/tasks", handler.listTasks)
@@ -88,7 +88,7 @@ func RegisterTasksRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type tasksHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // GET /api/tasks?limit=
@@ -298,14 +298,14 @@ func updateBackgroundTaskDBMessage(taskID, message string) {
 		return
 	}
 	nowISO := time.Now().UTC().Format(time.RFC3339)
-	_, err := db.Exec(db.Rebind(`UPDATE admin_background_tasks SET message=?, updated_at=? WHERE task_id=?`),
+	_, err := db.Exec(`UPDATE admin_background_tasks SET message=?, updated_at=? WHERE task_id=?`,
 		message, nowISO, taskID)
 	if err != nil {
 		slog.Debug("admin tasks: durable message update failed", "task_id", taskID, "error", err)
 	}
 }
 
-func getBackgroundTask(db *sqlx.DB, id string) *BackgroundTask {
+func getBackgroundTask(db *store.DB, id string) *BackgroundTask {
 	backgroundTasksMu.Lock()
 	cleanupExpiredBackgroundTasksLocked(time.Now())
 	task, ok := backgroundTasks[id]
@@ -322,7 +322,7 @@ func getBackgroundTask(db *sqlx.DB, id string) *BackgroundTask {
 	return loadBackgroundTaskDB(db, id)
 }
 
-func listBackgroundTasks(db *sqlx.DB, limit int) []BackgroundTask {
+func listBackgroundTasks(db *store.DB, limit int) []BackgroundTask {
 	if limit < 1 {
 		limit = 50
 	}
@@ -378,7 +378,7 @@ func insertBackgroundTaskDB(task *BackgroundTask) {
 		dedupePtr = *task.DedupeKey
 	}
 	// StartBackgroundTask and its durable-write helpers are free functions
-	// invoked from many admin call sites, so the *sqlx.DB cannot be threaded
+	// invoked from many admin call sites, so the *store.DB cannot be threaded
 	// through every caller without churning the public signature. The
 	// package-level handle set by SetBackgroundTaskDB (wired once at boot in
 	// RegisterTasksRoutes) is the intended bridge from the routed handler
@@ -390,11 +390,11 @@ func insertBackgroundTaskDB(task *BackgroundTask) {
 	if db == nil {
 		return
 	}
-	_, err := db.Exec(db.Rebind(`
+	_, err := db.Exec(`
 		INSERT INTO admin_background_tasks (task_id, type, title, status, message, dedupe_key, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(task_id) DO NOTHING
-	`), task.ID, task.Type, task.Title, string(task.Status), task.Message, dedupePtr, task.CreatedAt, nowISO)
+	`, task.ID, task.Type, task.Title, string(task.Status), task.Message, dedupePtr, task.CreatedAt, nowISO)
 	if err != nil {
 		slog.Warn("admin tasks: durable insert failed (memory set)", "task_id", task.ID, "error", err)
 	}
@@ -408,17 +408,17 @@ func updateBackgroundTaskDBStatus(taskID, status string, startedAt, finishedAt, 
 		return
 	}
 	nowISO := time.Now().UTC().Format(time.RFC3339)
-	_, e := db.Exec(db.Rebind(`
+	_, e := db.Exec(`
 		UPDATE admin_background_tasks SET status=?, message=?, error=?, started_at=COALESCE(?,started_at),
 		finished_at=?, updated_at=? WHERE task_id=? AND status NOT IN ('succeeded','failed')
-	`), status, "updated", errMsg, startedAt, finishedAt, nowISO, taskID)
+	`, status, "updated", errMsg, startedAt, finishedAt, nowISO, taskID)
 	if e != nil {
 		slog.Debug("admin tasks: durable status update failed", "task_id", taskID, "error", e)
 	}
 	_ = result // result_json column available for future serialization
 }
 
-func loadBackgroundTaskDB(db *sqlx.DB, id string) *BackgroundTask {
+func loadBackgroundTaskDB(db *store.DB, id string) *BackgroundTask {
 	if db == nil {
 		return nil
 	}
@@ -435,10 +435,10 @@ func loadBackgroundTaskDB(db *sqlx.DB, id string) *BackgroundTask {
 		StartedAt  *string `db:"started_at"`
 		FinishedAt *string `db:"finished_at"`
 	}
-	err := db.Get(&rec, db.Rebind(`
+	err := db.Get(&rec, `
 		SELECT task_id, type, title, status, message, error, dedupe_key,
 		       created_at, updated_at, started_at, finished_at
-		FROM admin_background_tasks WHERE task_id = ?`), id)
+		FROM admin_background_tasks WHERE task_id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -464,7 +464,7 @@ func loadBackgroundTaskDB(db *sqlx.DB, id string) *BackgroundTask {
 	return task
 }
 
-func listBackgroundTasksDB(db *sqlx.DB, limit int) []BackgroundTask {
+func listBackgroundTasksDB(db *store.DB, limit int) []BackgroundTask {
 	if db == nil {
 		return nil
 	}
@@ -482,10 +482,10 @@ func listBackgroundTasksDB(db *sqlx.DB, limit int) []BackgroundTask {
 		FinishedAt *string `db:"finished_at"`
 	}
 	var rows []dbRow
-	if err := db.Select(&rows, db.Rebind(`
+	if err := db.Select(&rows, `
 		SELECT task_id, type, title, status, message, error, dedupe_key,
 		       created_at, updated_at, started_at, finished_at
-		FROM admin_background_tasks ORDER BY created_at DESC LIMIT ?`), limit); err != nil {
+		FROM admin_background_tasks ORDER BY created_at DESC LIMIT ?`, limit); err != nil {
 		return nil
 	}
 	var out []BackgroundTask
@@ -540,12 +540,12 @@ func snapshotBackgroundTask(task *BackgroundTask) BackgroundTask {
 
 var (
 	bgTasksMu sync.Mutex
-	bgTasksDB *sqlx.DB
+	bgTasksDB *store.DB
 )
 
 // SetBackgroundTaskDB stores the DB handle used by free-function start/update.
 // Called from server boot or test wiring.
-func SetBackgroundTaskDB(db *sqlx.DB) {
+func SetBackgroundTaskDB(db *store.DB) {
 	bgTasksMu.Lock()
 	defer bgTasksMu.Unlock()
 	bgTasksDB = db

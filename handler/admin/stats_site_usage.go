@@ -18,7 +18,7 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 	// balance is known) instead of COALESCE-ing to 0, so the response can
 	// distinguish "balance unknown" (accounts exist, all NULL) from "no
 	// accounts at all" (handled in the loop below).
-	rows, err := queryRowsErr(h.db, `
+	rows, err := queryRowsErr(h.db.DB, `
 		SELECT
 			s.id AS site_id,
 			s.name AS site_name,
@@ -74,7 +74,7 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
-	rows, err := queryRowsErr(h.db, `
+	rows, err := queryRowsErr(h.db.DB, `
 		SELECT
 			u.local_day AS local_day,
 			s.name AS site_name,
@@ -139,7 +139,7 @@ func (h *statsHandler) modelBySite(w http.ResponseWriter, r *http.Request) {
 	}
 	query += " GROUP BY model ORDER BY calls DESC"
 
-	rows, err := queryRowsErr(h.db, query, args...)
+	rows, err := queryRowsErr(h.db.DB, query, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load model-by-site")
 		return

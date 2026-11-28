@@ -73,7 +73,7 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 	if win.period == "24h" {
 		requestBucket = hourBucketSQLExpr(h.db, "correlated.created_at")
 	}
-	points, err := queryRowsErr(h.db, `SELECT `+bucket+` AS date,
+	points, err := queryRowsErr(h.db.DB, `SELECT `+bucket+` AS date,
   COUNT(*) AS requests,
   COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END),0) AS success_count,
   COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`),0) AS tokens,
@@ -85,7 +85,7 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "failed to load overview trend")
 		return
 	}
-	requestPoints, err := queryRowsErr(h.db, `WITH correlated AS (
+	requestPoints, err := queryRowsErr(h.db.DB, `WITH correlated AS (
   SELECT pl.request_id, pl.status, pl.created_at,
          ROW_NUMBER() OVER (
            PARTITION BY pl.request_id
@@ -132,10 +132,10 @@ ORDER BY date`, args...)
 		LegacyAttempts     int64    `db:"legacy_attempts"`
 		AverageFirstByteMs *float64 `db:"average_first_byte_ms"`
 	}
-	if err := h.db.Get(&coverage, rebindAdminQuery(h.db, `SELECT
+	if err := h.db.Get(&coverage, `SELECT
   COUNT(CASE WHEN COALESCE(pl.request_id,'')='' THEN 1 END) AS legacy_attempts,
   AVG(CASE WHEN pl.first_byte_latency_ms > 0 THEN pl.first_byte_latency_ms END) AS average_first_byte_ms
-  FROM proxy_logs pl WHERE `+condition), args...); err != nil {
+  FROM proxy_logs pl WHERE `+condition, args...); err != nil {
 		writeError(w, 500, "failed to load request overview completeness")
 		return
 	}
@@ -160,7 +160,7 @@ ORDER BY date`, args...)
 		"partial":            legacyAttemptCount > 0,
 		"partialReasons":     requestPartialReasons,
 	}
-	sites, err := queryRowsErr(h.db, `SELECT s.id AS site_id, s.name AS site_name,
+	sites, err := queryRowsErr(h.db.DB, `SELECT s.id AS site_id, s.name AS site_name,
   COUNT(pl.id) AS total_requests,
   COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END),0) AS success_count,
   COALESCE(SUM(CASE WHEN pl.id IS NOT NULL AND COALESCE(pl.status,'') <> 'success' THEN 1 ELSE 0 END),0) AS failed_count,
@@ -179,7 +179,7 @@ ORDER BY date`, args...)
 		return
 	}
 	model := `COALESCE(NULLIF(pl.model_actual,''),NULLIF(pl.model_requested,''),'unknown')`
-	models, err := queryRowsErr(h.db, `SELECT `+model+` AS model, COUNT(*) AS calls,
+	models, err := queryRowsErr(h.db.DB, `SELECT `+model+` AS model, COUNT(*) AS calls,
   COALESCE(SUM(pl.estimated_cost),0) AS cost,
   COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`),0) AS tokens
   FROM proxy_logs pl WHERE `+condition+` GROUP BY `+model+` ORDER BY cost DESC,model`, args...)
@@ -242,7 +242,7 @@ func (h *statsHandler) attachRecentSamples(sites []map[string]any, condition str
 	if h.db.DriverName() == "pgx" {
 		hour = `to_char(pl.created_at::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:00:00"Z"')`
 	}
-	rows, err := queryRowsErr(h.db, `WITH hourly AS (
+	rows, err := queryRowsErr(h.db.DB, `WITH hourly AS (
  SELECT a.site_id, `+hour+` AS bucket_ts, COUNT(*) AS total,
  COUNT(CASE WHEN pl.status='success' THEN 1 END) AS success,
  AVG(CASE WHEN pl.latency_ms > 0 THEN CAST(pl.latency_ms AS DOUBLE PRECISION) END) AS avg_latency_ms

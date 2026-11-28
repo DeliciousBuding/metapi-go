@@ -297,7 +297,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
 		qArgs = append(qArgs, limit, offset)
-		items, err := queryRowsErr(h.db, query, qArgs...)
+		items, err := queryRowsErr(h.db.DB, query, qArgs...)
 		if err != nil {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy logs")
 			return
@@ -313,7 +313,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		// join unless the site filter needs s.id) — at 500k rows the join
 		// roughly doubled the count time on the audit fixture.
 		countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(siteID, search) + where
-		h.db.Get(&total, rebindAdminQuery(h.db, countQuery), args...)
+		h.db.Get(&total, countQuery, args...)
 		queryPayload["total"] = total
 	}
 
@@ -332,7 +332,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			// and never sum prompt+completion on top of total_tokens.
 			summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(siteID, search), where)
 			var s proxyLogsSummary
-			if err := h.db.Get(&s, rebindAdminQuery(h.db, summaryQuery), args...); err != nil {
+			if err := h.db.Get(&s, summaryQuery, args...); err != nil {
 				return proxyLogsSummary{}, err
 			}
 			return s, nil
@@ -353,7 +353,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			"totalTokensAll": summary.TotalTokensAll,
 		}
 
-		sites, err := queryRowsErr(h.db, "SELECT id, name, status FROM sites")
+		sites, err := queryRowsErr(h.db.DB, "SELECT id, name, status FROM sites")
 		if err != nil {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load sites")
 			return

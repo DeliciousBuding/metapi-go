@@ -27,8 +27,8 @@ func TestErrorCodeResourceLoadFailed(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	RegisterSitesRoutes(r, db.DB)
-	RegisterStatsRoutes(r, db.DB)
+	RegisterSitesRoutes(r, db)
+	RegisterStatsRoutes(r, db)
 	RegisterAccountsRoutes(r, db.DB, &config.Config{AccountCredentialSecret: "test-secret-for-load-fail"})
 
 	// A closed DB makes every read fail without needing fixtures; the

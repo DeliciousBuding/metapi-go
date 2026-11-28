@@ -5,8 +5,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-
-	"github.com/jmoiron/sqlx"
 )
 
 // Stats handler helper functions extracted from stats.go for readability.
@@ -28,9 +26,13 @@ func parseTruthyQuery(v string) bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func queryRow(db *sqlx.DB, query string, args ...any) (map[string]any, error) {
+// Both store-backed handlers and legacy route handlers use the same row projection.
+func queryRow[R interface{ MapScan(map[string]any) error }](db interface {
+	Rebind(string) string
+	QueryRowx(string, ...any) R
+}, query string, args ...any) (map[string]any, error) {
 	row := make(map[string]any)
-	err := db.QueryRowx(rebindAdminQuery(db, query), args...).MapScan(row)
+	err := db.QueryRowx(db.Rebind(query), args...).MapScan(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

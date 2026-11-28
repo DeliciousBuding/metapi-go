@@ -1,12 +1,12 @@
 package admin
 
 import (
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterStatsRoutes registers all /api/stats and /api/models routes.
-func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterStatsRoutes(r chi.Router, db *store.DB) {
 	handler := &statsHandler{db: db}
 
 	r.Get("/api/stats/dashboard", handler.dashboard)
@@ -58,7 +58,7 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 // account identities; the admin modelPriceCompare surface stays admin-only.
 
 // Mounted under /v1/* so it inherits ProxyAuth + CORS from the /v1 route group.
-func RegisterDownstreamPricingRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterDownstreamPricingRoutes(r chi.Router, db *store.DB) {
 	handler := &statsHandler{db: db}
 	// Paths are relative: this router is mounted inside r.Route("/v1", ...),
 	// so absolute "/v1/..." here would double the prefix.
@@ -67,7 +67,7 @@ func RegisterDownstreamPricingRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type statsHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // usageHeatmapCellLimit caps density rows returned to admin clients.

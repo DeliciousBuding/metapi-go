@@ -52,7 +52,7 @@ func TestModelRates_AggregatesAllSurfaces(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	RegisterModelRatesRoutes(r, db.DB)
+	RegisterModelRatesRoutes(r, db)
 
 	resp := doGet(t, r, "/api/models/rates")
 	if resp.Code != 200 {
@@ -153,7 +153,7 @@ func TestModelRates_UpdateBatchPersists(t *testing.T) {
 	_, accountID, channelID := seedRateFixture(t, db)
 
 	r := chi.NewRouter()
-	RegisterModelRatesRoutes(r, db.DB)
+	RegisterModelRatesRoutes(r, db)
 
 	resp := doPutJSON(t, r, "/api/models/rates", map[string]any{
 		"accounts": []map[string]any{{"id": accountID, "unitCost": 0.009}},
@@ -212,7 +212,7 @@ func TestModelRates_UpdateValidation(t *testing.T) {
 	_, accountID, channelID := seedRateFixture(t, db)
 
 	r := chi.NewRouter()
-	RegisterModelRatesRoutes(r, db.DB)
+	RegisterModelRatesRoutes(r, db)
 
 	// Negative unitCost → 400.
 	resp := doPutJSON(t, r, "/api/models/rates", map[string]any{
@@ -266,7 +266,7 @@ func TestModelRates_UpdateBatchPostgres(t *testing.T) {
 	_, accountID, channelID := seedRateFixture(t, db)
 
 	r := chi.NewRouter()
-	RegisterModelRatesRoutes(r, db.DB)
+	RegisterModelRatesRoutes(r, db)
 
 	resp := doPutJSON(t, r, "/api/models/rates", map[string]any{
 		"accounts": []map[string]any{{"id": accountID, "unitCost": 0.002}},

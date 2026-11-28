@@ -158,7 +158,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	// Admin routes.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AdminAuth(nil))
-		admin.RegisterSitesRoutes(r, db.DB)
+		admin.RegisterSitesRoutes(r, db)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})
@@ -502,7 +502,7 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AdminAuth(nil))
-		admin.RegisterSitesRoutes(r, db.DB)
+		admin.RegisterSitesRoutes(r, db)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})

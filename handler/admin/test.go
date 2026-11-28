@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterTestRoutes registers all /api/test routes.
@@ -15,7 +15,7 @@ import (
 // Known limitation:
 // - sync chat probes alias the forced-channel harness when a channel/site is forced
 // - full path/multipart routing matrix without a forced channel returns an honest 501 residual
-func RegisterTestRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterTestRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &testHandler{
 		channel: &channelTestHandler{db: db, cfg: cfg},
 	}
