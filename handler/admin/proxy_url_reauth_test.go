@@ -33,7 +33,7 @@ func setupProxyURLReauthTest(t *testing.T) (chi.Router, *store.DB) {
 
 	r := chi.NewRouter()
 	RegisterSitesRoutes(r, db)
-	RegisterAccountsRoutes(r, db.DB, cfg)
+	RegisterAccountsRoutes(r, db, cfg)
 	RegisterDownstreamKeysRoutes(r, db)
 	RegisterOauthRoutes(r, db)
 	RegisterSettingsRoutes(r, db.DB, cfg)

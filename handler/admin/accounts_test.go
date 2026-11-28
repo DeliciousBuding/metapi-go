@@ -36,7 +36,7 @@ func setupAccountsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
 
 	r := chi.NewRouter()
 	RegisterSitesRoutes(r, db)
-	RegisterAccountsRoutes(r, db.DB, cfg)
+	RegisterAccountsRoutes(r, db, cfg)
 	return db, r, cfg
 }
 
@@ -50,7 +50,7 @@ func setupAccountsPostgresTest(t *testing.T) (*store.DB, chi.Router, *config.Con
 	cfg := &config.Config{
 		AccountCredentialSecret: "test-secret-for-accounts",
 	}
-	RegisterAccountsRoutes(r, db.DB, cfg)
+	RegisterAccountsRoutes(r, db, cfg)
 	return db, r, cfg
 }
 
@@ -2945,7 +2945,7 @@ func TestAccounts_ErrorResponsesUseStandardShape(t *testing.T) {
 // accounts-health); the message text stays the display fallback.
 func TestErrorCodeAccountNotFound(t *testing.T) {
 	db, r, cfg := setupAccountsTest(t)
-	RegisterAccountTokensRoutesWithConfig(r, db.DB, cfg)
+	RegisterAccountTokensRoutesWithConfig(r, db, cfg)
 
 	cases := []struct {
 		name   string
@@ -3192,7 +3192,7 @@ func TestAccounts_Create_SessionAutoSync_FailureKeepsAccount(t *testing.T) {
 	if _, err := db.Exec("DROP TABLE account_tokens"); err != nil {
 		t.Fatalf("drop account_tokens: %v", err)
 	}
-	report := syncTokensAfterAccountCreate(context.Background(), db.DB, cfg, accountID)
+	report := syncTokensAfterAccountCreate(context.Background(), db, cfg, accountID)
 
 	if report.Status != "failed" {
 		t.Fatalf("report.Status = %q, want failed", report.Status)

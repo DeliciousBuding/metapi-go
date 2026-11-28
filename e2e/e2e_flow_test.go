@@ -128,8 +128,8 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db)
-		admin.RegisterAccountsRoutes(r, db.DB, cfg)
-		admin.RegisterAccountTokensRoutes(r, db.DB)
+		admin.RegisterAccountsRoutes(r, db, cfg)
+		admin.RegisterAccountTokensRoutes(r, db)
 	})
 
 	// Proxy routes: /v1/* with ProxyAuth middleware.
@@ -510,8 +510,8 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db)
-		admin.RegisterAccountsRoutes(r, db.DB, cfg)
-		admin.RegisterAccountTokensRoutes(r, db.DB)
+		admin.RegisterAccountsRoutes(r, db, cfg)
+		admin.RegisterAccountTokensRoutes(r, db)
 	})
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.ProxyAuth(db))

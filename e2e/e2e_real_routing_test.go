@@ -101,7 +101,7 @@ func TestConfiguredRoutesReachUpstreamThroughRealRouter(t *testing.T) {
 			r.Group(func(r chi.Router) {
 				r.Use(auth.AdminAuth(nil))
 				admin.RegisterSitesRoutes(r, db)
-				admin.RegisterAccountsRoutes(r, db.DB, cfg)
+				admin.RegisterAccountsRoutes(r, db, cfg)
 				admin.RegisterTokenRoutesWithDeps(r, db.DB, admin.TokenRoutesDeps{})
 				admin.RegisterSettingsRoutes(r, db.DB, cfg)
 			})

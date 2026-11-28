@@ -152,8 +152,8 @@ func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterGatewayUserRoutes(r, db)
 			admin.RegisterUserBudgetRoutes(r, db)
 			admin.RegisterUserActivationRoutes(r, db, userSessions)
-			admin.RegisterAccountsRoutes(r, db.DB, cfg)
-			admin.RegisterAccountTokensRoutes(r, db.DB)
+			admin.RegisterAccountsRoutes(r, db, cfg)
+			admin.RegisterAccountTokensRoutes(r, db)
 
 			// Admin API routes
 			admin.RegisterStatsRoutes(r, db)

@@ -26,15 +26,15 @@ func setupTokensTest(t *testing.T) (*store.DB, chi.Router) {
 
 	r := chi.NewRouter()
 	RegisterSitesRoutes(r, db)
-	RegisterAccountsRoutes(r, db.DB, cfg)
-	RegisterAccountTokensRoutes(r, db.DB)
+	RegisterAccountsRoutes(r, db, cfg)
+	RegisterAccountTokensRoutes(r, db)
 	return db, r
 }
 
 func setupTokensPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, r, _ := setupAccountsPostgresTest(t)
-	RegisterAccountTokensRoutes(r, db.DB)
+	RegisterAccountTokensRoutes(r, db)
 	return db, r
 }
 

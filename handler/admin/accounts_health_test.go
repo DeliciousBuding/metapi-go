@@ -79,7 +79,7 @@ func TestListAccountIDsForHealthRefresh_ReturnsAllAccountsOrdered(t *testing.T) 
 	idDisabled := insertHealthAccountRow(t, db, siteID, "disabled", "")
 	idActive2 := insertHealthAccountRow(t, db, siteID, "active", `{"credentialMode":"apikey"}`)
 
-	ids, err := listAccountIDsForHealthRefresh(db.DB)
+	ids, err := listAccountIDsForHealthRefresh(db)
 	if err != nil {
 		t.Fatalf("listAccountIDsForHealthRefresh: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestListAccountIDsForHealthRefresh_ReturnsAllAccountsOrdered(t *testing.T) 
 func TestListAccountIDsForHealthRefresh_EmptyDBReturnsEmptyNonNil(t *testing.T) {
 	db, _ := setupAccountsHealthTest(t)
 
-	ids, err := listAccountIDsForHealthRefresh(db.DB)
+	ids, err := listAccountIDsForHealthRefresh(db)
 	if err != nil {
 		t.Fatalf("listAccountIDsForHealthRefresh: %v", err)
 	}

@@ -6,13 +6,13 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/singleflight"
 )
 
 // RegisterAccountsRoutes registers all /api/accounts routes.
-func RegisterAccountsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+func RegisterAccountsRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	handler := &accountsHandler{db: db, cfg: cfg}
 
 	r.Get("/api/accounts", handler.listAccounts)
@@ -31,7 +31,7 @@ func RegisterAccountsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 }
 
 type accountsHandler struct {
-	db  *sqlx.DB
+	db  *store.DB
 	cfg *config.Config
 }
 

@@ -67,6 +67,6 @@ func (h *tokenRoutesHandler) channelProbeHistory(w http.ResponseWriter, r *http.
 // accountProbeHistory handles GET /api/accounts/probe-history.
 func (h *accountsHandler) accountProbeHistory(w http.ResponseWriter, r *http.Request) {
 	limit, _ := parseLimitOffset(r, probeHistoryDefaultLimit, probeHistoryMaxLimit)
-	rows, err := store.RecentProbeHistory(h.db, "account_id", limit)
+	rows, err := store.RecentProbeHistory(h.db.DB, "account_id", limit)
 	writeProbeHistoryResponse(w, "accountId", limit, rows, err)
 }

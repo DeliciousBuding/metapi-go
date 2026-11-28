@@ -38,11 +38,6 @@ import (
 // legacyAdminSQLXFiles freezes handler/admin/... production files that directly
 // import github.com/jmoiron/sqlx.
 var legacyAdminSQLXFiles = map[string]bool{
-	"handler/admin/account_tokens.go":         true,
-	"handler/admin/account_tokens_sync.go":    true,
-	"handler/admin/accounts.go":               true,
-	"handler/admin/accounts_auth.go":          true,
-	"handler/admin/accounts_health.go":        true,
 	"handler/admin/helpers.go":                true,
 	"handler/admin/model_refresh.go":          true,
 	"handler/admin/settings.go":               true,

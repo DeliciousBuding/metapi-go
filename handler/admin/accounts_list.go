@@ -70,7 +70,7 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 // "no metrics" and is logged — the account list itself must not fail because
 // an auxiliary aggregation query broke.
 func (h *accountsHandler) computeAccountsSnapshot() ([]byte, error) {
-	accounts, err := service.ListAccountsWithSites(h.db)
+	accounts, err := service.ListAccountsWithSites(h.db.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (h *accountsHandler) computeAccountsSnapshot() ([]byte, error) {
 	// Per-account today truth. Failure degrades to "no metrics" (frontend shows
 	// — instead of fake zeros) and is logged; the account list itself must not
 	// fail because an auxiliary aggregation query broke.
-	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db, time.Now())
+	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db.DB, time.Now())
 	if metricsErr != nil {
 		slog.Error("Failed to load per-account today metrics", "err", metricsErr)
 	} else {
@@ -132,14 +132,14 @@ func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db, pageSize, offset, filter)
+	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db.DB, pageSize, offset, filter)
 	if err != nil {
 		slog.Error("Failed to load paginated accounts", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts", "errorCode": "resourceLoadFailed"})
 		return
 	}
 
-	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db, time.Now())
+	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db.DB, time.Now())
 	if metricsErr != nil {
 		slog.Error("Failed to load per-account today metrics", "err", metricsErr)
 	} else {
