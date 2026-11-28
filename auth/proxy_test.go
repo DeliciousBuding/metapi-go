@@ -348,9 +348,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyMatch(t *testing.T) {
 
 func TestAuthorizeDownstreamToken_ManagedKeyDisabled(t *testing.T) {
 	setupTestDB(t)
-	insertTestKey(t, "sk-managed-disabled", false, nil, 0, nil, 0, nil)
+	insertTestKey(t, "sk-disabled-key", false, nil, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-disabled", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-disabled-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for disabled key")
 	}
@@ -405,9 +405,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyOverCost(t *testing.T) {
 	setupTestDB(t)
 	maxCost := 10.0
 	usedCost := 10.0 // usedCost >= maxCost → over_cost
-	insertTestKey(t, "sk-managed-overcost", true, &maxCost, usedCost, nil, 0, nil)
+	insertTestKey(t, "sk-overcost-key", true, &maxCost, usedCost, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-overcost", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-overcost-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for over-cost key")
 	}
@@ -426,9 +426,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyMaxCostZero_ImmediateBlock(t *testin
 	setupTestDB(t)
 	// max_cost=0 with used_cost=0 → usedCost (0) >= maxCost (0) → blocked immediately
 	maxCost := 0.0
-	insertTestKey(t, "sk-managed-costzero", true, &maxCost, 0, nil, 0, nil)
+	insertTestKey(t, "sk-costzero-key", true, &maxCost, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-costzero", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-costzero-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for max_cost=0 key")
 	}
