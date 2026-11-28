@@ -1,0 +1,173 @@
+package backup
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/deliciousbuding/metapi-go/service/upstream"
+	"github.com/deliciousbuding/metapi-go/store"
+)
+
+// AxonHubV14Origin names the origin key an AxonHub v1.4 import claims by
+// default. Callers may override it, but every origin is independent.
+const AxonHubV14Origin = "axonhub-v1.4"
+
+// ErrAxonHubReplacementRequired is returned when a re-import would remove
+// entities a previous import of the same origin created and the caller has not
+// explicitly confirmed replacement.
+var ErrAxonHubReplacementRequired = errors.New("AxonHub source snapshot removes imported entries; confirm origin replacement")
+
+// ImportAxonHubV14 writes the compiled channel graph in a single transaction.
+// Re-imports update the same rows through origin-scoped source-id mappings and
+// remove this origin's dropped roots and explicitly confirmed dependents.
+func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplacement bool, expectedRevision ...string) (map[string]int64, error) {
+	src, err := ParseAxonHubSource(raw)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := CompileAxonHubPlan(src)
+	if err != nil {
+		return nil, err
+	}
+	if len(plan.blocking) > 0 {
+		return nil, errors.New("AxonHub backup has no channel that a direct upstream grant can serve")
+	}
+	if err = validateOriginKey(originKey); err != nil {
+		return nil, err
+	}
+	if db == nil {
+		return nil, errors.New("database is unavailable")
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		return nil, fmt.Errorf("begin AxonHub import: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err = upstream.LockLifecycleTx(context.Background(), tx); err != nil {
+		return nil, err
+	}
+	owned, err := mappedSourceIDs(tx, db, originKey)
+	if err != nil {
+		return nil, err
+	}
+	keep := axonHubPlanSourceIDs(plan)
+	removalPlan, err := mappedSourceDeletionPlan(tx, originKey, keep, owned)
+	if err != nil {
+		return nil, err
+	}
+	removals := mappedSourceRemovalCounts(removalPlan, keep, owned)
+	if len(removals) > 0 && !allowReplacement {
+		return nil, ErrAxonHubReplacementRequired
+	}
+	if err = confirmSourceDeletion(removalPlan, originKey, allowReplacement, expectedRevision, ErrAxonHubReplacementRequired); err != nil {
+		return nil, err
+	}
+	if _, err = upstream.ApplyDeletionTx(context.Background(), tx, removalPlan); err != nil {
+		return nil, err
+	}
+	if err = deleteMappedSourceKeys(tx, originKey, keep, owned); err != nil {
+		return nil, err
+	}
+	counts := map[string]int64{}
+	channelIDs := map[int]int64{}
+	for _, channel := range plan.channels {
+		id, err := upsertMapped(db, tx, originKey, "upstream_channels", int64(channel.SourceID), "upstream_channels",
+			[]string{"name", "dialect", "provider", "enabled", "base_url", "endpoint_config", "openai_chat_completion_path", "openai_response_path", "anthropic_message_path", "proxy", "channel_proxy", "custom_header", "param_override", "request_config", "match_regex", "rate_limit", "stream_policy"},
+			[]any{channel.Name, "generic", channel.Provider, channel.Enabled, strings.TrimRight(strings.TrimRight(channel.BaseURL, "#"), "/"), channel.Endpoints, channel.ChatPath, channel.ResponsesPath, channel.MessagesPath, false, channel.ChannelProxy, "[]", channel.ParamOverride, channel.RequestConfig, "", channel.RateLimit, channel.StreamPolicy})
+		if err != nil {
+			return nil, err
+		}
+		channelIDs[channel.SourceID] = id
+		counts["channels"]++
+	}
+	credentialIDs := map[int64]int64{}
+	for _, credential := range plan.credentials {
+		sourceID := axonHubCredentialSourceID(credential)
+		columns := []string{"channel_id", "name", "secret", "kind", "oauth_state", "enabled"}
+		values := []any{channelIDs[credential.ChannelSourceID], credential.Name, credential.Secret, credential.Kind, credential.OAuthState, credential.Enabled}
+		if credential.GCPMaterial != "" {
+			columns = append(columns, "gcp_service_account")
+			values = append(values, credential.GCPMaterial)
+		}
+		id, err := upsertMapped(db, tx, originKey, "upstream_credentials", sourceID, "upstream_credentials", columns, values)
+		if err != nil {
+			return nil, err
+		}
+		credentialIDs[sourceID] = id
+		counts["credentials"]++
+	}
+	modelIDs := map[int64]int64{}
+	for _, model := range plan.models {
+		sourceID := axonHubModelSourceID(model)
+		id, err := upsertMapped(db, tx, originKey, "upstream_models", sourceID, "upstream_models",
+			[]string{"channel_id", "name", "enabled"},
+			[]any{channelIDs[model.ChannelSourceID], model.Name, model.Enabled})
+		if err != nil {
+			return nil, err
+		}
+		modelIDs[sourceID] = id
+		counts["models"]++
+	}
+	grantIDs := map[int64]int64{}
+	for _, grant := range plan.grants {
+		sourceID := axonHubGrantSourceID(grant)
+		modelSourceID := axonHubModelSourceID(axonHubPlanModel{ChannelSourceID: grant.ChannelSourceID, Name: grant.ModelName})
+		credentialSourceID := sourceTupleID("credential", strconv.Itoa(grant.ChannelSourceID), grant.CredentialName)
+		id, err := upsertMapped(db, tx, originKey, "upstream_grants", sourceID, "upstream_grants",
+			[]string{"model_id", "credential_id", "protocols", "enabled"},
+			[]any{modelIDs[modelSourceID], credentialIDs[credentialSourceID], grant.Protocols, grant.Enabled})
+		if err != nil {
+			return nil, err
+		}
+		grantIDs[sourceID] = id
+		counts["grants"]++
+	}
+	for _, route := range plan.routes {
+		groupSourceID := axonHubGroupSourceID(route)
+		groupID, err := upsertMapped(db, tx, originKey, "upstream_groups", groupSourceID, "upstream_groups",
+			[]string{"name", "mode", "active_item_id", "relay_config", "enabled"},
+			[]any{route.GroupKey, "failover", int64(0), "{}", true})
+		if err != nil {
+			return nil, err
+		}
+		counts["groups"]++
+		routeID, err := upsertImportedRoute(db, tx, importedRoute{
+			Origin: originKey, SourceID: int64(route.SourceModelID), Pattern: route.Pattern,
+			Strategy: route.Strategy, Enabled: route.Enabled, KeepPresentation: true,
+			TraceStickyMode: route.TraceStickyMode,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(db.Rebind(`INSERT INTO upstream_route_groups (route_id, group_id) VALUES (?, ?) ON CONFLICT(route_id) DO UPDATE SET group_id=excluded.group_id`), routeID, groupID); err != nil {
+			return nil, fmt.Errorf("link imported group to model route: %w", err)
+		}
+		counts["routes"]++
+		for _, item := range route.Items {
+			grantSourceID := sourceTupleID("grant", strconv.Itoa(item.ChannelSourceID), item.ModelName, item.CredentialName)
+			if grantIDs[grantSourceID] == 0 {
+				return nil, fmt.Errorf("AxonHub route item references a grant that was not compiled")
+			}
+			if _, err := upsertMapped(db, tx, originKey, "upstream_group_items", axonHubItemSourceID(route, item), "upstream_group_items",
+				[]string{"group_id", "grant_id", "priority", "weight", "protocol_order", "association_conditions"},
+				[]any{groupID, grantIDs[grantSourceID], int64(item.Priority), int64(1), item.ProtocolOrder, item.AssociationConditions}); err != nil {
+				return nil, err
+			}
+			counts["groupItems"]++
+		}
+	}
+	if err := importAxonHubAccess(db, tx, originKey, plan, channelIDs, counts); err != nil {
+		return nil, err
+	}
+	for label, count := range removals {
+		counts["removed"+strings.ToUpper(label[:1])+label[1:]] = int64(count)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit AxonHub import: %w", err)
+	}
+	return counts, nil
+}
