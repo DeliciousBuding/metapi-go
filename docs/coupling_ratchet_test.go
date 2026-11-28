@@ -16,10 +16,7 @@ import (
 // Coupling ratchets freeze two concrete coupling surfaces so new code cannot
 // widen them while existing files are refactored down:
 //
-//  1. Direct `github.com/jmoiron/sqlx` imports under `handler/admin/...`
-//     (file-level ratchet). Note: this only guards direct sqlx imports; files
-//     that reuse a *sqlx.DB field declared in another file of handler/admin
-//     are not caught until those shared struct fields are retired.
+//  1. Direct `github.com/jmoiron/sqlx` imports in production files under `handler/...`.
 //  2. References to the process-wide `store.GetDB` singleton (per-file
 //     occurrence-count ratchet across all ownerPackage-scoped production files,
 //     including `package store` same-package references, function values, and
@@ -35,9 +32,9 @@ import (
 //     file's count fails the test, and shrinking or removing a listed entry
 //     also fails until the baseline here is lowered to lock in the gain.
 
-// legacyAdminSQLXFiles freezes handler/admin/... production files that directly
+// legacyHandlerSQLXFiles freezes handler/... production files that directly
 // import github.com/jmoiron/sqlx.
-var legacyAdminSQLXFiles = map[string]bool{}
+var legacyHandlerSQLXFiles = map[string]bool{}
 
 // legacyStoreGetDBCounts freezes the exact per-file count of store.GetDB
 // references (including same-package calls inside package store). Increasing
@@ -47,14 +44,14 @@ var legacyStoreGetDBCounts = map[string]int{}
 
 type couplingScan struct {
 	scannedByGroup map[string]int
-	adminSQLX      map[string]bool
+	handlerSQLX    map[string]bool
 	storeGetDB     map[string]int
 }
 
 func scanCouplingRatchets(root string) (couplingScan, error) {
 	res := couplingScan{
 		scannedByGroup: map[string]int{},
-		adminSQLX:      map[string]bool{},
+		handlerSQLX:    map[string]bool{},
 		storeGetDB:     map[string]int{},
 	}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -106,8 +103,8 @@ func scanCouplingRatchets(root string) (couplingScan, error) {
 			if uerr != nil {
 				return fmt.Errorf("unquote import in %s: %w", path, uerr)
 			}
-			if pkgInSubtree(pkg, "handler/admin") && ipath == "github.com/jmoiron/sqlx" {
-				res.adminSQLX[relFile] = true
+			if pkgInSubtree(pkg, "handler") && ipath == "github.com/jmoiron/sqlx" {
+				res.handlerSQLX[relFile] = true
 			}
 			if ipath == modulePath+"/store" {
 				if imp.Name != nil {
@@ -537,13 +534,13 @@ func TestCouplingRatchets(t *testing.T) {
 		t.Fatalf("gate would pass vacuously: no production Go files scanned for %v", missing)
 	}
 
-	if added, stale := diffBoolRatchet(scan.adminSQLX, legacyAdminSQLXFiles); len(added) > 0 || len(stale) > 0 {
+	if added, stale := diffBoolRatchet(scan.handlerSQLX, legacyHandlerSQLXFiles); len(added) > 0 || len(stale) > 0 {
 		if len(added) > 0 {
-			t.Errorf("handler/admin direct sqlx import ratchet tripped (%d new file(s)):\n  %s\nMove SQL queries into store/ or service/ instead of adding sqlx imports under handler/admin.",
+			t.Errorf("handler direct sqlx import ratchet tripped (%d new file(s)):\n  %s\nMove SQL queries into store/ or service/ instead of adding sqlx imports under handler/.",
 				len(added), strings.Join(added, "\n  "))
 		}
 		if len(stale) > 0 {
-			t.Errorf("handler/admin direct sqlx import ratchet has stale entries (%d file(s)) — remove them to lock in the improvement:\n  %s",
+			t.Errorf("handler direct sqlx import ratchet has stale entries (%d file(s)) — remove them to lock in the improvement:\n  %s",
 				len(stale), strings.Join(stale, "\n  "))
 		}
 	}
@@ -567,7 +564,7 @@ func TestCouplingRatchetScannerDetectsEdgeCases(t *testing.T) {
 import "github.com/jmoiron/sqlx"
 var _ *sqlx.DB
 `,
-		"handler/admin/payloads/raw_sqlx.go": "package payloads\nimport _ `github.com/jmoiron/sqlx`\n",
+		"handler/proxy/raw_sqlx.go": "package proxyhandler\nimport _ `github.com/jmoiron/sqlx`\n",
 		"handler/admin/clean.go": `package admin
 func ok() {}
 `,
@@ -642,8 +639,8 @@ func f() { _ = store.GetDB() }
 	if scan.scannedByGroup["handler"] != 3 || scan.scannedByGroup["service"] != 4 || scan.scannedByGroup["store"] != 2 {
 		t.Fatalf("unexpected scannedByGroup: %v", scan.scannedByGroup)
 	}
-	if !scan.adminSQLX["handler/admin/bad_sqlx.go"] || !scan.adminSQLX["handler/admin/payloads/raw_sqlx.go"] || scan.adminSQLX["handler/admin/clean.go"] {
-		t.Fatalf("unexpected adminSQLX: %v", scan.adminSQLX)
+	if !scan.handlerSQLX["handler/admin/bad_sqlx.go"] || !scan.handlerSQLX["handler/proxy/raw_sqlx.go"] || scan.handlerSQLX["handler/admin/clean.go"] {
+		t.Fatalf("unexpected handlerSQLX: %v", scan.handlerSQLX)
 	}
 	if got := scan.storeGetDB["service/alias_and_funcval.go"]; got != 3 {
 		t.Fatalf("alias_and_funcval count = %d, want 3 (var + range LHS + direct call)", got)

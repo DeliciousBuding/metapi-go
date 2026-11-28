@@ -3,6 +3,7 @@ package channelplugins
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -20,17 +21,23 @@ func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectPro
 	return m.resolveTaskDriver(ctx, binding, protocol, kind, fingerprint, nil, requestKinds...)
 }
 
+// TaskCaptureTx writes a pending task on the same transaction as its driver archive.
+type TaskCaptureTx interface {
+	Rebind(query string) string
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
 // The task owner creates its pending identity in the archive transaction. It
 // returns that row's opaque ID, which the manager verifies before committing.
 // No JS or network I/O runs while the catalog transaction holds its lock.
-func (m *Manager) CaptureTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, requestKind, fingerprint string, capture func(*sqlx.Tx, string) (string, error)) (DriverInvocation, error) {
+func (m *Manager) CaptureTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, requestKind, fingerprint string, capture func(TaskCaptureTx, string) (string, error)) (DriverInvocation, error) {
 	if capture == nil {
 		return DriverInvocation{}, ErrBinding
 	}
 	return m.resolveTaskDriver(ctx, binding, protocol, kind, fingerprint, capture, requestKind)
 }
 
-func (m *Manager) resolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string, capture func(*sqlx.Tx, string) (string, error), requestKinds ...string) (DriverInvocation, error) {
+func (m *Manager) resolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string, capture func(TaskCaptureTx, string) (string, error), requestKinds ...string) (DriverInvocation, error) {
 	if m == nil || m.db == nil {
 		return DriverInvocation{}, ErrUnavailable
 	}
@@ -127,7 +134,7 @@ func (m *Manager) resolveTaskDriver(ctx context.Context, binding store.DirectPro
 // New work can reuse an archived program (remix), but cannot reuse its old
 // installation eligibility. Pin the executable and pending task under the
 // same catalog lock, after rechecking the current installation snapshot.
-func (m *Manager) captureTaskInvocation(ctx context.Context, key string, invocation DriverInvocation, currentFingerprint string, capture func(*sqlx.Tx, string) (string, error)) (DriverInvocation, error) {
+func (m *Manager) captureTaskInvocation(ctx context.Context, key string, invocation DriverInvocation, currentFingerprint string, capture func(TaskCaptureTx, string) (string, error)) (DriverInvocation, error) {
 	db, ok := m.db.(*sqlx.DB)
 	if !ok {
 		return DriverInvocation{}, ErrUnavailable

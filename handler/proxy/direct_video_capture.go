@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 // A pending row is a durable program pin, not a vendor task. The existing
@@ -20,7 +20,7 @@ type directVideoCapture struct {
 	identity string
 }
 
-func captureDirectVideoDriver(ctx context.Context, tx *sqlx.Tx, proxyCtx *Ctx, direct *store.DirectUpstreamCandidate, model, fingerprint string) (string, error) {
+func captureDirectVideoDriver(ctx context.Context, tx channelplugins.TaskCaptureTx, proxyCtx *Ctx, direct *store.DirectUpstreamCandidate, model, fingerprint string) (string, error) {
 	if proxyCtx == nil || proxyCtx.videoCapture != nil || proxyCtx.db == nil {
 		return "", errors.New("video capture is unavailable")
 	}
