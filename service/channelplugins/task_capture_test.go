@@ -12,10 +12,9 @@ import (
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
-func insertManagerCapture(ctx context.Context, tx *sqlx.Tx, key, fingerprint, vendorID, identity string) (string, error) {
+func insertManagerCapture(ctx context.Context, tx channelplugins.TaskCaptureTx, key, fingerprint, vendorID, identity string) (string, error) {
 	if identity == "" {
 		raw, _ := json.Marshal(map[string]any{"version": 3, "driverKey": key, "driverFingerprint": fingerprint})
 		identity = string(raw)
@@ -38,7 +37,7 @@ func TestTaskCaptureRejectsMissingOrMismatchedPendingReference(t *testing.T) {
 				if _, err := manager.ResolveTaskDriver(t.Context(), binding, "video", "api_key", ""); !errors.Is(err, channelplugins.ErrBinding) {
 					t.Fatalf("durable program accepted an unpinned resolver: %v", err)
 				}
-				_, err := manager.CaptureTaskDriver(t.Context(), binding, "video", "api_key", "json", "", func(tx *sqlx.Tx, fingerprint string) (string, error) {
+				_, err := manager.CaptureTaskDriver(t.Context(), binding, "video", "api_key", "json", "", func(tx channelplugins.TaskCaptureTx, fingerprint string) (string, error) {
 					if mode == "missing" {
 						return "missing-capture", nil
 					}
@@ -95,7 +94,7 @@ func TestTaskCaptureCommitFailureRollsBackArchiveAndReference(t *testing.T) {
 			}
 			binding := store.DirectProviderBinding{Key: "prune", Protocols: []string{"video"}}
 			callbackFinished := false
-			_, err := channelplugins.New(db.DB).CaptureTaskDriver(t.Context(), binding, "video", "api_key", "json", "", func(tx *sqlx.Tx, fingerprint string) (string, error) {
+			_, err := channelplugins.New(db.DB).CaptureTaskDriver(t.Context(), binding, "video", "api_key", "json", "", func(tx channelplugins.TaskCaptureTx, fingerprint string) (string, error) {
 				id, err := insertManagerCapture(t.Context(), tx, "prune", fingerprint, "", "")
 				if err == nil {
 					_, err = tx.ExecContext(t.Context(), `INSERT INTO capture_guard(parent_id) VALUES(1)`)
@@ -161,7 +160,7 @@ func TestTaskCaptureAndPruneSerializeAcrossIndependentConnections(t *testing.T) 
 			captureDone, pruneDone := make(chan error, 1), make(chan error, 1)
 			binding := store.DirectProviderBinding{Key: "prune", Protocols: []string{"video"}}
 			go func() {
-				_, err := channelplugins.New(db.DB).CaptureTaskDriver(ctx, binding, "video", "api_key", "json", "", func(tx *sqlx.Tx, fingerprint string) (string, error) {
+				_, err := channelplugins.New(db.DB).CaptureTaskDriver(ctx, binding, "video", "api_key", "json", "", func(tx channelplugins.TaskCaptureTx, fingerprint string) (string, error) {
 					id, err := insertManagerCapture(ctx, tx, "prune", fingerprint, "", "")
 					close(entered)
 					select {
@@ -229,7 +228,7 @@ func TestTaskCapturePinsArchivedProgramWithoutArchivingNewInstallation(t *testin
 				if mode == "wrong-kind" {
 					kind = "none"
 				}
-				pinned, err := manager.CaptureTaskDriver(t.Context(), binding, "video", kind, "json", old.Fingerprint(), func(tx *sqlx.Tx, fingerprint string) (string, error) {
+				pinned, err := manager.CaptureTaskDriver(t.Context(), binding, "video", kind, "json", old.Fingerprint(), func(tx channelplugins.TaskCaptureTx, fingerprint string) (string, error) {
 					called = true
 					if fingerprint != old.Fingerprint() {
 						return "", errors.New("capture switched program")

@@ -11,7 +11,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamConfig, wire *directProviderWire, direct *store.DirectUpstreamCandidate, endpoint *store.DirectEndpoint, protocol, kind, path, method, model string) error {
@@ -59,7 +58,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	var invocation channelplugins.DriverInvocation
 	var err error
 	if hook == "submit" {
-		invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, "", func(tx *sqlx.Tx, captured string) (string, error) {
+		invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, "", func(tx channelplugins.TaskCaptureTx, captured string) (string, error) {
 			return captureDirectVideoDriver(ctx, tx, proxyCtx, direct, model, captured)
 		})
 	} else {
@@ -68,7 +67,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 			return channelplugin.ErrManifest
 		}
 		if err == nil && hook == "remix" {
-			invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, fingerprint, func(tx *sqlx.Tx, captured string) (string, error) {
+			invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, fingerprint, func(tx channelplugins.TaskCaptureTx, captured string) (string, error) {
 				return captureDirectVideoDriver(ctx, tx, proxyCtx, direct, model, captured)
 			})
 		}
