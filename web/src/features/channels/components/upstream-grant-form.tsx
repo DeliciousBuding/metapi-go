@@ -1,0 +1,256 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
+import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import type { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { api } from '@/lib/api'
+import type {
+  ImportedCredential,
+  ImportedMember,
+} from '@/lib/api/imported-upstreams'
+import type { UpstreamGrant } from '@/lib/api/upstream-catalog'
+import { toast } from '@/lib/toast'
+
+import { upstreamKeys, upstreamProtocols } from '../lib/upstream-config'
+import { grantSchema } from '../lib/upstream-model-schema'
+import { UpstreamCapabilityPicker } from './upstream-capability-picker'
+
+export function UpstreamGrantForm(props: {
+  onDirtyChange: (key: string, dirty: boolean) => void
+  modelId: number
+  grant?: UpstreamGrant
+  credentials: ImportedCredential[]
+  availableProtocols: number[]
+  anonymousProtocols?: number[]
+  members: ImportedMember[]
+  onCreated?: () => void
+}) {
+  const { t } = useTranslation()
+  const client = useQueryClient()
+  const form = useForm<z.infer<typeof grantSchema>>({
+    resolver: zodResolver(grantSchema),
+    resetOptions: { keepDirtyValues: true },
+    values: {
+      credentialId: props.grant?.credentialId ?? 0,
+      protocols: props.grant
+        ? upstreamProtocols
+            .filter((p) => p.bit & (props.grant?.protocols ?? 0))
+            .map((p) => p.bit)
+        : [],
+      enabled: props.grant?.enabled ?? true,
+    },
+  })
+  const [saving, setSaving] = useState(false)
+  const credentialId = form.watch('credentialId')
+  const anonymous =
+    props.credentials.find((credential) => credential.id === credentialId)
+      ?.kind === 'none'
+  const availableProtocols = anonymous
+    ? (props.anonymousProtocols ?? [])
+    : props.availableProtocols
+  const submitting = useRef(false)
+  const pending = saving || form.formState.isSubmitting
+  const dirty = form.formState.isDirty
+  const onDirtyChange = props.onDirtyChange
+  useEffect(() => {
+    const key = `grant-${props.grant?.id ?? `new-${props.modelId}`}`
+    onDirtyChange(key, dirty)
+    return () => onDirtyChange(key, false)
+  }, [dirty, onDirtyChange, props.grant?.id, props.modelId])
+  async function save(values: z.infer<typeof grantSchema>) {
+    if (submitting.current) return
+    if (
+      anonymous &&
+      values.protocols.some((bit) => !availableProtocols.includes(bit))
+    ) {
+      form.setError('protocols', {
+        message: 'channels.capabilities.anonymousProtocols',
+      })
+      return
+    }
+    submitting.current = true
+    setSaving(true)
+    try {
+      form.clearErrors('root')
+      try {
+        if (props.grant) {
+          await api.updateUpstreamGrant(props.grant.id, {
+            ...(form.formState.dirtyFields.protocols
+              ? { protocols: values.protocols }
+              : {}),
+            ...(form.formState.dirtyFields.enabled
+              ? { enabled: values.enabled }
+              : {}),
+          })
+        } else {
+          await api.createUpstreamGrant({ ...values, modelId: props.modelId })
+        }
+        form.reset(
+          props.grant
+            ? form.getValues()
+            : { credentialId: 0, protocols: [], enabled: true },
+          { keepDirtyValues: false }
+        )
+        await client.invalidateQueries({ queryKey: upstreamKeys.all })
+        await client.invalidateQueries({ queryKey: ['routes'] })
+        props.onCreated?.()
+        toast.success(t('channels.upstream.saved'))
+      } catch (error) {
+        if (!props.grant) return // The transport owns create errors.
+        const ids: number[] = isAxiosError(error)
+          ? (error.response?.data?.conflictingMemberIds ?? [])
+          : []
+        const routes = props.members
+          .filter((member) => ids.includes(member.id))
+          .map((member) => member.groupName)
+        form.setError('root', {
+          message: ids.length
+            ? t('channels.catalog.protocolConflict', {
+                names: [...new Set(routes)].join(', ') || ids.join(', '),
+              })
+            : t('channels.catalog.saveError'),
+        })
+      }
+    } finally {
+      submitting.current = false
+      setSaving(false)
+    }
+  }
+  return (
+    <Form {...form}>
+      <form
+        className='space-y-4 rounded-lg border p-3'
+        onSubmit={form.handleSubmit(save)}
+      >
+        {props.grant ? (
+          <p className='text-sm font-medium'>{props.grant.credentialName}</p>
+        ) : (
+          <FormField
+            control={form.control}
+            name='credentialId'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('channels.upstream.credentials')}</FormLabel>
+                <Select
+                  value={field.value ? String(field.value) : ''}
+                  items={props.credentials.map((credential) => ({
+                    value: String(credential.id),
+                    label: credential.enabled
+                      ? credential.name
+                      : `${credential.name} · ${t('channels.imported.disabled')}`,
+                  }))}
+                  onValueChange={(value) => field.onChange(Number(value))}
+                  disabled={pending}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={t('channels.catalog.selectCredential')}
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {props.credentials.map((credential) => (
+                      <SelectItem
+                        key={credential.id}
+                        value={String(credential.id)}
+                      >
+                        {credential.name}
+                        {!credential.enabled &&
+                          ` · ${t('channels.imported.disabled')}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        <FormField
+          control={form.control}
+          name='protocols'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('channels.catalog.allowedProtocols')}</FormLabel>
+              <FormControl>
+                <UpstreamCapabilityPicker
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  available={availableProtocols}
+                  unavailableLabel={
+                    anonymous
+                      ? t('channels.capabilities.authMismatch')
+                      : undefined
+                  }
+                  onChange={field.onChange}
+                  disabled={pending}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className='flex items-center justify-between gap-3'>
+          <FormField
+            control={form.control}
+            name='enabled'
+            render={({ field }) => (
+              <FormItem className='flex items-center gap-3'>
+                <FormLabel>{t('channels.imported.enabled')}</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={pending}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <Button
+            type='submit'
+            size='sm'
+            disabled={
+              pending ||
+              (!!props.grant && !dirty) ||
+              (!props.grant && !props.credentials.length)
+            }
+          >
+            {t(
+              props.grant
+                ? 'channels.catalog.saveGrant'
+                : 'channels.catalog.addGrant'
+            )}
+          </Button>
+        </div>
+        {form.formState.errors.root && (
+          <p role='alert' className='text-destructive text-sm'>
+            {form.formState.errors.root.message}
+          </p>
+        )}
+      </form>
+    </Form>
+  )
+}
