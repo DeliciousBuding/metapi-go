@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/deliciousbuding/metapi-go/store"
 	"net/http"
 
 	"github.com/deliciousbuding/metapi-go/config"
@@ -9,11 +10,11 @@ import (
 // RevalidateQueuedRequest reloads current identity and authorization for work
 // already admitted at ingress. Admission counters and budget holds belong to
 // that original request and must not be consumed again after FIFO waiting.
-func RevalidateQueuedRequest(r *http.Request, previous *ProxyAuthContext) DownstreamTokenAuthResult {
+func RevalidateQueuedRequest(db *store.DB, r *http.Request, previous *ProxyAuthContext) DownstreamTokenAuthResult {
 	if previous == nil || previous.KeyID == nil {
 		return DownstreamTokenAuthResult{StatusCode: 401, Reason: "invalid", Error: "Invalid queued request identity"}
 	}
-	result := authorizeDownstreamToken(previous.Token, config.RuntimeSafe(), "", admissionOptions{authorizationOnly: true})
+	result := authorizeDownstreamToken(db, previous.Token, config.RuntimeSafe(), "", admissionOptions{authorizationOnly: true})
 	if !result.OK || result.Key == nil {
 		return result
 	}

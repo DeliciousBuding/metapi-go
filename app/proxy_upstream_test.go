@@ -78,7 +78,7 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -258,7 +258,7 @@ func TestOctopusV5DirectGrantTraversesProxyRouter(t *testing.T) {
 	})
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"octopus-chat","messages":[{"role":"user","content":"hello"}]}`))
@@ -358,7 +358,7 @@ func TestOctopusClientHeaderTemplateExpandsOnlySafeHeaders(t *testing.T) {
 	}
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"all-protocol-model","messages":[{"role":"user","content":"test"}]}`))
@@ -426,7 +426,7 @@ func TestOctopusV5DirectGrantDispatchesResponsesAndMessages(t *testing.T) {
 	}
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 	for _, tc := range []struct {

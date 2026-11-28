@@ -7,6 +7,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // processManagedProxyResponse applies ownership and id-rewrite rules to a
@@ -31,43 +32,40 @@ func processManagedProxyResponse(
 	path, _, _ = strings.Cut(path, "?")
 	path = strings.TrimSuffix(path, "/")
 
-	pac := ctxAuth(ctx)
+	var db *store.DB
+	var pac *auth.ProxyAuthContext
+	if ctx != nil {
+		db, pac = ctx.db, ctx.Auth
+	}
 
 	// Shared-upstream video deletion: the handler resolved the mapping before
 	// dispatch, so the public id is the one the client used. The mapping is
 	// removed here, after upstream 2xx, so a failed upstream delete never
 	// strands the task without its rewrite entry.
 	if method == http.MethodDelete && ctx != nil && ctx.managedVideoTaskID != "" {
-		DeleteProxyVideoTaskByPublicID(ctx.managedVideoTaskID)
+		DeleteProxyVideoTaskByPublicID(db, ctx.managedVideoTaskID)
 		return body, nil
 	}
 
 	switch {
 	case method == http.MethodPost && strings.EqualFold(path, "/v1/files"):
 		if id, ok := proxyFileIDFromResponse(body); ok {
-			recordProxyFileObject(pac, id)
+			recordProxyFileObject(db, pac, id)
 		} else {
 			slog.Warn("proxy files: upload response has no usable file id; ownership not recorded")
 		}
 		return body, nil
 	case method == http.MethodGet && strings.EqualFold(path, "/v1/files"):
-		return filterProxyFileList(body, proxyFileOwner(pac))
+		return filterProxyFileList(db, body, proxyFileOwner(pac))
 	case method == http.MethodDelete:
 		if fileID, ok := managedFileIDFromPath(path); ok {
-			deleteProxyFileObject(fileID)
+			deleteProxyFileObject(db, fileID)
 		}
 		return body, nil
 	case method == http.MethodPost && strings.EqualFold(path, "/v1/videos"):
 		return maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, body), nil
 	}
 	return body, nil
-}
-
-func ctxAuth(ctx *Ctx) *auth.ProxyAuthContext {
-	if ctx == nil {
-		return nil
-	}
-	return ctx.Auth
 }
 
 // managedFileIDFromPath returns the file id of an id-addressed Files path.

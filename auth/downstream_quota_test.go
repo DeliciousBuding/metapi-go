@@ -24,7 +24,7 @@ func TestDownstreamQuotaAdmissionAndIncompleteUsage(t *testing.T) {
 	rt := &config.RuntimeSettings{}
 	check := func(want bool, reason string) {
 		t.Helper()
-		r := AuthorizeDownstreamToken("sk-quota", rt)
+		r := AuthorizeDownstreamToken(db, "sk-quota", rt)
 		if r.OK != want || (!want && r.Reason != reason) {
 			t.Fatalf("authorization OK=%v reason=%s", r.OK, r.Reason)
 		}
@@ -36,15 +36,15 @@ func TestDownstreamQuotaAdmissionAndIncompleteUsage(t *testing.T) {
 	check(true, "")
 	a := int64(20)
 	c := 0.1
-	RecordManagedKeyQuotaUsage(id, "", &a, &c)
+	RecordManagedKeyQuotaUsage(db, id, "", &a, &c)
 	check(true, "")
-	RecordManagedKeyQuotaUsage(id, "", &a, &c)
+	RecordManagedKeyQuotaUsage(db, id, "", &a, &c)
 	check(false, "over_quota")
 	_, _ = db.Exec(`UPDATE downstream_api_keys SET enabled=? WHERE id=?`, false, id)
 	check(false, "disabled")
 	_, _ = db.Exec(`UPDATE downstream_api_keys SET enabled=? WHERE id=?`, true, id)
 	_, _ = db.Exec(`DELETE FROM downstream_quota_usage WHERE key_id=?`, id)
-	RecordManagedKeyQuotaUsage(id, "", nil, nil)
+	RecordManagedKeyQuotaUsage(db, id, "", nil, nil)
 	check(false, "quota_usage_unknown")
 	_, _ = db.Exec(`DELETE FROM downstream_quota_usage WHERE key_id=?`, id)
 	gap := time.Now().Add(-30 * time.Minute).UnixMilli()
@@ -58,7 +58,7 @@ func TestDownstreamQuotaAdmissionAndIncompleteUsage(t *testing.T) {
 	check(true, "")
 	// Invalid persisted JSON must deny a matching global token too.
 	_, _ = db.Exec(`UPDATE downstream_api_keys SET access_policy='{"quota":true}' WHERE id=?`, id)
-	r := AuthorizeDownstreamToken("sk-quota", &config.RuntimeSettings{ProxyToken: "sk-quota"})
+	r := AuthorizeDownstreamToken(db, "sk-quota", &config.RuntimeSettings{ProxyToken: "sk-quota"})
 	if r.OK || r.Reason != "access_policy" {
 		t.Fatal("invalid managed policy fell through to global token")
 	}

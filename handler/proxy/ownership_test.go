@@ -95,7 +95,7 @@ func keyAuthMiddleware(next http.Handler) http.Handler {
 
 func chiRouterForFilesWithKeys() chi.Router {
 	r := chi.NewRouter()
-	r.Use(keyAuthMiddleware)
+	r.Use(RequestLifecycle(store.GetDB()), keyAuthMiddleware)
 	r.Route("/v1", func(r chi.Router) {
 		RegisterFilesRoutes(r)
 	})
@@ -104,7 +104,7 @@ func chiRouterForFilesWithKeys() chi.Router {
 
 func chiRouterForVideoWithKeys() chi.Router {
 	r := chi.NewRouter()
-	r.Use(keyAuthMiddleware)
+	r.Use(RequestLifecycle(store.GetDB()), keyAuthMiddleware)
 	r.Post("/v1/videos", HandleVideosCreate)
 	r.Get("/v1/videos/{id}", HandleVideosGet)
 	r.Delete("/v1/videos/{id}", HandleVideosDelete)

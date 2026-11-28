@@ -212,7 +212,7 @@ func handleDirectVideoTask(w http.ResponseWriter, r *http.Request, suffix string
 		writeJSONError(w, http.StatusBadRequest, "invalid video id", "invalid_request_error")
 		return
 	}
-	task, err := loadDirectVideoTask(store.GetDB(), publicID)
+	task, err := loadDirectVideoTask(proxyScopeFromContext(r.Context()).db, publicID)
 	if err != nil || task.Identity.Owner != directVideoOwner(pac) {
 		status := http.StatusNotFound
 		if err != nil && !errors.Is(err, errDirectVideoUnavailable) {
@@ -279,7 +279,7 @@ func validateVideoTaskSelection(ctx *Ctx, selected *routing.SelectedChannel, pat
 	if ctx.videoTask != nil && (ctx.videoTask.Identity != want || selected.ActualModel != ctx.videoTask.ActualModel) {
 		return errDirectVideoUnavailable
 	}
-	db := store.GetDB()
+	db := ctx.db
 	if db == nil {
 		return errors.New("video task storage is unavailable")
 	}
@@ -319,7 +319,7 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 		return body, nil
 	}
 	if method == http.MethodDelete && ctx.videoTask != nil {
-		if store.GetDB() == nil {
+		if ctx.db == nil {
 			return nil, errors.New("video task storage is unavailable")
 		}
 		ctx.videoUsageVerified = true
@@ -346,7 +346,7 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 		if err != nil {
 			return nil, errors.New("video task identity cannot be encoded")
 		}
-		db := store.GetDB()
+		db := ctx.db
 		if db == nil {
 			return nil, errors.New("video task storage is unavailable")
 		}

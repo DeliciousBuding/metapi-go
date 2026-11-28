@@ -21,7 +21,7 @@ type directVideoCapture struct {
 }
 
 func captureDirectVideoDriver(ctx context.Context, tx *sqlx.Tx, proxyCtx *Ctx, direct *store.DirectUpstreamCandidate, model, fingerprint string) (string, error) {
-	if proxyCtx == nil || proxyCtx.videoCapture != nil || store.GetDB() == nil {
+	if proxyCtx == nil || proxyCtx.videoCapture != nil || proxyCtx.db == nil {
 		return "", errors.New("video capture is unavailable")
 	}
 	snapshot := *proxyCtx
@@ -37,7 +37,7 @@ func captureDirectVideoDriver(ctx context.Context, tx *sqlx.Tx, proxyCtx *Ctx, d
 	if err != nil {
 		return "", err
 	}
-	capture := &directVideoCapture{db: store.GetDB(), publicID: directVideoIDPrefix + strings.TrimPrefix(newPublicVideoID(), "video_"), identity: string(raw)}
+	capture := &directVideoCapture{db: proxyCtx.db, publicID: directVideoIDPrefix + strings.TrimPrefix(newPublicVideoID(), "video_"), identity: string(raw)}
 	// Keep the handle even if Commit confirmation is lost. The dispatcher has
 	// not sent anything yet and will only release a matching pending row.
 	proxyCtx.videoCapture = capture

@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/store"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -163,7 +164,7 @@ func TestV1ProxyRateLimitReturns429(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// Two requests from the same IP without auth — both hit the per-IP limiter.
 	// Without auth they would get 401, but the rate limiter runs before auth
@@ -216,7 +217,7 @@ func TestV1ProxyRateLimitDisabledWhenRPMZero(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// Fire many requests; all should get 401 (auth) not 429 (rate limited).
 	for i := 0; i < 50; i++ {
@@ -240,7 +241,7 @@ func TestV1ProxyRateLimitPerIPIsolation(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// IP A: one request, exhausts its single-request budget.
 	recA := httptest.NewRecorder()
@@ -273,7 +274,7 @@ func TestV1BodyLimitReturns413OnOversizedRequest(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// Craft a body with Content-Length exceeding the limit.
 	rec := httptest.NewRecorder()
@@ -303,7 +304,7 @@ func TestV1FileUploadRouteUsesHigherBodyLimit(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	// A 2 KB request to /v1/files should NOT be rejected by the general 1 KB
 	// limit because the file upload route uses the higher 100 KB limit.
@@ -408,7 +409,7 @@ func TestRouterAnonymousLoginBodyLimit(t *testing.T) {
 		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 
 	oversized := `{"token":"` + strings.Repeat("a", 256<<10) + `"}`
 	rec := httptest.NewRecorder()

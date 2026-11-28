@@ -222,7 +222,7 @@ func (s *requestLifecycle) admitUserBudget(ctx context.Context, pac *auth.ProxyA
 	if err != nil {
 		return 403, "User token budgets support bounded text requests only; media, asynchronous or opaque continuation requests are unavailable"
 	}
-	ledger := store.NewGatewayUserStore(store.GetDB())
+	ledger := store.NewGatewayUserStore(proxyScopeFromContext(ctx).db)
 	releaseActive := store.TrackUserBudgetRequest(s.entry.ID)
 	if _, err = ledger.ReserveUserBudget(ctx, s.entry.ID, *pac.OwnerUserID, *pac.UserGroupID, estimate); err != nil {
 		releaseActive()

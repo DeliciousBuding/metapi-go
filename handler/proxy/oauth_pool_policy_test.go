@@ -91,7 +91,7 @@ func TestOAuthPoolDownstreamPolicyHTTP(t *testing.T) {
 			router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{TokenRouterCacheTtlMs: 60000}, nil, nil)
 			SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
 			r := chi.NewRouter()
-			r.Use(auth.ProxyAuth())
+			r.Use(auth.ProxyAuth(store.GetDB()))
 			r.Route("/v1", RegisterProxyRoutes)
 			for _, strategy := range []string{"round_robin", "stick_until_unavailable"} {
 				videoExec(t, db, `UPDATE oauth_route_units SET strategy=?`, strategy)
@@ -159,8 +159,7 @@ func TestOAuthPoolDownstreamPolicyHTTP(t *testing.T) {
 				t.Fatalf("member failure attribution status=%d counts=%v", out.Code, failures)
 			}
 
-			probe := proxy.NewChannelHealthProbeExecutor(&config.Config{})
-			probe.SetDB(db)
+			probe := proxy.NewChannelHealthProbeExecutor(db, &config.Config{})
 			videoExec(t, db, `UPDATE oauth_route_unit_members SET cooldown_until='2099-01-01T00:00:00Z'`)
 			for _, success := range []bool{false, true} {
 				fail.Store(!success)

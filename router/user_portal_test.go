@@ -73,7 +73,7 @@ func newPortalFixture(t *testing.T, dialect string) *portalFixture {
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
 	f := &portalFixture{t: t, db: store.GetDB()}
-	f.router = New(cfg, web.Dist)
+	f.router = New(store.GetDB(), cfg, web.Dist)
 	users := store.NewGatewayUserStore(f.db)
 	var err error
 	f.group, err = users.CreateUserGroup(context.Background(), "portal", "Portal", true)
@@ -265,10 +265,10 @@ func TestUserPortalRouterOwnerAndRevocation(t *testing.T) {
 			if rotatedKey == key || rotatedItem["id"] != item["id"] || rotatedItem["name"] != item["name"] || rotatedItem["keyMasked"] == item["keyMasked"] || rotatedItem["usedRequests"] != float64(3) || rotatedItem["usedCost"] != float64(2) || rotatedItem["key"] != nil {
 				t.Fatalf("unsafe rotation DTO: %+v", rotated)
 			}
-			if old := auth.AuthorizeDownstreamToken(key, nil); old.OK || old.StatusCode != 401 {
+			if old := auth.AuthorizeDownstreamToken(store.GetDB(), key, nil); old.OK || old.StatusCode != 401 {
 				t.Fatalf("old key remained valid: %+v", old)
 			}
-			if next := auth.AuthorizeDownstreamToken(rotatedKey, nil); !next.OK || next.Key == nil || next.Key.ID != keyID {
+			if next := auth.AuthorizeDownstreamToken(store.GetDB(), rotatedKey, nil); !next.OK || next.Key == nil || next.Key.ID != keyID {
 				t.Fatalf("rotated key did not authenticate: %+v", next)
 			}
 			afterRotate := f.call("GET", "/api/user/keys", "", cookie, nil)

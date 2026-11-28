@@ -195,7 +195,7 @@ func TestDirectAccountSaturationLifecycleRejectedNoRoute(t *testing.T) {
 	req := makeProxyReq("POST", "/v1/chat/completions",
 		fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hi"}]}`, model))
 	rec := httptest.NewRecorder()
-	RequestLifecycle(http.HandlerFunc(HandleChatCompletions)).ServeHTTP(rec, req)
+	RequestLifecycle(db)(http.HandlerFunc(HandleChatCompletions)).ServeHTTP(rec, req)
 
 	var gateway store.GatewayRequest
 	if err := db.Get(&gateway, "SELECT * FROM gateway_requests"); err != nil {

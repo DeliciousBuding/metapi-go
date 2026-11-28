@@ -24,7 +24,7 @@ import (
 // ProxyVideoTask holds a video task mapping (publicId -> upstreamVideoId).
 
 // Create saves a process-local cache entry and dual-writes to
-// `proxy_video_tasks` when store.GetDB() is available so multi-instance /
+// `proxy_video_tasks` when a database is configured so multi-instance /
 // restart can resolve publicId. Owner is the downstream key identity
 // (store.DirectVideoTaskOwner); GET/DELETE require a mapping whose owner
 // matches the caller, so a missing or ownerless row is a 404 rather than a
@@ -62,6 +62,7 @@ type ProxyVideoTask struct {
 // do not refresh it, so a mapping ages out on a fixed schedule whether or not
 // clients keep polling it.
 type videoTaskEntry struct {
+	db       *store.DB
 	task     *ProxyVideoTask
 	storedAt time.Time
 }
@@ -154,7 +155,7 @@ func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task := GetProxyVideoTaskByPublicID(publicID)
+	task := GetProxyVideoTaskByPublicID(proxyScopeFromContext(r.Context()).db, publicID)
 	if !proxyVideoTaskOwnedBy(task, pac) {
 		writeJSONError(w, http.StatusNotFound, "video not found", "invalid_request_error")
 		return
@@ -207,7 +208,7 @@ func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task := GetProxyVideoTaskByPublicID(publicID)
+	task := GetProxyVideoTaskByPublicID(proxyScopeFromContext(r.Context()).db, publicID)
 	if !proxyVideoTaskOwnedBy(task, pac) {
 		writeJSONError(w, http.StatusNotFound, "video not found", "invalid_request_error")
 		return
@@ -281,7 +282,7 @@ func applyVideoTaskStickyPin(ctx *Ctx, task *ProxyVideoTask) {
 // dual-writes to proxy_video_tasks when a runtime DB is available.
 // Both copies carry the same timestamp and both are bounded by
 // PROXY_VIDEO_TASK_RETENTION_DAYS (cache: lazy sweep; DB: retention scheduler).
-func SaveProxyVideoTask(task *ProxyVideoTask) {
+func SaveProxyVideoTask(db *store.DB, task *ProxyVideoTask) {
 	if task == nil || strings.TrimSpace(task.PublicID) == "" {
 		return
 	}
@@ -293,10 +294,10 @@ func SaveProxyVideoTask(task *ProxyVideoTask) {
 
 	now := videoTaskNow().UTC()
 	videoTaskStoreMu.Lock()
-	putVideoTaskEntryLocked(cp.PublicID, &cp, now)
+	putVideoTaskEntryLocked(db, cp.PublicID, &cp, now)
 	videoTaskStoreMu.Unlock()
 
-	if err := upsertProxyVideoTaskDB(&cp, now); err != nil {
+	if err := upsertProxyVideoTaskDB(db, &cp, now); err != nil {
 		slog.Warn("proxy video task: durable upsert failed (memory cache still set)",
 			"public_id", cp.PublicID, "error", err)
 	}
@@ -308,21 +309,21 @@ func SaveProxyVideoTask(task *ProxyVideoTask) {
 // (throttled) sweep deletes it; the durable table then decides exactly as it
 // would for a cold process, so a row the scheduler has not pruned yet re-warms
 // the line with a fresh storedAt.
-func GetProxyVideoTaskByPublicID(publicID string) *ProxyVideoTask {
+func GetProxyVideoTaskByPublicID(db *store.DB, publicID string) *ProxyVideoTask {
 	publicID = strings.TrimSpace(publicID)
 	if publicID == "" {
 		return nil
 	}
 	videoTaskStoreMu.RLock()
 	entry := videoTaskStore[publicID]
-	if entry != nil && entry.task != nil && !videoTaskCacheEntryExpired(entry) {
+	if entry != nil && entry.db == db && entry.task != nil && !videoTaskCacheEntryExpired(entry) {
 		cp := *entry.task
 		videoTaskStoreMu.RUnlock()
 		return &cp
 	}
 	videoTaskStoreMu.RUnlock()
 
-	loaded, err := loadProxyVideoTaskDB(publicID)
+	loaded, err := loadProxyVideoTaskDB(db, publicID)
 	if err != nil {
 		slog.Debug("proxy video task: durable load failed", "public_id", publicID, "error", err)
 		return nil
@@ -334,31 +335,33 @@ func GetProxyVideoTaskByPublicID(publicID string) *ProxyVideoTask {
 	// storedAt and takes part in sweep bookkeeping like a create does).
 	now := videoTaskNow().UTC()
 	videoTaskStoreMu.Lock()
-	putVideoTaskEntryLocked(loaded.PublicID, loaded, now)
+	putVideoTaskEntryLocked(db, loaded.PublicID, loaded, now)
 	videoTaskStoreMu.Unlock()
 	cp := *loaded
 	return &cp
 }
 
 // DeleteProxyVideoTaskByPublicID deletes a video task by publicId (memory + DB).
-func DeleteProxyVideoTaskByPublicID(publicID string) {
+func DeleteProxyVideoTaskByPublicID(db *store.DB, publicID string) {
 	publicID = strings.TrimSpace(publicID)
 	if publicID == "" {
 		return
 	}
 	videoTaskStoreMu.Lock()
-	delete(videoTaskStore, publicID)
+	if entry := videoTaskStore[publicID]; entry != nil && entry.db == db {
+		delete(videoTaskStore, publicID)
+	}
 	videoTaskStoreMu.Unlock()
 
-	if err := deleteProxyVideoTaskDB(publicID); err != nil {
+	if err := deleteProxyVideoTaskDB(db, publicID); err != nil {
 		slog.Warn("proxy video task: durable delete failed", "public_id", publicID, "error", err)
 	}
 }
 
 // putVideoTaskEntryLocked inserts or refreshes a cache line and runs the
 // amortized eviction check. Callers must hold videoTaskStoreMu for writing.
-func putVideoTaskEntryLocked(publicID string, task *ProxyVideoTask, now time.Time) {
-	videoTaskStore[publicID] = &videoTaskEntry{task: task, storedAt: now}
+func putVideoTaskEntryLocked(db *store.DB, publicID string, task *ProxyVideoTask, now time.Time) {
+	videoTaskStore[publicID] = &videoTaskEntry{db: db, task: task, storedAt: now}
 	videoTaskInsertsSinceSweep++
 	maybeSweepVideoTaskCacheLocked(now)
 }
@@ -463,8 +466,7 @@ func videoTaskCacheEntryExpired(entry *videoTaskEntry) bool {
 	return videoTaskNow().UTC().Sub(entry.storedAt) >= ttl
 }
 
-func upsertProxyVideoTaskDB(task *ProxyVideoTask, at time.Time) error {
-	db := store.GetDB()
+func upsertProxyVideoTaskDB(db *store.DB, task *ProxyVideoTask, at time.Time) error {
 	if db == nil || task == nil {
 		return nil
 	}
@@ -527,8 +529,7 @@ func nullableString(value string) any {
 	return value
 }
 
-func loadProxyVideoTaskDB(publicID string) (*ProxyVideoTask, error) {
-	db := store.GetDB()
+func loadProxyVideoTaskDB(db *store.DB, publicID string) (*ProxyVideoTask, error) {
 	if db == nil {
 		return nil, nil
 	}
@@ -578,8 +579,7 @@ LIMIT 1
 	return task, nil
 }
 
-func deleteProxyVideoTaskDB(publicID string) error {
-	db := store.GetDB()
+func deleteProxyVideoTaskDB(db *store.DB, publicID string) error {
 	if db == nil {
 		return nil
 	}
@@ -625,7 +625,7 @@ func maybeRewriteVideosCreateResponse(
 	if actualModel == "" {
 		actualModel = ctx.RequestedModel
 	}
-	SaveProxyVideoTask(&ProxyVideoTask{
+	SaveProxyVideoTask(ctx.db, &ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: upstreamID,
 		Owner:           directVideoOwner(ctx.Auth),

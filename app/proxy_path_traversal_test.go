@@ -61,7 +61,7 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(store.GetDB()))
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})
 	env.router = r

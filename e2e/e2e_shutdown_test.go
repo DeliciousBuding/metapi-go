@@ -165,7 +165,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 
 	// Proxy routes.
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -507,7 +507,7 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 

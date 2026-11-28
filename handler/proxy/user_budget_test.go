@@ -52,7 +52,7 @@ func TestUserBudgetWebSocketTurnSettlesOnce(t *testing.T) {
 	t.Cleanup(func() { config.Set(priorCfg); SetUpstreamConfig(priorUpstream) })
 	SetUpstreamConfig(&UpstreamConfig{Router: routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil), LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
 	completed := make(chan store.GatewayRequest, 4)
-	h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil })
+	h := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { completed <- entry; return nil })
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/v1/responses", &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + keys[0]}}})
@@ -152,7 +152,7 @@ func TestUserBudgetHTTPAllKeysAndRequestSettlement(t *testing.T) {
 		t.Fatal(err)
 	}
 	var incoming map[string]any
-	handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(raw, &incoming); err != nil {
 			t.Fatal(err)
@@ -206,7 +206,7 @@ func TestUserBudgetUnknownUsageAndZeroDispatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, dispatched := range []bool{false, true} {
-		h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if dispatched {
 				beginGatewayAttempt(r.Context())
 			}
@@ -281,7 +281,7 @@ func TestUserBudgetUnsupportedProtocolNeverDispatches(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{"/v1/videos", "/v1/images/generations", "/v1/audio/speech", "/v1/responses/compact"} {
-		h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("unsupported dispatched") })), func(context.Context, store.GatewayRequest) error { return nil })
+		h := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("unsupported dispatched") })), func(context.Context, store.GatewayRequest) error { return nil })
 		r := httptest.NewRequest("POST", path, strings.NewReader(`{"model":"fixture"}`))
 		r.Header.Set("Authorization", "Bearer "+keys[0])
 		w := httptest.NewRecorder()
@@ -293,7 +293,7 @@ func TestUserBudgetUnsupportedProtocolNeverDispatches(t *testing.T) {
 	// System Keys retain their exact old body and do not acquire a user hold.
 	key := "sk-budget-system"
 	insertWSAdmissionKey(t, store.GetDB(), key, nil, 0, nil, 0)
-	h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		if string(raw) != `{"model":"fixture"}` {
 			t.Fatalf("system body changed %s", raw)
@@ -345,7 +345,7 @@ func TestGeminiDetailBudgetSettlement(t *testing.T) {
 			prior := getUpstreamConfig()
 			t.Cleanup(func() { SetUpstreamConfig(prior) })
 			SetUpstreamConfig(&UpstreamConfig{Router: &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: server.URL, Platform: "gemini", Status: "active"}, TokenValue: "fixture", ActualModel: "fixture"}}, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
-			h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleGeminiGenerateContent)), func(context.Context, store.GatewayRequest) error { return nil })
+			h := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(HandleGeminiGenerateContent)), func(context.Context, store.GatewayRequest) error { return nil })
 			for i := range 2 {
 				r := httptest.NewRequest("POST", "/v1beta/models/fixture:"+test.action, strings.NewReader(`{"contents":[{"parts":[{"text":"hi"}]}]}`))
 				r.Header.Set("Authorization", "Bearer "+keys[0])

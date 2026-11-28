@@ -50,16 +50,11 @@ func (r *allFailedAlertRouter) RecordFailure(_ context.Context, _ int64, _ routi
 	return nil
 }
 
-// setupAllFailedAlertDB wires an in-memory DB as the process store so the
-// terminal all-failed exits can write events via store.GetDB().
+// setupAllFailedAlertDB opens an isolated in-memory DB for terminal all-failed
+// alert tests. Callers inject it explicitly via UpstreamConfig.DB or RequestLifecycle.
 func setupAllFailedAlertDB(t *testing.T) *store.DB {
 	t.Helper()
-	db := sqlitetest.Open(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() {
-		store.OverrideDB(nil)
-	})
-	return db
+	return sqlitetest.Open(t)
 }
 
 func countAllFailedProxyEvents(t *testing.T, db *store.DB) int {
@@ -85,7 +80,7 @@ func lastAllFailedProxyEventMessage(t *testing.T, db *store.DB) string {
 func TestDispatchNoAvailableChannelsWritesProxyAllFailedEvent(t *testing.T) {
 	db := setupAllFailedAlertDB(t)
 	router := &allFailedAlertRouter{selErr: errors.New("no routes for model")}
-	SetUpstreamConfig(&UpstreamConfig{Router: router})
+	SetUpstreamConfig(&UpstreamConfig{DB: db, Router: router})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	doReq := func() int {
@@ -133,7 +128,7 @@ func TestDispatchDeadUpstreamWritesProxyAllFailedEventOnce(t *testing.T) {
 		TokenValue:  "upstream-token",
 		ActualModel: "gpt-dead-alert",
 	}}
-	SetUpstreamConfig(&UpstreamConfig{Router: router})
+	SetUpstreamConfig(&UpstreamConfig{DB: db, Router: router})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	doReq := func() int {
@@ -194,7 +189,7 @@ func TestDispatchAllChannelsExhaustedWritesProxyAllFailedEvent(t *testing.T) {
 	req := makeProxyReq("POST", "/v1/chat/completions",
 		`{"model":"gpt-exhausted-alert","messages":[{"role":"user","content":"hi"}]}`)
 	rec := httptest.NewRecorder()
-	RequestLifecycle(http.HandlerFunc(HandleChatCompletions)).ServeHTTP(rec, req)
+	RequestLifecycle(db)(http.HandlerFunc(HandleChatCompletions)).ServeHTTP(rec, req)
 	var gateway store.GatewayRequest
 	if err := db.Get(&gateway, "SELECT * FROM gateway_requests"); err != nil {
 		t.Fatal(err)

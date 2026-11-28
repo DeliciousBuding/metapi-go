@@ -224,7 +224,7 @@ func proxyCfg(proxyToken string) *config.RuntimeSettings {
 }
 
 func TestAuthorizeDownstreamToken_EmptyToken(t *testing.T) {
-	result := AuthorizeDownstreamToken("", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(nil, "", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for empty token")
 	}
@@ -237,7 +237,7 @@ func TestAuthorizeDownstreamToken_EmptyToken(t *testing.T) {
 }
 
 func TestAuthorizeDownstreamToken_WhitespaceOnlyToken(t *testing.T) {
-	result := AuthorizeDownstreamToken("   ", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(nil, "   ", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for whitespace-only token")
 	}
@@ -249,13 +249,13 @@ func TestAuthorizeDownstreamToken_WhitespaceOnlyToken(t *testing.T) {
 func TestAuthorizeDownstreamToken_RootKeyRequiresMigration(t *testing.T) {
 	setupTestDB(t)
 	rt := proxyCfg("global-secret")
-	if result := AuthorizeDownstreamToken("global-secret", rt); result.OK || result.StatusCode != 401 {
+	if result := AuthorizeDownstreamToken(testDB(t), "global-secret", rt); result.OK || result.StatusCode != 401 {
 		t.Fatal("unmanaged root credential was accepted")
 	}
 	if err := store.MigrateLegacyProxyToken(testDB(t), rt, 0); err != nil {
 		t.Fatal(err)
 	}
-	result := AuthorizeDownstreamToken("global-secret", rt)
+	result := AuthorizeDownstreamToken(testDB(t), "global-secret", rt)
 	if !result.OK {
 		t.Fatalf("expected OK=true, got error: %s (code=%d)", result.Error, result.StatusCode)
 	}
@@ -272,7 +272,7 @@ func TestAuthorizeDownstreamToken_RootKeyRequiresMigration(t *testing.T) {
 
 func TestAuthorizeDownstreamToken_DatabaseFailureRejectsRootCredential(t *testing.T) {
 	_ = store.CloseDatabase()
-	result := AuthorizeDownstreamToken("synthetic-root", proxyCfg("synthetic-root"))
+	result := AuthorizeDownstreamToken(nil, "synthetic-root", proxyCfg("synthetic-root"))
 	if result.OK || result.StatusCode != 503 || result.Reason != "unavailable" {
 		t.Fatalf("database outage result: %+v", result)
 	}
@@ -281,7 +281,7 @@ func TestAuthorizeDownstreamToken_DatabaseFailureRejectsRootCredential(t *testin
 func TestAuthorizeDownstreamToken_UnknownToken(t *testing.T) {
 	// Unknown token that is neither a managed key nor the global proxy token
 	setupTestDB(t)
-	result := AuthorizeDownstreamToken("unknown-key-12345", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "unknown-key-12345", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for unknown token")
 	}
@@ -327,7 +327,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyMatch(t *testing.T) {
 	setupTestDB(t)
 	id := insertTestKey(t, "sk-managed-valid", true, nil, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-valid", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-valid", proxyCfg("global-secret"))
 	if !result.OK {
 		t.Fatalf("expected OK=true, got error: %s (code=%d)", result.Error, result.StatusCode)
 	}
@@ -348,9 +348,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyMatch(t *testing.T) {
 
 func TestAuthorizeDownstreamToken_ManagedKeyDisabled(t *testing.T) {
 	setupTestDB(t)
-	insertTestKey(t, "sk-managed-disabled", false, nil, 0, nil, 0, nil)
+	insertTestKey(t, "sk-disabled-key", false, nil, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-disabled", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-disabled-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for disabled key")
 	}
@@ -371,7 +371,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyExpired(t *testing.T) {
 	expiredAt := "2020-01-01T00:00:00Z"
 	insertTestKey(t, "sk-managed-expired", true, nil, 0, nil, 0, &expiredAt)
 
-	result := AuthorizeDownstreamToken("sk-managed-expired", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-expired", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for expired key")
 	}
@@ -392,7 +392,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyNotExpired(t *testing.T) {
 	futureExpiry := "2099-12-31T23:59:59Z"
 	insertTestKey(t, "sk-managed-future", true, nil, 0, nil, 0, &futureExpiry)
 
-	result := AuthorizeDownstreamToken("sk-managed-future", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-future", proxyCfg("global-secret"))
 	if !result.OK {
 		t.Fatalf("expected OK=true for non-expired key, got error: %s (code=%d)", result.Error, result.StatusCode)
 	}
@@ -405,9 +405,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyOverCost(t *testing.T) {
 	setupTestDB(t)
 	maxCost := 10.0
 	usedCost := 10.0 // usedCost >= maxCost → over_cost
-	insertTestKey(t, "sk-managed-overcost", true, &maxCost, usedCost, nil, 0, nil)
+	insertTestKey(t, "sk-overcost-key", true, &maxCost, usedCost, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-overcost", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-overcost-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for over-cost key")
 	}
@@ -426,9 +426,9 @@ func TestAuthorizeDownstreamToken_ManagedKeyMaxCostZero_ImmediateBlock(t *testin
 	setupTestDB(t)
 	// max_cost=0 with used_cost=0 → usedCost (0) >= maxCost (0) → blocked immediately
 	maxCost := 0.0
-	insertTestKey(t, "sk-managed-costzero", true, &maxCost, 0, nil, 0, nil)
+	insertTestKey(t, "sk-costzero-key", true, &maxCost, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-costzero", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-costzero-key", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for max_cost=0 key")
 	}
@@ -443,7 +443,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyOverRequests(t *testing.T) {
 	usedRequests := int64(100) // usedRequests >= maxRequests → over_requests
 	insertTestKey(t, "sk-managed-overreq", true, nil, 0, &maxRequests, usedRequests, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-overreq", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-overreq", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for over-requests key")
 	}
@@ -464,7 +464,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyMaxRequestsZero_ImmediateBlock(t *te
 	maxRequests := int64(0)
 	insertTestKey(t, "sk-managed-reqzero", true, nil, 0, &maxRequests, 0, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-reqzero", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-reqzero", proxyCfg("global-secret"))
 	if result.OK {
 		t.Error("expected OK=false for max_requests=0 key")
 	}
@@ -482,7 +482,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyUnderLimits(t *testing.T) {
 	usedRequests := int64(500)
 	insertTestKey(t, "sk-managed-under", true, &maxCost, usedCost, &maxRequests, usedRequests, nil)
 
-	result := AuthorizeDownstreamToken("sk-managed-under", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(testDB(t), "sk-managed-under", proxyCfg("global-secret"))
 	if !result.OK {
 		t.Fatalf("expected OK=true for under-limits key, got error: %s", result.Error)
 	}
@@ -497,7 +497,7 @@ func TestAuthorizeDownstreamToken_GlobalTokenTakesPriorityOverManaged(t *testing
 	// the managed key should be found first (it's checked before global fallback).
 	insertTestKey(t, "shared-token", true, nil, 0, nil, 0, nil)
 
-	result := AuthorizeDownstreamToken("shared-token", proxyCfg("shared-token"))
+	result := AuthorizeDownstreamToken(testDB(t), "shared-token", proxyCfg("shared-token"))
 	if !result.OK {
 		t.Fatalf("expected OK=true, got: %s", result.Error)
 	}
@@ -515,7 +515,7 @@ func proxyAuthMiddlewareHelper(t *testing.T, rt *config.RuntimeSettings, headers
 	t.Helper()
 	config.SetRuntime(rt)
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	middleware := ProxyAuth()
+	middleware := ProxyAuth(store.GetDB())
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify proxy auth context is stored
@@ -664,7 +664,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyProxyURL(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-with-proxy", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(db, "sk-with-proxy", proxyCfg("global-secret"))
 	if !result.OK {
 		t.Fatalf("expected OK, got %s", result.Error)
 	}
@@ -689,7 +689,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyProxyURLWhitespaceInherits(t *testin
 		t.Fatalf("insert: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-blank-proxy", proxyCfg("global-secret"))
+	result := AuthorizeDownstreamToken(db, "sk-blank-proxy", proxyCfg("global-secret"))
 	if !result.OK {
 		t.Fatalf("expected OK, got %s", result.Error)
 	}
@@ -720,7 +720,7 @@ func TestProxyAuthMiddleware_PropagatesKeyProxyURL(t *testing.T) {
 
 	config.SetRuntime(proxyCfg("global-secret"))
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	middleware := ProxyAuth()
+	middleware := ProxyAuth(db)
 	var captured *ProxyAuthContext
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured = GetProxyAuth(r.Context())
@@ -784,7 +784,7 @@ func TestProxyAuthMiddleware_AdmissionDenyDoesNotBurnUsedRequests(t *testing.T) 
 
 	config.SetRuntime(proxyCfg("global-secret"))
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	middleware := ProxyAuth()
+	middleware := ProxyAuth(testDB(t))
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

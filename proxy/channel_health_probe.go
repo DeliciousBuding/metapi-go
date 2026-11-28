@@ -51,21 +51,12 @@ type ChannelHealthProbeExecutor struct {
 	// When nil, production uses platform.DoWithProxy / default client.
 	transport http.RoundTripper
 
-	// db is an optional override for tests. When nil, production uses store.GetDB().
 	db *store.DB
 }
 
 // NewChannelHealthProbeExecutor builds the production probe executor.
-func NewChannelHealthProbeExecutor(cfg *config.Config) *ChannelHealthProbeExecutor {
-	return &ChannelHealthProbeExecutor{cfg: cfg}
-}
-
-// SetDB injects a database handle (tests). Production leaves this nil.
-func (p *ChannelHealthProbeExecutor) SetDB(db *store.DB) {
-	if p == nil {
-		return
-	}
-	p.db = db
+func NewChannelHealthProbeExecutor(db *store.DB, cfg *config.Config) *ChannelHealthProbeExecutor {
+	return &ChannelHealthProbeExecutor{cfg: cfg, db: db}
 }
 
 // ProbeChannel runs a single lightweight upstream probe for target.
@@ -78,9 +69,6 @@ func (p *ChannelHealthProbeExecutor) ProbeChannel(ctx context.Context, target Ch
 	}
 
 	dbw := p.db
-	if dbw == nil {
-		dbw = store.GetDB()
-	}
 	if dbw == nil {
 		return ChannelProbeOutcome{}, fmt.Errorf("database not initialized")
 	}

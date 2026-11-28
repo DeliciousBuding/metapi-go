@@ -74,7 +74,7 @@ func TestOwnsDirectVideoTaskExemptsV3AndUserOwnedKeysFromQuota(t *testing.T) {
 	prevRT := config.RuntimeSafe()
 	config.SetRuntime(&config.RuntimeSettings{})
 	t.Cleanup(func() { config.SetRuntime(prevRT) })
-	handler := ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ProxyAuth(db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

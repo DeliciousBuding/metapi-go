@@ -69,7 +69,7 @@ func TestUserBudgetFailoverAfterAuthRejectionSettlesNormally(t *testing.T) {
 		LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil },
 	})
 
-	h := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
+	h := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"fixture","messages":[{"role":"user","content":"hello"}]}`))
 	req.Header.Set("Authorization", "Bearer "+keys[0])
 	req.Header.Set("Content-Type", "application/json")

@@ -95,7 +95,7 @@ func TestProxyAuthMiddleware_QueryKeyScopeMatrix(t *testing.T) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	insertTestKeyWithRPM(t, "sk-query-scope", nil, 0, nil, nil)
 
-	handler := ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ProxyAuth(testDB(t))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -119,7 +119,7 @@ func TestProxyAuthMiddleware_WebSocketSubprotocolAuthenticates(t *testing.T) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	insertTestKeyWithRPM(t, "sk-ws-protocol", nil, 0, nil, nil)
 
-	handler := ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ProxyAuth(testDB(t))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

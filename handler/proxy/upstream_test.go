@@ -661,14 +661,14 @@ func TestVideosCreateMultipartForwardsFormToUpstream(t *testing.T) {
 	if publicID == "" || !strings.HasPrefix(publicID, "video_") {
 		t.Fatalf("public id = %q, want video_*", publicID)
 	}
-	task := GetProxyVideoTaskByPublicID(publicID)
+	task := GetProxyVideoTaskByPublicID(store.GetDB(), publicID)
 	if task == nil {
 		t.Fatalf("expected mapping for publicId %q", publicID)
 	}
 	if task.UpstreamVideoID != "vid_123" {
 		t.Fatalf("UpstreamVideoID = %q, want vid_123", task.UpstreamVideoID)
 	}
-	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(store.GetDB(), publicID) })
 }
 
 func TestSiteConcurrencySaturateSkipsWithoutFailure(t *testing.T) {
@@ -991,14 +991,14 @@ func TestDispatchUpstream_RetryThenSuccessKeepsSameRequestIDInProxyLog(t *testin
 	req := makeProxyReq("POST", "/v1/chat/completions", `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
 	req = req.WithContext(proxy.WithRequestID(req.Context(), wantID))
 	var gateway store.GatewayRequest
-	state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
+	state, req := newRequestLifecycle(store.GetDB(), req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
 	rec := httptest.NewRecorder()
 	dispatchUpstream(&requestResponseWriter{ResponseWriter: rec, state: state}, req, &Ctx{
-		lifecycle:      state,
-		RequestedModel: "gpt-4o",
-		DownstreamPath: "/v1/chat/completions",
-		RawBody:        []byte(`{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`),
-		MaxRetries:     1,
+		proxyRequestScope: proxyRequestScope{lifecycle: state},
+		RequestedModel:    "gpt-4o",
+		DownstreamPath:    "/v1/chat/completions",
+		RawBody:           []byte(`{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`),
+		MaxRetries:        1,
 	})
 	state.finish(req.Context())
 	if gateway.TerminalStatus != "completed" || gateway.HTTPStatus == nil || *gateway.HTTPStatus != 200 || gateway.AttemptCount != 2 {

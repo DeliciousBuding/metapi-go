@@ -35,7 +35,7 @@ func newMonitorWiringRouter(t *testing.T) http.Handler {
 	t.Cleanup(func() {
 		_ = store.CloseDatabase()
 	})
-	return New(cfg, web.Dist)
+	return New(store.GetDB(), cfg, web.Dist)
 }
 
 // TestMonitorProxyReachableWithoutBearerHeader is the monitor-auth

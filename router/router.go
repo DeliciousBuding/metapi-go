@@ -23,7 +23,7 @@ import (
 
 // New creates and configures the Chi router with the full middleware stack,
 // route groups, SPA fallback, and asset caching.
-func New(cfg *config.Config, webFS embed.FS) chi.Router {
+func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 	r := chi.NewRouter()
 
 	// 405 responses must not enumerate the supported methods for API paths:
@@ -45,13 +45,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Use(SecurityHeaders)
 	r.Use(TrustedRealIP(cfg))
 	r.Use(RequestLogger)
-	r.Use(proxyhandler.RequestLifecycle)
+	r.Use(proxyhandler.RequestLifecycle(db))
 	r.Use(Recoverer)
 	r.Use(BodyLimitPathAware(cfg.RequestBodyLimit, cfg.FileUploadLimitBytes))
 
 	// ---- /health and /ready (design addition, not in TS) ----
 	// Registered before route groups so it bypasses auth middleware.
-	db := store.GetDB()
 	r.With(CORS()).Get("/health", app.Health)
 	r.With(CORS()).Get("/ready", app.Ready(db))
 
@@ -224,7 +223,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(ProxyWriteDeadline)
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 		// Downstream-key-visible cross-site price catalog (not admin auth).
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
@@ -242,7 +241,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(ProxyWriteDeadline)
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})
 

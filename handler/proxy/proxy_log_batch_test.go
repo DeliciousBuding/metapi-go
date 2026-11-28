@@ -54,19 +54,6 @@ func TestAttemptObservationBatch(t *testing.T) {
 	}
 }
 
-// setupBatchTestDB opens an isolated migrated in-memory SQLite DB and
-// overrides the process-global store DB so the batch writer (which resolves
-// store.GetDB() at flush time) writes here. Restores nil on cleanup.
-func setupBatchTestDB(t *testing.T) *store.DB {
-	t.Helper()
-	db := sqlitetest.Open(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() {
-		store.OverrideDB(nil)
-	})
-	return db
-}
-
 // sampleBatchEntry builds a proxy_logs-shaped entry distinct per index so a
 // test can assert all N entries landed (not just N copies of one row).
 func sampleBatchEntry(index int) proxy.ProxyLogEntry {
@@ -88,8 +75,8 @@ func sampleGatewayBatchEntry(index int) store.GatewayRequest {
 }
 
 func TestGatewayRequestBatchBackpressureAndDrain(t *testing.T) {
-	db := setupBatchTestDB(t)
-	w := newProxyLogBatchWriter(2, 60_000)
+	db := sqlitetest.Open(t)
+	w := newProxyLogBatchWriter(db, 2, 60_000)
 	// Do not start the consumer yet: the ninth observation must take the
 	// synchronous overflow path, independent of goroutine scheduling.
 	for i := range 10 {
@@ -118,10 +105,10 @@ func TestGatewayRequestBatchBackpressureAndDrain(t *testing.T) {
 }
 
 func TestGatewayRequestBatchFailurePreservesValidRows(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	bad := sampleGatewayBatchEntry(2)
 	bad.Transport = "invalid"
-	flushGatewayRequests(context.Background(), []store.GatewayRequest{sampleGatewayBatchEntry(1), bad, sampleGatewayBatchEntry(3)})
+	flushGatewayRequests(context.Background(), db, []store.GatewayRequest{sampleGatewayBatchEntry(1), bad, sampleGatewayBatchEntry(3)})
 	var count int
 	if err := db.Get(&count, "SELECT COUNT(*) FROM gateway_requests"); err != nil || count != 2 {
 		t.Fatalf("valid fallback count=%d err=%v", count, err)
@@ -129,10 +116,10 @@ func TestGatewayRequestBatchFailurePreservesValidRows(t *testing.T) {
 }
 
 func TestGatewayRequestGlobalAsyncAndSync(t *testing.T) {
-	db := setupBatchTestDB(t)
-	ConfigureProxyLogWriter(true, 100, 60_000)
-	t.Cleanup(func() { ConfigureProxyLogWriter(false, 50, 1000) })
-	if err := EnqueueGatewayRequest(context.Background(), sampleGatewayBatchEntry(1)); err != nil {
+	db := sqlitetest.Open(t)
+	ConfigureProxyLogWriter(db, true, 100, 60_000)
+	t.Cleanup(func() { ConfigureProxyLogWriter(db, false, 50, 1000) })
+	if err := EnqueueGatewayRequest(context.Background(), db, sampleGatewayBatchEntry(1)); err != nil {
 		t.Fatal(err)
 	}
 	var count int
@@ -142,7 +129,7 @@ func TestGatewayRequestGlobalAsyncAndSync(t *testing.T) {
 	if err := ShutdownProxyLogBatchWriter(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := EnqueueGatewayRequest(context.Background(), sampleGatewayBatchEntry(2)); err != nil {
+	if err := EnqueueGatewayRequest(context.Background(), db, sampleGatewayBatchEntry(2)); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Get(&count, "SELECT COUNT(*) FROM gateway_requests"); err != nil || count != 2 {
@@ -179,10 +166,10 @@ func shutdownWriterSoon(t *testing.T, b *proxyLogBatchWriter) {
 // with a long flush interval so only the batch-size trigger can flush. After
 // shutdown (which would also drain), all entries must be present.
 func TestProxyLogBatchWriter_FlushesOnBatchSize(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	const batchSize = 3
 	// Long flush interval so only the batch-size trigger fires (not the ticker).
-	w := newProxyLogBatchWriter(batchSize, 60_000)
+	w := newProxyLogBatchWriter(db, batchSize, 60_000)
 	w.start()
 	t.Cleanup(func() { shutdownWriterSoon(t, w) })
 
@@ -202,9 +189,9 @@ func TestProxyLogBatchWriter_FlushesOnBatchSize(t *testing.T) {
 // entries, then waits for the flush ticker. The entries must land via the
 // interval trigger alone (the batch-size path never fires).
 func TestProxyLogBatchWriter_FlushesOnInterval(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	// batchSize high so only the ticker can flush; interval short for speed.
-	w := newProxyLogBatchWriter(100, 50)
+	w := newProxyLogBatchWriter(db, 100, 50)
 	w.start()
 	t.Cleanup(func() { shutdownWriterSoon(t, w) })
 
@@ -225,10 +212,10 @@ func TestProxyLogBatchWriter_FlushesOnInterval(t *testing.T) {
 // shuts down. The drain path must flush every enqueued entry so no log is lost
 // on graceful shutdown.
 func TestProxyLogBatchWriter_GracefulShutdownDrainsChannel(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	const enqueued = 7
 	// batchSize=100 + 60s interval: neither trigger should fire before shutdown.
-	w := newProxyLogBatchWriter(100, 60_000)
+	w := newProxyLogBatchWriter(db, 100, 60_000)
 	w.start()
 
 	for i := 0; i < enqueued; i++ {
@@ -250,9 +237,9 @@ func TestProxyLogBatchWriter_GracefulShutdownDrainsChannel(t *testing.T) {
 // the final row count equals the total enqueued. The channel contents are then
 // drained on shutdown, so no entry is lost.
 func TestProxyLogBatchWriter_BackpressureFallsBackToSync(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	// batchSize=100, channel cap = 400. Enqueue 500 → 400 buffered, 100 sync.
-	w := newProxyLogBatchWriter(100, 60_000)
+	w := newProxyLogBatchWriter(db, 100, 60_000)
 	w.start()
 	t.Cleanup(func() { shutdownWriterSoon(t, w) })
 
@@ -275,12 +262,12 @@ func TestProxyLogBatchWriter_BackpressureFallsBackToSync(t *testing.T) {
 // with no global batch writer configured, EnqueueProxyLog writes through
 // synchronously so the row is visible immediately (the test/e2e contract).
 func TestEnqueueProxyLog_SyncModeWhenWriterNil(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	// Ensure the global writer is nil (sync mode) for this test.
-	ConfigureProxyLogWriter(false, 50, 1000)
-	t.Cleanup(func() { ConfigureProxyLogWriter(false, 50, 1000) })
+	ConfigureProxyLogWriter(db, false, 50, 1000)
+	t.Cleanup(func() { ConfigureProxyLogWriter(db, false, 50, 1000) })
 
-	if err := EnqueueProxyLog(context.Background(), sampleBatchEntry(0)); err != nil {
+	if err := EnqueueProxyLog(context.Background(), db, sampleBatchEntry(0)); err != nil {
 		t.Fatalf("EnqueueProxyLog sync: %v", err)
 	}
 	if got := countProxyLogsRows(t, db, "gpt-batch-%"); got != 1 {
@@ -289,12 +276,12 @@ func TestEnqueueProxyLog_SyncModeWhenWriterNil(t *testing.T) {
 }
 
 // TestEnqueueProxyLog_AsyncViaGlobalWriter verifies the global async path:
-// ConfigureProxyLogWriter(true, ...) starts the writer and EnqueueProxyLog
+// ConfigureProxyLogWriter(db, true, ...) starts the writer and EnqueueProxyLog
 // routes through it, with the entry landing after a flush.
 func TestEnqueueProxyLog_AsyncViaGlobalWriter(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 	// Small batch + short interval so the entry flushes quickly.
-	ConfigureProxyLogWriter(true, 5, 50)
+	ConfigureProxyLogWriter(db, true, 5, 50)
 	t.Cleanup(func() {
 		// Drain + stop the global writer so it does not leak into other tests.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -302,7 +289,7 @@ func TestEnqueueProxyLog_AsyncViaGlobalWriter(t *testing.T) {
 		_ = ShutdownProxyLogBatchWriter(ctx)
 	})
 
-	if err := EnqueueProxyLog(context.Background(), sampleBatchEntry(0)); err != nil {
+	if err := EnqueueProxyLog(context.Background(), db, sampleBatchEntry(0)); err != nil {
 		t.Fatalf("EnqueueProxyLog async: %v", err)
 	}
 
@@ -316,7 +303,7 @@ func TestEnqueueProxyLog_AsyncViaGlobalWriter(t *testing.T) {
 // path — i.e. the shared args/columns helper did not drift. Each row's tokens
 // and cost must round-trip identically.
 func TestBatchInsertProxyLogs_MatchesSingleRowInserts(t *testing.T) {
-	db := setupBatchTestDB(t)
+	db := sqlitetest.Open(t)
 
 	// Insert 3 rows as a batch.
 	entries := []proxy.ProxyLogEntry{
@@ -348,8 +335,8 @@ func TestBatchInsertProxyLogs_MatchesSingleRowInserts(t *testing.T) {
 // several goroutines to exercise the RWMutex/chan contract. After shutdown,
 // every enqueued entry must be present exactly once — no doubles, no drops.
 func TestProxyLogBatchWriter_ConcurrentEnqueueIsThreadSafe(t *testing.T) {
-	db := setupBatchTestDB(t)
-	w := newProxyLogBatchWriter(25, 20)
+	db := sqlitetest.Open(t)
+	w := newProxyLogBatchWriter(db, 25, 20)
 	w.start()
 	t.Cleanup(func() { shutdownWriterSoon(t, w) })
 
@@ -393,4 +380,28 @@ func waitFor(t *testing.T, timeout time.Duration, cond func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("condition not satisfied within %v", timeout)
+}
+
+func TestReconfigureProxyLogsPreservesDatabase(t *testing.T) {
+	first, second := sqlitetest.Open(t), sqlitetest.Open(t)
+	ctx := t.Context()
+	ConfigureProxyLogWriter(first, true, 100, 60000)
+	t.Cleanup(func() { ConfigureProxyLogWriter(nil, false, 0, 0) })
+	if err := EnqueueProxyLog(ctx, first, sampleBatchEntry(1)); err != nil {
+		t.Fatal(err)
+	}
+	ConfigureProxyLogWriter(second, true, 100, 60000)
+	// An in-flight request on the old router may finish after reconfiguration.
+	if err := EnqueueProxyLog(ctx, first, sampleBatchEntry(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnqueueProxyLog(ctx, second, sampleBatchEntry(3)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ShutdownProxyLogBatchWriter(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if a, b := countProxyLogsRows(t, first, "gpt-batch-%"), countProxyLogsRows(t, second, "gpt-batch-%"); a != 2 || b != 1 {
+		t.Fatalf("log rows across reconfigure: %d, %d", a, b)
+	}
 }

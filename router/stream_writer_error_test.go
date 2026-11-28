@@ -2,6 +2,7 @@ package router
 
 import (
 	"errors"
+	"github.com/deliciousbuding/metapi-go/store"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,7 +41,7 @@ func TestStreamFlushFailureThroughProductionMiddleware(t *testing.T) {
 				}
 			}))
 			if withLifecycle {
-				inner = proxyhandler.RequestLifecycle(inner)
+				inner = proxyhandler.RequestLifecycle(store.GetDB())(inner)
 			}
 			handler := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				inner.ServeHTTP(w, r)

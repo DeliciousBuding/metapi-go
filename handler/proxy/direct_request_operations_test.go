@@ -102,7 +102,7 @@ func TestDirectRequestOperationsRespectRealUserBudgetAdmission(t *testing.T) {
 						return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
 					},
 				})
-				handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
+				handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
 				body := `{"model":"operation-model","messages":[{"role":"user","content":"hello"}],"metadata":{"extra":"delete me"},"max_tokens":16}`
 				req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 				req.Header.Set("Authorization", "Bearer "+keys[0])

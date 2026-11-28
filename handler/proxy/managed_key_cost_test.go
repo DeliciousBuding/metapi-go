@@ -3,6 +3,8 @@ package proxyhandler
 import (
 	"context"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -64,7 +66,7 @@ func TestRecordManagedKeyCostOnSuccess_IncrementsUsedCost(t *testing.T) {
 	id := insertManagedKeyWithCost(t, db, "cost-wire", "sk-cost-wire", 10.0)
 
 	keyID := id
-	recordManagedKeyCostOnSuccess(&keyID, 5.5)
+	recordManagedKeyCostOnSuccess(db, &keyID, 5.5)
 
 	if got := readUsedCost(t, db, id); got != 15.5 {
 		t.Fatalf("used_cost=%v want 15.5 after success cost wire", got)
@@ -76,7 +78,7 @@ func TestRecordManagedKeyCostOnSuccess_NilKeyIDNoop(t *testing.T) {
 	id := insertManagedKeyWithCost(t, db, "cost-nil-key", "sk-cost-nil-key", 10.0)
 
 	// Global/proxy token path: Auth.KeyID is nil — must not invent an owner or crash.
-	recordManagedKeyCostOnSuccess(nil, 9.9)
+	recordManagedKeyCostOnSuccess(db, nil, 9.9)
 
 	if got := readUsedCost(t, db, id); got != 10.0 {
 		t.Fatalf("used_cost=%v want 10.0 when KeyID is nil", got)
@@ -88,10 +90,10 @@ func TestRecordManagedKeyCostOnSuccess_SkipsZeroNaNInf(t *testing.T) {
 	id := insertManagedKeyWithCost(t, db, "cost-skip", "sk-cost-skip", 10.0)
 	keyID := id
 
-	recordManagedKeyCostOnSuccess(&keyID, 0)
-	recordManagedKeyCostOnSuccess(&keyID, math.NaN())
-	recordManagedKeyCostOnSuccess(&keyID, math.Inf(1))
-	recordManagedKeyCostOnSuccess(&keyID, math.Inf(-1))
+	recordManagedKeyCostOnSuccess(db, &keyID, 0)
+	recordManagedKeyCostOnSuccess(db, &keyID, math.NaN())
+	recordManagedKeyCostOnSuccess(db, &keyID, math.Inf(1))
+	recordManagedKeyCostOnSuccess(db, &keyID, math.Inf(-1))
 
 	if got := readUsedCost(t, db, id); got != 10.0 {
 		t.Fatalf("used_cost=%v want 10.0 when cost is zero/NaN/Inf", got)
@@ -123,7 +125,10 @@ func TestWriteSuccessProxyLog_RecordsManagedKeyCost(t *testing.T) {
 	}
 	usage := ParsedUsage{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500, Found: true, Source: "upstream"}
 
-	writeSuccessProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 200, false, usage, 0, "req-cost-1")
+	// A recognized Responses alias can be outside the request ledger's canonical paths.
+	RequestLifecycle(db)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		writeSuccessProxyLog(r.Context(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 200, false, usage, 0, "req-cost-1")
+	})).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/responses/nested/compact", nil))
 
 	if len(logged) != 1 {
 		t.Fatalf("expected 1 proxy log write, got %d", len(logged))
@@ -157,7 +162,7 @@ func TestWriteFailureProxyLog_DoesNotRecordManagedKeyCost(t *testing.T) {
 	// Even with Found usage (and thus non-zero estimated cost on the log),
 	// failure sink must not advance used_cost.
 	usage := ParsedUsage{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500, Found: true, Source: "upstream"}
-	writeFailureProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 500, false, usage, 0, "req-cost-fail", "upstream boom")
+	writeFailureProxyLog(context.WithValue(context.Background(), proxyScopeKey{}, proxyRequestScope{db: db}), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 500, false, usage, 0, "req-cost-fail", "upstream boom")
 
 	if got := readUsedCost(t, db, id); got != 1.0 {
 		t.Fatalf("used_cost=%v want 1.0 after failure path", got)

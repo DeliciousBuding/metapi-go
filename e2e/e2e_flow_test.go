@@ -136,7 +136,7 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	// Using r.Route("/v1") which strips the prefix, so the internal
 	// /chat/completions and /models become /v1/chat/completions and /v1/models.
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -385,7 +385,7 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 		admin.RegisterSitesRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -514,7 +514,7 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth())
+		r.Use(auth.ProxyAuth(db))
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 

@@ -37,7 +37,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 		return reject(400, "Invalid Responses request")
 	}
 	request := s.req.WithContext(auth.WithProxyAuth(ctx, s.auth))
-	proxyCtx := &Ctx{Auth: s.auth, Body: body, RawBody: raw, RequestedModel: model, DownstreamPath: "/v1/responses", IsStream: true, lifecycle: requestLifecycleFromContext(ctx)}
+	proxyCtx := &Ctx{Auth: s.auth, Body: body, RawBody: raw, RequestedModel: model, DownstreamPath: "/v1/responses", IsStream: true, proxyRequestScope: proxyScopeFromContext(ctx)}
 	if s.auth != nil {
 		proxyCtx.Policy = s.auth.Policy
 	}

@@ -19,12 +19,9 @@ func TestCancelledCallerPreservesAttemptAndRequest(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			db := sqlitetest.Open(t)
-			previousDB := store.GetDB()
-			store.OverrideDB(db)
-			t.Cleanup(func() { store.OverrideDB(previousDB) })
 			var writer *proxyLogBatchWriter
 			if fullQueue {
-				writer = newProxyLogBatchWriter(1, 60_000)
+				writer = newProxyLogBatchWriter(db, 1, 60_000)
 				// Keep the consumer stopped until the real completion writes
 				// have taken the synchronous overflow path.
 				for i := range cap(writer.ch) {
@@ -43,10 +40,10 @@ func TestCancelledCallerPreservesAttemptAndRequest(t *testing.T) {
 
 			caller, cancel := context.WithCancel(context.Background())
 			req := httptest.NewRequest("POST", "/v1/chat/completions", nil).WithContext(caller)
-			state, req := newRequestLifecycle(req, "http", defaultGatewayRequestWriter)
+			state, req := newRequestLifecycle(db, req, "http", defaultGatewayRequestWriter(db))
 			cancel()
 			entry := sampleBatchEntry(1000)
-			logProxy(req.Context(), &UpstreamConfig{LogProxy: EnqueueProxyLog}, entry)
+			logProxy(req.Context(), &UpstreamConfig{LogProxy: func(ctx context.Context, e proxy.ProxyLogEntry) error { return EnqueueProxyLog(ctx, db, e) }}, entry)
 			state.finish(req.Context())
 
 			var request store.GatewayRequest

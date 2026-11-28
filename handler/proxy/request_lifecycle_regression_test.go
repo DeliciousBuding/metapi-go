@@ -34,7 +34,7 @@ func TestGatewayLifecycleDeliveredCompletionSurvivesClose(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			var record store.GatewayRequest
-			state, request := newRequestLifecycle(httptest.NewRequestWithContext(ctx, "POST", test.path, nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+			state, request := newRequestLifecycle(store.GetDB(), httptest.NewRequestWithContext(ctx, "POST", test.path, nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 			writer := &requestResponseWriter{ResponseWriter: httptest.NewRecorder(), state: state}
 			writer.Header().Set("Content-Type", "text/event-stream")
 			// Exercise a terminal event split across downstream writes.
@@ -94,7 +94,7 @@ func TestGatewayLifecycleProtocolCompletionBeforeUpstreamEOF(t *testing.T) {
 			router := &upstreamTestRouter{selected: routing.SelectedChannel{Channel: store.RouteChannel{ID: 42, Enabled: true}, Account: store.Account{ID: 7, Status: "active"}, Site: store.Site{ID: 3, URL: upstream.URL, Status: "active"}, TokenValue: "synthetic-upstream", ActualModel: "gpt-4o"}}
 			SetUpstreamConfig(&UpstreamConfig{Router: router, Executor: proxy.NewRuntimeExecutor(3 * time.Second), LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
 			var record store.GatewayRequest
-			handler := requestLifecycleMiddleware(http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+			handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 			request := makeProxyReq("POST", "/v1/chat/completions", `{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hello"}]}`)
 			ctx, cancel := context.WithTimeout(request.Context(), 3*time.Second)
 			defer cancel()
@@ -111,7 +111,7 @@ func TestGatewayLifecycleProtocolCompletionBeforeUpstreamEOF(t *testing.T) {
 func TestGatewayLifecycleInitialSSEErrorKeepsHTTPDisposition(t *testing.T) {
 	for _, dispatched := range []bool{false, true} {
 		var record store.GatewayRequest
-		state, request := newRequestLifecycle(httptest.NewRequest("POST", "/v1/chat/completions", nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+		state, request := newRequestLifecycle(store.GetDB(), httptest.NewRequest("POST", "/v1/chat/completions", nil), "http", func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 		if dispatched {
 			request = request.WithContext(beginGatewayAttempt(request.Context()))
 		}
@@ -139,7 +139,7 @@ func TestGatewayLifecycleWSInitialErrorIsNotInterruptedOutput(t *testing.T) {
 			return
 		}
 		defer conn.Close(websocket.StatusNormalClosure, "done")
-		state, request := newRequestLifecycle(r, "websocket", func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
+		state, request := newRequestLifecycle(store.GetDB(), r, "websocket", func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
 		ctx := beginGatewayAttempt(request.Context())
 		state.observe(shared.OutcomeUpstreamError, true)
 		session := responsesWSSession{conn: conn}
@@ -172,7 +172,7 @@ func TestGatewayLifecycleWSInitialErrorIsNotInterruptedOutput(t *testing.T) {
 func TestGatewayLifecycleEndpointFallbackRecordsEveryDispatch(t *testing.T) {
 	fixture := installDirectFallbackFixture(t, []string{"messages", "chat"}, map[string]int{"chat": 400}, `{"error":{"code":"model_not_found","message":"model not supported by this endpoint"}}`, false)
 	var record store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 	out := httptest.NewRecorder()
 	handler.ServeHTTP(out, makeProxyReq("POST", "/v1/chat/completions", `{"model":"client-alias","max_tokens":20,"messages":[{"role":"user","content":"hello"}]}`))
 	calls, logs := fixture.results()
@@ -195,7 +195,7 @@ func TestGatewayLifecycleDispatchCountDoesNotDependOnLogWriter(t *testing.T) {
 	cfg.LogProxy = func(context.Context, proxy.ProxyLogEntry) error { return errors.New("synthetic persistence failure") }
 	SetUpstreamConfig(&cfg)
 	var record store.GatewayRequest
-	handler := requestLifecycleMiddleware(http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
+	handler := requestLifecycleMiddleware(store.GetDB(), http.HandlerFunc(HandleChatCompletions), func(_ context.Context, entry store.GatewayRequest) error { record = entry; return nil })
 	handler.ServeHTTP(httptest.NewRecorder(), makeProxyReq("POST", "/v1/chat/completions", `{"model":"client-alias","max_tokens":20,"messages":[{"role":"user","content":"hello"}]}`))
 	calls, _ := fixture.results()
 	if len(calls) != 2 || record.AttemptCount != len(calls) {
@@ -219,7 +219,7 @@ func TestGatewayLifecycleWSTurnInheritsSanitizedCorrelation(t *testing.T) {
 	for _, externalID := range []string{"synthetic-custom-token", "safe-client-correlation"} {
 		t.Run(externalID, func(t *testing.T) {
 			records := make(chan store.GatewayRequest, 2)
-			handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
+			handler := requestLifecycleMiddleware(store.GetDB(), auth.ProxyAuth(store.GetDB())(http.HandlerFunc(HandleResponsesWebsocket)), func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
 			server := httptest.NewServer(handler)
 			defer server.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -274,7 +274,7 @@ func TestGatewayLifecycleWSGeneratedOutputAndCompletion(t *testing.T) {
 				defer conn.Close(websocket.StatusNormalClosure, "done")
 				turnCtx, cancel := context.WithCancel(r.Context())
 				defer cancel()
-				state, request := newRequestLifecycle(r.WithContext(turnCtx), "websocket", func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
+				state, request := newRequestLifecycle(store.GetDB(), r.WithContext(turnCtx), "websocket", func(_ context.Context, entry store.GatewayRequest) error { records <- entry; return nil })
 				session := responsesWSSession{conn: conn}
 				if session.writeJSON(request.Context(), map[string]any{"type": test.kind, "delta": test.delta}) != nil || session.writeJSON(request.Context(), map[string]any{"type": "response.completed", "response": map[string]any{"status": "completed"}}) != nil {
 					return

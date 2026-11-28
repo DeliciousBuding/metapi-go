@@ -112,7 +112,7 @@ func TestVideoTaskCache_ExpiredLineIsLazyThenEvictedBySweep(t *testing.T) {
 	// A line stored 8 days ago is past the 7-day TTL but has not been swept yet.
 	seedVideoTaskCacheLineForTest(t, "v_aged", base.Add(-8*24*time.Hour))
 	// One insert inside the throttle window: no sweep may run.
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_fresh", UpstreamVideoID: "up_fresh"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_fresh", UpstreamVideoID: "up_fresh"})
 
 	storedAt, inserts, lastSweep := videoTaskCacheSnapshotForTest()
 	if _, ok := storedAt["v_aged"]; !ok {
@@ -122,10 +122,10 @@ func TestVideoTaskCache_ExpiredLineIsLazyThenEvictedBySweep(t *testing.T) {
 		t.Fatalf("throttled insert ran a sweep: len=%d inserts=%d lastSweep=%v", len(storedAt), inserts, lastSweep)
 	}
 	// Reads still refuse to serve the expired line while it waits for the sweep.
-	if got := GetProxyVideoTaskByPublicID("v_aged"); got != nil {
+	if got := GetProxyVideoTaskByPublicID(nil, "v_aged"); got != nil {
 		t.Fatalf("expired line served from cache: %+v", got)
 	}
-	if got := GetProxyVideoTaskByPublicID("v_fresh"); got == nil || got.UpstreamVideoID != "up_fresh" {
+	if got := GetProxyVideoTaskByPublicID(nil, "v_fresh"); got == nil || got.UpstreamVideoID != "up_fresh" {
 		t.Fatalf("fresh line = %+v", got)
 	}
 
@@ -140,7 +140,7 @@ func TestVideoTaskCache_ExpiredLineIsLazyThenEvictedBySweep(t *testing.T) {
 
 	// End to end: the next insert after the throttle window sweeps on its own.
 	advance(8 * 24 * time.Hour)
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_newest", UpstreamVideoID: "up_newest"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_newest", UpstreamVideoID: "up_newest"})
 	storedAt, inserts, _ = videoTaskCacheSnapshotForTest()
 	if _, ok := storedAt["v_fresh"]; ok {
 		t.Fatalf("insert-path sweep did not evict the now-expired line: %v", storedAt)
@@ -159,7 +159,7 @@ func TestVideoTaskCache_RetentionDisabledKeepsLines(t *testing.T) {
 
 	seedVideoTaskCacheLineForTest(t, "v_kept", base.Add(-90*24*time.Hour))
 	advance(90 * 24 * time.Hour)
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_new", UpstreamVideoID: "up_new"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_new", UpstreamVideoID: "up_new"})
 	forceVideoTaskSweepForTest(t)
 
 	storedAt, _, _ := videoTaskCacheSnapshotForTest()
@@ -168,7 +168,7 @@ func TestVideoTaskCache_RetentionDisabledKeepsLines(t *testing.T) {
 	}
 	// With TTL off the 90-day-old line is still served: "keep forever" is an
 	// explicit operator choice, and memory stays bounded by the capacity guard.
-	if got := GetProxyVideoTaskByPublicID("v_kept"); got == nil {
+	if got := GetProxyVideoTaskByPublicID(nil, "v_kept"); got == nil {
 		t.Fatal("expected the retained line to be served")
 	}
 }
@@ -181,7 +181,7 @@ func TestVideoTaskCache_SweepIsThrottledBetweenThresholds(t *testing.T) {
 	// 10 inserts inside the throttle window (1 s apart, counter below 256).
 	for i := 0; i < 10; i++ {
 		advance(time.Second)
-		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_throttle_" + strconv.FormatInt(int64(i), 10)})
+		SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_throttle_" + strconv.FormatInt(int64(i), 10)})
 	}
 
 	storedAt, inserts, lastSweep := videoTaskCacheSnapshotForTest()
@@ -196,7 +196,7 @@ func TestVideoTaskCache_SweepIsThrottledBetweenThresholds(t *testing.T) {
 	// The count threshold trips exactly one sweep on the next insert.
 	setVideoTaskSweepCounterForTest(t, videoTaskSweepEveryInserts-1)
 	advance(time.Second)
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_trigger"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_trigger"})
 
 	storedAt, inserts, lastSweep = videoTaskCacheSnapshotForTest()
 	if _, ok := storedAt["v_aged"]; ok {
@@ -218,7 +218,7 @@ func TestVideoTaskCache_CapacityGuardrailEvictsOldestFirst(t *testing.T) {
 
 	for i := 1; i <= 6; i++ {
 		advance(time.Second)
-		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_cap_" + strconv.FormatInt(int64(i), 10)})
+		SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_cap_" + strconv.FormatInt(int64(i), 10)})
 	}
 	// Throttled inserts may overshoot the guardrail; the bound is cap+256.
 	if storedAt, _, _ := videoTaskCacheSnapshotForTest(); len(storedAt) != 6 {
@@ -228,12 +228,12 @@ func TestVideoTaskCache_CapacityGuardrailEvictsOldestFirst(t *testing.T) {
 	// Count threshold trips a trim down to the cap, oldest first.
 	setVideoTaskSweepCounterForTest(t, videoTaskSweepEveryInserts-1)
 	advance(time.Second)
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_cap_7"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_cap_7"})
 	assertVideoTaskCacheKeys(t, "count-triggered trim", []string{"v_cap_4", "v_cap_5", "v_cap_6", "v_cap_7"})
 
 	// Interval threshold trips the next trim (counter is far from 256).
 	advance(videoTaskSweepMinInterval + time.Minute)
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_cap_8"})
+	SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: "v_cap_8"})
 	assertVideoTaskCacheKeys(t, "interval-triggered trim", []string{"v_cap_5", "v_cap_6", "v_cap_7", "v_cap_8"})
 
 	// A sweep resets the counter, including for the insert that triggered it.
@@ -266,21 +266,19 @@ func TestVideoTaskCache_WarmLoadStampsItsOwnStoredAt(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	advance := videoTaskCacheFixture(t, base, 7, videoTaskCacheMaxEntries)
 
 	const publicID = "v_warm_load"
-	SaveProxyVideoTask(&ProxyVideoTask{PublicID: publicID, UpstreamVideoID: "up_warm"})
+	SaveProxyVideoTask(db, &ProxyVideoTask{PublicID: publicID, UpstreamVideoID: "up_warm"})
 	// Drop the cache line only (restart / other instance); the durable row stays.
 	videoTaskStoreMu.Lock()
 	delete(videoTaskStore, publicID)
 	videoTaskStoreMu.Unlock()
 
 	advance(2 * 24 * time.Hour)
-	if got := GetProxyVideoTaskByPublicID(publicID); got == nil || got.UpstreamVideoID != "up_warm" {
+	if got := GetProxyVideoTaskByPublicID(db, publicID); got == nil || got.UpstreamVideoID != "up_warm" {
 		t.Fatalf("warm load = %+v", got)
 	}
 	// TTL counts from the warm load, not from the 2-day-old durable row.
@@ -326,10 +324,10 @@ func TestVideoTaskCache_ConcurrentInsertTrimAndSweep(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < iterations; i++ {
 				id := "v_race_" + strconv.FormatInt(int64(w), 10) + "_" + strconv.FormatInt(int64(i), 10)
-				SaveProxyVideoTask(&ProxyVideoTask{PublicID: id, UpstreamVideoID: "up_" + id})
-				_ = GetProxyVideoTaskByPublicID(id)
+				SaveProxyVideoTask(nil, &ProxyVideoTask{PublicID: id, UpstreamVideoID: "up_" + id})
+				_ = GetProxyVideoTaskByPublicID(nil, id)
 				if i%4 == 0 {
-					DeleteProxyVideoTaskByPublicID(id)
+					DeleteProxyVideoTaskByPublicID(nil, id)
 				}
 			}
 		}(w)

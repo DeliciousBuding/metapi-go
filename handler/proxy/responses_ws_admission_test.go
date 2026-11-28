@@ -68,7 +68,7 @@ func dialResponsesWS(t *testing.T, key string) *websocket.Conn {
 	config.SetRuntime(&config.RuntimeSettings{})
 	t.Cleanup(func() { config.SetRuntime(previous) })
 
-	handler := auth.ProxyAuth()(http.HandlerFunc(HandleResponsesWebsocket))
+	handler := RequestLifecycle(store.GetDB())(auth.ProxyAuth(store.GetDB())(http.HandlerFunc(HandleResponsesWebsocket)))
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 

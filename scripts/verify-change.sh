@@ -34,13 +34,13 @@ jq . "$plan_file"
 git diff --check "$base"
 git diff --cached --check
 go test ./docs -count=1
-if [[ $(jq -r .frontend "$plan_file") == true ]]; then
+if [[ $(jq -r .frontend "$plan_file" | tr -d '\r') == true ]]; then
   (cd web && bun run check:static && bun run routes:verify && node --test scripts/__tests__/*.test.mjs && bunx vitest run src/i18n/__tests__/i18n-keys.test.ts src/styles/__tests__/ && bun run build:web)
-elif [[ $(jq -r .backend "$plan_file") == true ]]; then
+elif [[ $(jq -r .backend "$plan_file" | tr -d '\r') == true ]]; then
   (cd web && bun run build:web)
 fi
-if [[ $(jq -r .backend "$plan_file") == true ]]; then
-  jq -er '.packages[]' "$plan_file" >"$plan_file.packages"
+if [[ $(jq -r .backend "$plan_file" | tr -d '\r') == true ]]; then
+  jq -er '.packages[]' "$plan_file" | tr -d '\r' >"$plan_file.packages"
   mapfile -t packages <"$plan_file.packages"
   rm -f "$plan_file.packages"
   [[ ${#packages[@]} -gt 0 ]] || { echo 'empty affected Go package set' >&2; exit 1; }

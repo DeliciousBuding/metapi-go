@@ -53,7 +53,7 @@ var (
 // collision would mean either a replay or two upstreams returning the same id,
 // and silently taking ownership away from the first key would be worse than
 // leaving the second upload inaccessible.
-func recordProxyFileObject(pac *auth.ProxyAuthContext, fileID string) {
+func recordProxyFileObject(db *store.DB, pac *auth.ProxyAuthContext, fileID string) {
 	fileID = strings.TrimSpace(fileID)
 	owner := proxyFileOwner(pac)
 	if fileID == "" || owner == "" {
@@ -61,7 +61,6 @@ func recordProxyFileObject(pac *auth.ProxyAuthContext, fileID string) {
 			"has_id", fileID != "", "has_owner", owner != "")
 		return
 	}
-	db := store.GetDB()
 	if db == nil {
 		slog.Warn("proxy files: ownership storage unavailable; uploaded file will not be readable", "file_id", fileID)
 		return
@@ -92,13 +91,12 @@ func recordProxyFileObject(pac *auth.ProxyAuthContext, fileID string) {
 // proxyFileOwnedBy reports whether fileID belongs to the authenticated key.
 // Storage failures and missing rows both deny: an ownership check that cannot
 // be answered must not become a pass-through.
-func proxyFileOwnedBy(pac *auth.ProxyAuthContext, fileID string) bool {
+func proxyFileOwnedBy(db *store.DB, pac *auth.ProxyAuthContext, fileID string) bool {
 	fileID = strings.TrimSpace(fileID)
 	owner := proxyFileOwner(pac)
 	if fileID == "" || owner == "" {
 		return false
 	}
-	db := store.GetDB()
 	if db == nil {
 		return false
 	}
@@ -114,11 +112,10 @@ func proxyFileOwnedBy(pac *auth.ProxyAuthContext, fileID string) bool {
 }
 
 // ownedProxyFileIDs loads every file id owned by owner for list filtering.
-func ownedProxyFileIDs(owner string) (map[string]bool, error) {
+func ownedProxyFileIDs(db *store.DB, owner string) (map[string]bool, error) {
 	if owner == "" {
 		return nil, errProxyFilesUnavailable
 	}
-	db := store.GetDB()
 	if db == nil {
 		return nil, errProxyFilesUnavailable
 	}
@@ -146,7 +143,7 @@ func ownedProxyFileIDs(owner string) (map[string]bool, error) {
 // body carries first_id/last_id they are rewritten to match the filtered data
 // so they cannot leak another key's file ids. Any shape this build does not
 // understand is an error, never a pass-through: the caller turns it into 502.
-func filterProxyFileList(body []byte, owner string) ([]byte, error) {
+func filterProxyFileList(db *store.DB, body []byte, owner string) ([]byte, error) {
 	var payload map[string]json.RawMessage
 	if err := json.Unmarshal(body, &payload); err != nil || payload == nil {
 		return nil, errProxyFilesListShape
@@ -160,7 +157,7 @@ func filterProxyFileList(body []byte, owner string) ([]byte, error) {
 		return nil, errProxyFilesListShape
 	}
 
-	owned, err := ownedProxyFileIDs(owner)
+	owned, err := ownedProxyFileIDs(db, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -212,12 +209,11 @@ func lastOrNil(ids []string) json.RawMessage {
 
 // deleteProxyFileObject drops the ownership record after a successful upstream
 // deletion. A failed delete keeps the mapping so the owner can retry.
-func deleteProxyFileObject(fileID string) {
+func deleteProxyFileObject(db *store.DB, fileID string) {
 	fileID = strings.TrimSpace(fileID)
 	if fileID == "" {
 		return
 	}
-	db := store.GetDB()
 	if db == nil {
 		return
 	}

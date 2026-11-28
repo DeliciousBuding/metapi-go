@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"github.com/deliciousbuding/metapi-go/store"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +41,7 @@ func newAdmissionTestMiddleware(t *testing.T) http.Handler {
 	t.Helper()
 	config.SetRuntime(proxyCfg("synthetic-global-token"))
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	return ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return ProxyAuth(store.GetDB())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 }
@@ -222,7 +223,7 @@ func TestReauthorizeManagedKeyForTurn_ConsumesExactlyOnce(t *testing.T) {
 	id := insertTestKeyWithRPM(t, "sk-turn-once", &maxRequests, 0, nil, nil)
 
 	for turn := 1; turn <= 2; turn++ {
-		result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-once", "127.0.0.1", 0)
+		result := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-once", "127.0.0.1", 0)
 		if !result.OK {
 			t.Fatalf("turn %d rejected: %s (%d)", turn, result.Error, result.StatusCode)
 		}
@@ -242,7 +243,7 @@ func TestReauthorizeManagedKeyForTurn_DisabledKeyRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-disabled", "127.0.0.1", 0)
+	result := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-disabled", "127.0.0.1", 0)
 	if result.OK || result.StatusCode != http.StatusForbidden || result.Reason != "disabled" {
 		t.Fatalf("disabled key result = %+v, want 403 disabled", result)
 	}
@@ -259,7 +260,7 @@ func TestReauthorizeManagedKeyForTurn_ExpiredKeyRejected(t *testing.T) {
 	expiredAt := "2020-01-01T00:00:00Z"
 	insertTestKey(t, "sk-turn-expired", true, nil, 0, nil, 0, &expiredAt)
 
-	result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-expired", "127.0.0.1", 0)
+	result := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-expired", "127.0.0.1", 0)
 	if result.OK || result.Reason != "expired" {
 		t.Fatalf("expired key result = %+v, want expired", result)
 	}
@@ -276,7 +277,7 @@ func TestReauthorizeManagedKeyForTurn_OverCostRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-overcost", "127.0.0.1", 0)
+	result := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-overcost", "127.0.0.1", 0)
 	if result.OK || result.StatusCode != http.StatusTooManyRequests || result.Reason != "over_cost" {
 		t.Fatalf("over-cost key result = %+v, want 429 over_cost", result)
 	}
@@ -294,10 +295,10 @@ func TestReauthorizeManagedKeyForTurn_RPMDenyDoesNotBurnRequests(t *testing.T) {
 	maxRequests := int64(10)
 	id := insertTestKeyWithRPM(t, "sk-turn-rpm", &maxRequests, 0, &maxRPM, nil)
 
-	if result := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-rpm", "127.0.0.1", 0); !result.OK {
+	if result := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-rpm", "127.0.0.1", 0); !result.OK {
 		t.Fatalf("first turn rejected: %s", result.Error)
 	}
-	denied := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-rpm", "127.0.0.1", 0)
+	denied := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-rpm", "127.0.0.1", 0)
 	if denied.OK || denied.Reason != "over_rpm" {
 		t.Fatalf("second turn result = %+v, want over_rpm", denied)
 	}
@@ -313,7 +314,7 @@ func TestReauthorizeManagedKeyForTurn_PolicyReloaded(t *testing.T) {
 
 	id := insertTestKey(t, "sk-turn-policy", true, nil, 0, nil, 0, nil)
 
-	before := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-policy", "127.0.0.1", 0)
+	before := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-policy", "127.0.0.1", 0)
 	if !before.OK {
 		t.Fatalf("initial turn rejected: %s", before.Error)
 	}
@@ -324,7 +325,7 @@ func TestReauthorizeManagedKeyForTurn_PolicyReloaded(t *testing.T) {
 	if _, err := testDB(t).Exec(`UPDATE downstream_api_keys SET supported_models = '["model-a"]' WHERE id = ?`, id); err != nil {
 		t.Fatal(err)
 	}
-	after := ReauthorizeManagedKeyForTurn(context.Background(), "sk-turn-policy", "127.0.0.1", 0)
+	after := ReauthorizeManagedKeyForTurn(context.Background(), testDB(t), "sk-turn-policy", "127.0.0.1", 0)
 	if !after.OK {
 		t.Fatalf("turn after policy update rejected: %s", after.Error)
 	}

@@ -302,12 +302,13 @@ func (s *responsesWSSession) loop(ctx context.Context) error {
 }
 
 func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (turnErr error) {
-	writer := gatewayRequestWriter(defaultGatewayRequestWriter)
-	parent := requestLifecycleFromContext(ctx)
+	scope := proxyScopeFromContext(ctx)
+	parent := scope.lifecycle
+	writer := defaultGatewayRequestWriter(scope.db)
 	if parent != nil {
 		writer = parent.writer
 	}
-	state, turnRequest := newRequestLifecycle(s.req.WithContext(ctx), "websocket", writer)
+	state, turnRequest := newRequestLifecycle(scope.db, s.req.WithContext(ctx), "websocket", writer)
 	if parent != nil {
 		// Authentication has already removed credential-shaped correlation IDs.
 		// A turn inherits that result, not the original handshake header.
@@ -356,12 +357,12 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	// ProxyAuth runs for HTTP requests (enabled/expiry/cost/quota/IP/RPM/TPM
 	// then max_requests consume).
 	if s.auth != nil && s.auth.Source == "managed" && s.auth.KeyID != nil {
-		refreshed := auth.ReauthorizeManagedKeyForTurn(ctx, s.auth.Token, s.clientIP, responsesWSTurnTokenEstimate(msg, raw))
+		refreshed := auth.ReauthorizeManagedKeyForTurn(ctx, scope.db, s.auth.Token, s.clientIP, responsesWSTurnTokenEstimate(msg, raw))
 		// This turn's quota hold settles through its proxy-log sink. Release it
 		// if the turn exits without billable usage (policy rejection, prewarm,
 		// or a failure before any attempt is logged).
 		if refreshed.QuotaReservationID != "" {
-			defer auth.ReleaseManagedKeyQuotaReservation(refreshed.QuotaReservationID)
+			defer auth.ReleaseManagedKeyQuotaReservation(scope.db, refreshed.QuotaReservationID)
 		}
 		if !refreshed.OK {
 			status, message, endSession := responsesWSTurnAuthError(refreshed)

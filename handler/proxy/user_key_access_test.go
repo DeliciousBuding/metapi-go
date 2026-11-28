@@ -72,7 +72,7 @@ func TestUserKeyHTTPCurrentGroupAndHistoricalOwnership(t *testing.T) {
 	SetUpstreamConfig(&UpstreamConfig{Router: actualRouter})
 	// Use the real synchronous persistence owners, not assertions on policy DTOs.
 	getUpstreamConfig().LogProxy = defaultLogProxyWriter
-	handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			HandleModels(w, r)
 			return

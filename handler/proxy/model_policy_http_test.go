@@ -48,7 +48,7 @@ func TestDownstreamModelPolicyHTTP(t *testing.T) {
 	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
 	SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
 	r := chi.NewRouter()
-	r.Use(auth.ProxyAuth())
+	r.Use(auth.ProxyAuth(db))
 	r.Route("/v1", RegisterProxyRoutes)
 	for n, tc := range []struct {
 		name, patterns, routes, access string

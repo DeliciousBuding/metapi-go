@@ -100,11 +100,11 @@ type managedKeyView struct {
 // AuthorizeDownstreamToken validates a token against downstream_api_keys and
 // enforces its enabled state, expiry and quota. Runtime root tokens are retired.
 // It is the read-only admission variant: quota checks never create a hold.
-func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
-	return authorizeDownstreamToken(token, rt, "", admissionOptions{})
+func AuthorizeDownstreamToken(db *store.DB, token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
+	return authorizeDownstreamToken(db, token, rt, "", admissionOptions{})
 }
 
-func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoReadID string, opts admissionOptions) DownstreamTokenAuthResult {
+func authorizeDownstreamToken(db *store.DB, token string, _ *config.RuntimeSettings, videoReadID string, opts admissionOptions) DownstreamTokenAuthResult {
 	normalized := strings.TrimSpace(token)
 	if normalized == "" {
 		return DownstreamTokenAuthResult{
@@ -116,7 +116,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 	}
 
 	// ---- Check managed key table ----
-	managed, err := getManagedKeyByToken(normalized)
+	managed, err := getManagedKeyByToken(db, normalized)
 	if err != nil {
 		slog.Warn("downstream auth: failed to query API key", "error", err)
 		return DownstreamTokenAuthResult{StatusCode: 503, Error: "API key authentication is temporarily unavailable", Reason: "unavailable"}
@@ -137,7 +137,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 				Reason:     "disabled",
 			}
 		}
-		if result := resolveManagedKeyUser(managed, store.GetDB().DB); !result.OK {
+		if result := resolveManagedKeyUser(managed, db.DB); !result.OK {
 			result.Key = managed
 			return result
 		}
@@ -155,7 +155,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 			}
 		}
 
-		taskRead := ownsDirectVideoTask(videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID, OwnerUserID: managed.OwnerUserID})
+		taskRead := ownsDirectVideoTask(db, videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID, OwnerUserID: managed.OwnerUserID})
 		// Already admitted owned tasks remain retrievable when generation budget
 		// is exhausted. Identity, expiry, IP and route policies still apply.
 		//
@@ -197,12 +197,12 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 						estimatedTokens = estimated
 					}
 				}
-				id, result := reserveManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota, estimatedTokens)
+				id, result := reserveManagedKeyQuota(db, managed.ID, managed.AccessPolicy.Quota, estimatedTokens)
 				if !result.OK {
 					return result
 				}
 				quotaReservationID = id
-			} else if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
+			} else if result := checkManagedKeyQuota(db, managed.ID, managed.AccessPolicy.Quota); !result.OK {
 				return result
 			}
 		}
@@ -238,8 +238,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 
 // getManagedKeyByToken queries the downstream_api_keys table for a row matching
 // the given token (key column). Returns nil if no row matches.
-func getManagedKeyByToken(token string) (*managedKeyView, error) {
-	db := store.GetDB()
+func getManagedKeyByToken(db *store.DB, token string) (*managedKeyView, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
@@ -341,8 +340,7 @@ func loadManagedKeyFrom(db *sqlx.DB, column string, value any) (*managedKeyView,
 // WHERE id = ?
 //
 //	AND (max_requests IS NULL OR COALESCE(used_requests, 0) < max_requests)
-func consumeManagedKeyRequest(keyID int64) bool {
-	db := store.GetDB()
+func consumeManagedKeyRequest(db *store.DB, keyID int64) bool {
 	if db == nil {
 		slog.Warn("consumeManagedKeyRequest: database not initialized, skipping")
 		return false
@@ -388,12 +386,12 @@ func consumeManagedKeyRequest(keyID int64) bool {
 //
 // estimatedTokens is reserved against maxTPM; when maxTPM is set a minimum of
 // one token is reserved so an unestimable message cannot skip TPM accounting.
-func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, estimatedTokens int64) DownstreamTokenAuthResult {
+func ReauthorizeManagedKeyForTurn(ctx context.Context, db *store.DB, token, clientIP string, estimatedTokens int64) DownstreamTokenAuthResult {
 	// RuntimeSafe keeps session-loop tests and early boot paths from panicking;
 	// authorizeDownstreamToken independently loads the key from the store.
 	// Each turn reserves its own quota slot so an open socket cannot let
 	// concurrent messages exceed an accessPolicy quota window.
-	result := authorizeDownstreamToken(token, config.RuntimeSafe(), "", admissionOptions{
+	result := authorizeDownstreamToken(db, token, config.RuntimeSafe(), "", admissionOptions{
 		reserveQuota: true,
 		estimateTokens: func() int64 {
 			if estimatedTokens < 1 {
@@ -433,7 +431,7 @@ func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, e
 		return deny(DownstreamTokenAuthResult{StatusCode: 429, Reason: adm.Reason, Error: msg})
 	}
 
-	if !consumeManagedKeyRequest(result.Key.ID) {
+	if !consumeManagedKeyRequest(db, result.Key.ID) {
 		return deny(DownstreamTokenAuthResult{
 			StatusCode: 429,
 			Reason:     "over_requests",
@@ -454,12 +452,11 @@ func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, e
 // SET used_cost = COALESCE(used_cost, 0) + ?,
 // last_used_at = ?, updated_at = ?
 // WHERE id = ?
-func RecordManagedKeyCostUsage(keyID int64, estimatedCost float64) {
+func RecordManagedKeyCostUsage(db *store.DB, keyID int64, estimatedCost float64) {
 	if estimatedCost <= 0 || math.IsNaN(estimatedCost) || math.IsInf(estimatedCost, 0) {
 		return
 	}
 
-	db := store.GetDB()
 	if db == nil {
 		slog.Warn("RecordManagedKeyCostUsage: database not initialized, skipping")
 		return

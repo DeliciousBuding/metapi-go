@@ -95,7 +95,7 @@ func TestImportedKeyRoutingHTTPAffinityAndPolicyIsolation(t *testing.T) {
 					return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
 				},
 			})
-			handler := requestLifecycleMiddleware(auth.ProxyAuth()(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
+			handler := requestLifecycleMiddleware(db, auth.ProxyAuth(db)(http.HandlerFunc(HandleChatCompletions)), func(context.Context, store.GatewayRequest) error { return nil })
 			call := func(key, trace string) string {
 				req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"routing-model","messages":[{"role":"user","content":"hello"}]}`))
 				req.Header.Set("Authorization", "Bearer "+key)

@@ -126,7 +126,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 				attemptCtx = auth.WithProxyAuth(attemptCtx, s.auth)
 			}
 			attemptCtx = beginGatewayAttempt(attemptCtx)
-			proxyCtx := &Ctx{Auth: s.auth, RequestedModel: requestModel, DownstreamPath: "/v1/responses", IsStream: true, lifecycle: requestLifecycleFromContext(ctx)}
+			proxyCtx := &Ctx{Auth: s.auth, RequestedModel: requestModel, DownstreamPath: "/v1/responses", IsStream: true, proxyRequestScope: proxyScopeFromContext(ctx)}
 			usage := responsesWSAttemptUsage(events)
 			requestID := proxy.RequestIDFromContext(ctx)
 			if attemptErr != nil {

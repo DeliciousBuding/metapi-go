@@ -22,7 +22,7 @@ func TestGatewayUserManagementAuthenticationAndAudit(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
-	r := New(cfg, web.Dist)
+	r := New(store.GetDB(), cfg, web.Dist)
 	call := func(method, path, body string, bearer, confirmation bool, cookie *http.Cookie) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		if bearer {

@@ -173,7 +173,7 @@ limits are specified in [user authentication/quota](api/auth.md#user-wide-token-
 2. `CORS()`
 3. `auth.ProxyRateLimit(cfg.ProxyRateLimitRPM)` — per-IP, **before** auth so an
    unauthenticated flood is dropped without a database lookup
-4. `auth.ProxyAuth()` — resolves the managed downstream key, applies its
+4. `auth.ProxyAuth(db)` — resolves the managed downstream key, applies its
    admission limits and puts the result in the request context
 5. `proxyhandler.RegisterProxyRoutes(r)` — the surface itself
 7. `admin.RegisterDownstreamPricingRoutes(r, db.DB)` — the downstream-key-visible

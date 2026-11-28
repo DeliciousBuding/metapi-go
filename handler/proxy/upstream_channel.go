@@ -25,6 +25,7 @@ import (
 
 // UpstreamConfig holds the dependencies needed for upstream forwarding.
 type UpstreamConfig struct {
+	DB       *store.DB
 	Router   proxy.TokenRouterInterface
 	Executor *proxy.RuntimeExecutor
 	// SiteLimiter caps concurrent dispatches per site (sites.max_concurrency).
@@ -41,7 +42,7 @@ type UpstreamConfig struct {
 	// must receive the same owner; nil uses the process-local default.
 	ChannelLimits *channellimit.Manager
 	// LogProxy persists successful/failed proxy attempts into proxy_logs.
-	// When nil, defaultLogProxyWriter uses store.GetDB() (no-op if DB unset).
+	// When nil, defaultLogProxyWriter uses the request-scoped DB (no-op if unset).
 	LogProxy                func(ctx context.Context, entry proxy.ProxyLogEntry) error
 	ResolveDirectCredential func(context.Context, int64, *string, bool) (*oauth.DirectCredentialResult, error)
 	ChannelPlugins          *channelplugins.Manager

@@ -151,8 +151,8 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				"request_id", requestID,
 			)
 			if pendingFailure != nil {
-				reportProxyAllFailedTerminal(ctx, pendingFailure.reason())
-				pendingFailure.write(w, requestID, ctx.RequestedModel)
+				reportProxyAllFailedTerminal(ctx, cfg, pendingFailure.reason())
+				pendingFailure.write(w, resolveUpstreamDB(ctx, cfg), requestID, ctx.RequestedModel)
 				observeProxyTerminal(ctx, pendingFailure.outcomeStatus(), ctx != nil && ctx.IsStream, time.Since(startedAt))
 				return
 			}
@@ -165,7 +165,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				eventReason += ": " + noChannelReason
 				message += ": " + noChannelReason
 			}
-			reportProxyAllFailedTerminal(ctx, eventReason)
+			reportProxyAllFailedTerminal(ctx, cfg, eventReason)
 			writeJSONErrorWithRequest(w, 503, message, "server_error", requestID)
 			observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 			return
@@ -346,30 +346,39 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	}
 	if pendingFailure != nil {
 		pendingFailure.recordFirstFailure(ctx)
-		reportProxyAllFailedTerminal(ctx, reason)
-		pendingFailure.write(w, requestID, ctx.RequestedModel)
+		reportProxyAllFailedTerminal(ctx, cfg, reason)
+		pendingFailure.write(w, resolveUpstreamDB(ctx, cfg), requestID, ctx.RequestedModel)
 		observeProxyTerminal(ctx, pendingFailure.outcomeStatus(), ctx.IsStream, time.Since(startedAt))
 		return
 	}
-	reportProxyAllFailedTerminal(ctx, reason)
+	reportProxyAllFailedTerminal(ctx, cfg, reason)
 	writeJSONErrorWithRequest(w, 503, "All channels exhausted", "server_error", requestID)
 	observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
+}
+
+func resolveUpstreamDB(ctx *Ctx, cfg *UpstreamConfig) *store.DB {
+	if ctx != nil && ctx.db != nil {
+		return ctx.db
+	}
+	if cfg != nil {
+		return cfg.DB
+	}
+	return nil
 }
 
 // reportProxyAllFailedTerminal reports a terminal all-channels-failed outcome
 // so operators get an event + notification instead of a silent 5xx. Dedup is
 // handled inside alert.ReportProxyAllFailed (per-model cooldown) so a dead
 // upstream cannot spam on every request. No-op when the DB is not wired.
-func reportProxyAllFailedTerminal(ctx *Ctx, reason string) {
+func reportProxyAllFailedTerminal(ctx *Ctx, cfg *UpstreamConfig, reason string) {
 	model := ""
 	if ctx != nil {
 		model = ctx.RequestedModel
 	}
-	reportProxyAllFailed(model, reason)
+	reportProxyAllFailed(resolveUpstreamDB(ctx, cfg), model, reason)
 }
 
-func reportProxyAllFailed(model, reason string) {
-	db := store.GetDB()
+func reportProxyAllFailed(db *store.DB, model, reason string) {
 	if db == nil {
 		return
 	}
@@ -590,7 +599,12 @@ func (reply endpointReply) relay(
 		return true, nil, false
 	}
 	if r.Method == http.MethodDelete && ctx.videoTask != nil && ctx.videoUsageVerified {
-		if _, err := store.GetDB().ExecContext(context.WithoutCancel(r.Context()), `DELETE FROM proxy_video_tasks WHERE public_id=?`, ctx.videoTask.PublicID); err != nil {
+		db := resolveUpstreamDB(ctx, cfg)
+		if db == nil {
+			writeJSONErrorWithRequest(w, 503, "video task deletion could not be recorded", "upstream_error", requestID)
+			return true, nil, false
+		}
+		if _, err := db.ExecContext(context.WithoutCancel(r.Context()), `DELETE FROM proxy_video_tasks WHERE public_id=?`, ctx.videoTask.PublicID); err != nil {
 			writeJSONErrorWithRequest(w, 503, "video task deletion could not be recorded", "upstream_error", requestID)
 			return true, nil, false
 		}
