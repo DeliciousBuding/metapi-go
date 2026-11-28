@@ -15,7 +15,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // Key-context route-decision tests: the admission chain is evaluated
@@ -100,9 +99,9 @@ func TestRouteDecisionKeyContext_Postgres(t *testing.T) {
 
 	fake := &fakeDecisionRouter{}
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{Router: fake})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{Router: fake})
 
-	keyID := seedKeyContextKey(t, db.DB, "kc-pg", map[string]any{
+	keyID := seedKeyContextKey(t, db, "kc-pg", map[string]any{
 		"max_cost":  1.0,
 		"used_cost": 2.5,
 	})
@@ -124,7 +123,7 @@ func containsString(values []string, want string) bool {
 	return false
 }
 
-func seedKeyContextKey(t *testing.T, db *sqlx.DB, name string, mutate map[string]any) int64 {
+func seedKeyContextKey(t *testing.T, db *store.DB, name string, mutate map[string]any) int64 {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
 	id, err := execInsertID(db, `INSERT INTO downstream_api_keys
@@ -170,7 +169,7 @@ func TestRouteDecisionKeyContext_AllowAndPolicyPassthrough(t *testing.T) {
 		NotEvaluated: []string{"downstreamAdmission", "strategySelection"},
 	}}
 	db, r := setupTokenRoutesDecisionTest(t, TokenRoutesDeps{Router: fake})
-	keyID := seedKeyContextKey(t, db.DB, "kc-allow", map[string]any{
+	keyID := seedKeyContextKey(t, db, "kc-allow", map[string]any{
 		"supported_models":  `["gpt-4o"]`,
 		"allowed_route_ids": "[7]",
 	})
@@ -210,10 +209,10 @@ func TestRouteDecisionKeyContext_Blockers(t *testing.T) {
 	fake := &fakeDecisionRouter{}
 	db, r := setupTokenRoutesDecisionTest(t, TokenRoutesDeps{Router: fake})
 
-	disabledID := seedKeyContextKey(t, db.DB, "kc-disabled", map[string]any{"enabled": false})
-	expiredID := seedKeyContextKey(t, db.DB, "kc-expired", map[string]any{"expires_at": "2020-01-01T00:00:00Z"})
-	costID := seedKeyContextKey(t, db.DB, "kc-cost", map[string]any{"max_cost": 1.0, "used_cost": 2.5})
-	ipID := seedKeyContextKey(t, db.DB, "kc-ip", map[string]any{"ip_blocklist": "10.9.8.7"})
+	disabledID := seedKeyContextKey(t, db, "kc-disabled", map[string]any{"enabled": false})
+	expiredID := seedKeyContextKey(t, db, "kc-expired", map[string]any{"expires_at": "2020-01-01T00:00:00Z"})
+	costID := seedKeyContextKey(t, db, "kc-cost", map[string]any{"max_cost": 1.0, "used_cost": 2.5})
+	ipID := seedKeyContextKey(t, db, "kc-ip", map[string]any{"ip_blocklist": "10.9.8.7"})
 
 	env := decodeKeyContext(t, doGet(t, r, keyContextURL(disabledID, "&model=gpt-4o")))
 	if env.KeyContext.Admission.Verdict != "deny" || !containsString(blockerCodes(env), "disabled") {
@@ -262,7 +261,7 @@ func TestRouteDecisionKeyContext_QuotaWindowAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keyID := seedKeyContextKey(t, db.DB, "kc-quota", map[string]any{"access_policy": string(quota)})
+	keyID := seedKeyContextKey(t, db, "kc-quota", map[string]any{"access_policy": string(quota)})
 	nowMs := time.Now().UnixMilli()
 	for i := 0; i < 2; i++ {
 		if _, err := db.Exec(db.Rebind(`INSERT INTO downstream_quota_usage (key_id, event_key, occurred_at, requests) VALUES (?, ?, ?, 1)`), keyID, "fixture-"+strconv.Itoa(i), nowMs); err != nil {
@@ -305,7 +304,7 @@ func TestRouteDecisionKeyContext_QuotaWindowAndReadOnly(t *testing.T) {
 func TestRouteDecisionKeyContext_RateWindowSnapshot(t *testing.T) {
 	fake := &fakeDecisionRouter{}
 	db, r := setupTokenRoutesDecisionTest(t, TokenRoutesDeps{Router: fake})
-	keyID := seedKeyContextKey(t, db.DB, "kc-rate", map[string]any{"max_rpm": 60})
+	keyID := seedKeyContextKey(t, db, "kc-rate", map[string]any{"max_rpm": 60})
 
 	env := decodeKeyContext(t, doGet(t, r, keyContextURL(keyID, "&model=gpt-4o")))
 	rate := env.KeyContext.Admission.Rate

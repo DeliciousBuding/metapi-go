@@ -90,7 +90,7 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		correlationColumn, correlationID = "pl.gateway_request_id", gatewayRequestID
 	}
 
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT pl.id, pl.retry_count, pl.status, pl.http_status, pl.channel_id,
 		 pl.model_actual, pl.error_message, pl.latency_ms, pl.created_at,
 		 a.username, s.id AS site_id, s.name AS site_name

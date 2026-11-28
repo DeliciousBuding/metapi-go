@@ -84,7 +84,7 @@ func startModelsUpstream(t *testing.T, expectToken string, status int, models ..
 	return srv
 }
 
-func pointAccountSiteAt(t *testing.T, db *sqlx.DB, accountID int64, url string) {
+func pointAccountSiteAt(t *testing.T, db *store.DB, accountID int64, url string) {
 	t.Helper()
 	if _, err := db.Exec(db.Rebind("UPDATE sites SET url = ? WHERE id = (SELECT site_id FROM accounts WHERE id = ?)"), url, accountID); err != nil {
 		t.Fatalf("point site url: %v", err)
@@ -97,7 +97,7 @@ type availReadBack struct {
 	IsManual  int    `db:"is_manual"`
 }
 
-func readAvailability(t *testing.T, db *sqlx.DB, accountID int64) map[string]availReadBack {
+func readAvailability(t *testing.T, db *store.DB, accountID int64) map[string]availReadBack {
 	t.Helper()
 	var rows []availReadBack
 	if err := db.Select(&rows, db.Rebind(
@@ -244,7 +244,7 @@ func TestManualModels_AddRemove_ReadBack(t *testing.T) {
 	}
 
 	// Store read-back: only manual-b (manual) and auto-keep (auto) survive.
-	rows := readAvailability(t, db.DB, accountID)
+	rows := readAvailability(t, db, accountID)
 	if len(rows) != 2 {
 		t.Fatalf("row count = %d, want 2: %#v", len(rows), rows)
 	}
@@ -414,7 +414,7 @@ func TestAccountModels_Postgres(t *testing.T) {
 		t.Fatalf("pg response = %#v", body)
 	}
 
-	rows := readAvailability(t, db, accountID)
+	rows := readAvailability(t, dbx, accountID)
 	if got, ok := rows[manualModel]; !ok || got.Available != 1 || got.IsManual != 1 {
 		t.Fatalf("manual row on pg = %#v (ok=%v)", got, ok)
 	}
@@ -449,7 +449,7 @@ func TestAccountModels_Postgres(t *testing.T) {
 	if delResp.Code != http.StatusOK {
 		t.Fatalf("remove on pg: %d %s", delResp.Code, delResp.Body.String())
 	}
-	rows = readAvailability(t, db, accountID)
+	rows = readAvailability(t, dbx, accountID)
 	if _, ok := rows[manualModel]; ok {
 		t.Fatal("manual row still present after explicit delete on pg")
 	}

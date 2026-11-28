@@ -305,19 +305,19 @@ func seedMarketplaceQueryFixture(t *testing.T, db *store.DB) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES ('mq-site', 'https://mq.example.test', 'openai', 'active', ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	plainAccount, err := execInsertID(db.DB,
+	plainAccount, err := execInsertID(db,
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, 'mq-plain', 'token', 'active', false, ?, ?)`, siteID, now, now)
 	if err != nil {
 		t.Fatalf("insert plain account: %v", err)
 	}
-	oauthAccount, err := execInsertID(db.DB,
+	oauthAccount, err := execInsertID(db,
 		`INSERT INTO accounts (site_id, username, access_token, oauth_provider, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, 'mq-oauth', 'token', 'mq-oauth-provider', 'active', false, ?, ?)`, siteID, now, now)
 	if err != nil {
@@ -482,13 +482,13 @@ func TestModelsMarketplace_QueryScale(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES ('mq-scale-site', 'https://mq-scale.example.test', 'openai', 'active', ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	accountID, err := execInsertID(db.DB,
+	accountID, err := execInsertID(db,
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, 'mq-scale', 'token', 'active', false, ?, ?)`, siteID, now, now)
 	if err != nil {

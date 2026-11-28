@@ -45,7 +45,7 @@ func seedRequestAttemptsSite(t *testing.T, db *store.DB) requestAttemptsFixture 
 func insertAttemptRow(t *testing.T, db *store.DB, requestID any, ordinal int, status string, httpStatus int, accountID int64, errText string) int64 {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	id, err := execInsertID(db.DB, `INSERT INTO proxy_logs
+	id, err := execInsertID(db, `INSERT INTO proxy_logs
 		(account_id, model_requested, status, http_status, retry_count, request_id, error_message, latency_ms, created_at)
 		VALUES (?, 'gpt-6', ?, ?, ?, ?, ?, ?, ?)`,
 		accountID, status, httpStatus, ordinal, requestID, errText, int64(100+ordinal), now)

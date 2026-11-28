@@ -359,7 +359,7 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 		"count":   "SELECT COUNT(*) " + proxyLogsAggregateFrom(0, ""),
 		"summary": proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(0, ""), ""),
 	} {
-		planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+sql)
+		planRows, err := queryRowsErr(db, "EXPLAIN QUERY PLAN "+sql)
 		if err != nil {
 			t.Fatalf("explain %s: %v", label, err)
 		}
@@ -380,7 +380,7 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 	// Sanity check the other direction: with a siteId the plan joins
 	// accounts/sites (INNER since the index audit) and keeps the
 	// LEFT downstream_api_keys join.
-	planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1, ""), " WHERE s.id = 1"))
+	planRows, err := queryRowsErr(db, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1, ""), " WHERE s.id = 1"))
 	if err != nil {
 		t.Fatalf("explain siteId summary: %v", err)
 	}

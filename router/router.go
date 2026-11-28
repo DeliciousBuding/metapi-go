@@ -184,7 +184,7 @@ func New(db *store.DB, cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterSiteAnnouncementsRoutes(r, db)
 			admin.RegisterAuthSettingsRoutes(r, db, sessions)
 			admin.RegisterCheckinRoutes(r, db, cfg)
-			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
+			admin.RegisterTokenRoutesWithDeps(r, db, tokenRoutesDeps())
 			admin.RegisterChannelTestRoutes(r, db, cfg)
 			admin.RegisterImportedUpstreamRoutes(r, db)
 			admin.RegisterUpdateCenterRoutes(r)

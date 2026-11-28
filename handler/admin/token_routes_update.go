@@ -188,7 +188,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 			prevPattern, _ := existing["modelPattern"].(string)
 			mode, _ := existing["routeMode"].(string)
 			if nextPattern != prevPattern && !routing.IsExplicitGroupRoute(mode) {
-				if _, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db); err != nil {
+				if _, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db.DB); err != nil {
 					slog.Warn("route update: rebuild after modelPattern change failed", "routeId", id, "error", err)
 				}
 			}
@@ -203,7 +203,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var srcIDs []int64
-	if err := h.db.Select(&srcIDs, h.db.Rebind("SELECT source_route_id FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
+	if err := h.db.Select(&srcIDs, "SELECT source_route_id FROM route_group_sources WHERE group_route_id = ?", id); err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "route updated but failed to load sources")
 		return
 	}
@@ -214,5 +214,5 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 // ---- Delete Route ----
 // DELETE /api/routes/:id
 func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request) {
-	deleteLifecycleEntity(w, r, wrapStoreDB(h.db), upstream.KindRoute, true)
+	deleteLifecycleEntity(w, r, h.db, upstream.KindRoute, true)
 }

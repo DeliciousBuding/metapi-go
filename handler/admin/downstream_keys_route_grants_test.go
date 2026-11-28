@@ -37,7 +37,7 @@ func setupRouteGrantTest(t *testing.T) (*store.DB, chi.Router) {
 		t.Fatalf("AutoMigrate failed: %v", err)
 	}
 	r := chi.NewRouter()
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{})
 	RegisterDownstreamKeysRoutes(r, db)
 	return db, r
 }
@@ -85,7 +85,7 @@ func seedRouteGrantKey(t *testing.T, r chi.Router, name string, allowedRouteIDs 
 
 func storedRouteGrants(t *testing.T, db *store.DB, keyID int64) []int64 {
 	t.Helper()
-	row, err := queryRow(db.DB, "SELECT * FROM downstream_api_keys WHERE id = ?", keyID)
+	row, err := queryRow(db, "SELECT * FROM downstream_api_keys WHERE id = ?", keyID)
 	if err != nil {
 		t.Fatal(err)
 	}

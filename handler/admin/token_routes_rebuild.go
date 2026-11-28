@@ -78,7 +78,7 @@ func (h *tokenRoutesHandler) runRoutesRebuild(ctx context.Context, refreshModels
 	var stats service.RouteRebuildStats
 	var modelRefresh map[string]any
 	if refreshModels {
-		summary := service.SyncAllAccountModels(ctx, h.db)
+		summary := service.SyncAllAccountModels(ctx, h.db.DB)
 		if summary.RebuildErr != nil {
 			return nil, summary.RebuildErr
 		}
@@ -89,7 +89,7 @@ func (h *tokenRoutesHandler) runRoutesRebuild(ctx context.Context, refreshModels
 		}
 	} else {
 		var err error
-		stats, err = service.RebuildTokenRoutesFromAvailability(ctx, h.db)
+		stats, err = service.RebuildTokenRoutesFromAvailability(ctx, h.db.DB)
 		if err != nil {
 			return nil, err
 		}

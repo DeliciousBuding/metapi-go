@@ -290,7 +290,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	var modelRefresh map[string]any
 	if recovery {
-		modelRefresh = accountModelRefresher(r.Context(), h.db.DB, id, true)
+		modelRefresh = accountModelRefresher(r.Context(), h.db, id, true)
 		if modelRefreshSucceeded(modelRefresh) {
 			if err := service.UpdateAccountFields(h.db.DB, id, map[string]any{"status": "active"}); err != nil {
 				slog.Error("Failed to reactivate account after model refresh", "err", err, "account_id", id)

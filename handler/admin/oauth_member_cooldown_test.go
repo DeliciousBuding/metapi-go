@@ -52,7 +52,7 @@ func testOAuthMemberCooldown(t *testing.T, db *store.DB) {
 	engine := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{TokenRouterCacheTtlMs: 60000}, nil, nil)
 	r := chi.NewRouter()
 	RegisterOauthRoutes(r, db)
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{Router: engine})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{Router: engine})
 	check := func(want string) {
 		t.Helper()
 		resp := httptest.NewRecorder()

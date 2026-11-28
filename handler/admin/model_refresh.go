@@ -4,10 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // accountModelRefresher is the package-level model refresh entrypoint.
@@ -25,8 +24,8 @@ var invalidateRoutingCache = routing.InvalidateCache
 // payload. The camelCase payload shape is API-compatible with the pre-Wave-15
 // implementation (single-account admin refresh, expired-recovery and
 // marketplace stats callers all consume it unchanged).
-func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, allowInactive bool) map[string]any {
-	result := service.RefreshAccountModels(ctx, db, accountID, allowInactive, false)
+func refreshAccountModels(ctx context.Context, db *store.DB, accountID int64, allowInactive bool) map[string]any {
+	result := service.RefreshAccountModels(ctx, db.DB, accountID, allowInactive, false)
 	return accountModelRefreshPayload(accountID, result)
 }
 

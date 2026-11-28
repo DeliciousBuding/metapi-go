@@ -110,7 +110,7 @@ func (h *downstreamKeysHandler) queryPolicyIDs(query string, ids []int64) ([]map
 	for i, id := range ids {
 		args[i] = id
 	}
-	return queryRowsErr(h.db.DB, query+" ("+sqlPlaceholders(len(ids))+")", args...)
+	return queryRowsErr(h.db, query+" ("+sqlPlaceholders(len(ids))+")", args...)
 }
 
 // rowInt64 reads an integer column across both dialects: SQLite scans into

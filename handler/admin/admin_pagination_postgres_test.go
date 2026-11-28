@@ -22,7 +22,7 @@ func TestListAccounts_PaginationPostgres(t *testing.T) {
 		_, _ = db.Exec(db.Rebind(`DELETE FROM sites WHERE name = ?`), prefix+"-site")
 	})
 
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES (?, 'https://acct-pg.example.test', 'openai', 'active', ?, ?)`,
 		prefix+"-site", now, now)
@@ -58,7 +58,7 @@ func TestListChannels_PaginationPostgres(t *testing.T) {
 	globalChannelsCache.clear()
 	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)
 	prefix := "pg-channel-page-" + strconv.FormatInt(time.Now().UnixNano(), 36)
-	channelID, err := execInsertID(db.DB,
+	channelID, err := execInsertID(db,
 		`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
 		 VALUES (?, ?, ?, ?, 1, 10, true, false)`,
 		routeID, accountID, tokenID, prefix)

@@ -10,12 +10,11 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 func withAccountModelRefresher(
 	t *testing.T,
-	fn func(ctx context.Context, db *sqlx.DB, accountID int64, allowInactive bool) map[string]any,
+	fn func(ctx context.Context, db *store.DB, accountID int64, allowInactive bool) map[string]any,
 ) {
 	t.Helper()
 	prev := accountModelRefresher
@@ -237,7 +236,7 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_DisabledSkips(t *testing.T) {
 	}
 
 	called := false
-	withAccountModelRefresher(t, func(ctx context.Context, db *sqlx.DB, accountID int64, allowInactive bool) map[string]any {
+	withAccountModelRefresher(t, func(ctx context.Context, db *store.DB, accountID int64, allowInactive bool) map[string]any {
 		called = true
 		return map[string]any{"success": true}
 	})
@@ -288,7 +287,7 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_NoCredentialChangeSkips(t *testin
 	}
 
 	called := false
-	withAccountModelRefresher(t, func(ctx context.Context, db *sqlx.DB, accountID int64, allowInactive bool) map[string]any {
+	withAccountModelRefresher(t, func(ctx context.Context, db *store.DB, accountID int64, allowInactive bool) map[string]any {
 		called = true
 		return map[string]any{"success": true}
 	})
@@ -338,7 +337,7 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_InjectableRefresh(t *testing.T) {
 	}
 
 	var sawAllowInactive bool
-	withAccountModelRefresher(t, func(ctx context.Context, dbx *sqlx.DB, id int64, allowInactive bool) map[string]any {
+	withAccountModelRefresher(t, func(ctx context.Context, dbx *store.DB, id int64, allowInactive bool) map[string]any {
 		if id != accountID {
 			t.Fatalf("accountID = %d, want %d", id, accountID)
 		}

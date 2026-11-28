@@ -103,7 +103,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	// For explicit_group, insert source route references
 	if routeMode == "explicit_group" && len(body.SourceRouteIds) > 0 {
 		for _, srcID := range body.SourceRouteIds {
-			if _, err := h.db.Exec(h.db.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, srcID); err != nil {
+			if _, err := h.db.Exec("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)", id, srcID); err != nil {
 				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route group source")
 				return
 			}
@@ -112,7 +112,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 
 	// Pattern routes: auto-populate channels from exact-model routes + model availability.
 	if routeMode != "explicit_group" && modelPattern != "" {
-		if _, err := service.PopulateRouteChannelsByModelPattern(r.Context(), h.db, id, modelPattern); err != nil {
+		if _, err := service.PopulateRouteChannelsByModelPattern(r.Context(), h.db.DB, id, modelPattern); err != nil {
 			slog.Warn("route create: channel auto-populate failed", "routeId", id, "error", err)
 		}
 	}

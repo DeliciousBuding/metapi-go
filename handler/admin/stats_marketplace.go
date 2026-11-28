@@ -112,7 +112,7 @@ func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, e
 	// (account_id, is_default DESC, id ASC), so each account's slice keeps
 	// exactly the ordering the legacy per-account query produced.
 	enabledTokensByAccount := make(map[int64][]map[string]any)
-	enabledTokenRows, err := queryRowsErr(h.db.DB, `
+	enabledTokenRows, err := queryRowsErr(h.db, `
 		SELECT id, account_id, name, is_default
 		FROM account_tokens
 		WHERE enabled = true
@@ -136,7 +136,7 @@ func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, e
 	}
 
 	// Account-level availability.
-	accountRows, err := queryRowsErr(h.db.DB, `
+	accountRows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			ma.latency_ms AS latency_ms,
@@ -193,7 +193,7 @@ func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, e
 	}
 
 	// Token-level availability.
-	tokenAvailRows, err := queryRowsErr(h.db.DB, `
+	tokenAvailRows, err := queryRowsErr(h.db, `
 		SELECT
 			tma.model_name AS model_name,
 			tma.latency_ms AS latency_ms,
@@ -259,7 +259,7 @@ func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, e
 
 	// Exact-model token_routes contribute model names even when availability is empty
 	// so operators still see configured routes in the marketplace list.
-	routeRows, err := queryRowsErr(h.db.DB, `
+	routeRows, err := queryRowsErr(h.db, `
 		SELECT model_pattern
 		FROM token_routes
 		WHERE enabled = true
@@ -290,7 +290,7 @@ func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, e
 	// Optional success-rate from recent proxy_logs (bounded 7d window).
 	since := time.Now().UTC().Add(-7 * 24 * time.Hour).Format(time.RFC3339)
 	successByModel := map[string]marketplaceSuccessStat{}
-	logRows, err := queryRowsErr(h.db.DB, `
+	logRows, err := queryRowsErr(h.db, `
 		SELECT
 			COALESCE(NULLIF(TRIM(model_actual), ''), NULLIF(TRIM(model_requested), ''), '') AS model,
 			COUNT(*) AS total,

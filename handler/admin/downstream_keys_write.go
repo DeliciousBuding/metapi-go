@@ -166,7 +166,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	ipAllowlist := normalizeIPListPtr(body.IPAllowlist)
 	ipBlocklist := normalizeIPListPtr(body.IPBlocklist)
 
-	id, err := execInsertID(h.db.DB,
+	id, err := execInsertID(h.db,
 		`INSERT INTO downstream_api_keys
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, key_weight, excluded_site_ids, excluded_credential_refs,

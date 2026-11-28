@@ -90,7 +90,7 @@ func TestUpstreamLifecycleDeleteAndReimport(t *testing.T) {
 					id := ids[kind]
 					mux := chi.NewRouter()
 					RegisterUpstreamLifecycleRoutes(mux, db)
-					RegisterTokenRoutesWithDeps(mux, db.DB, TokenRoutesDeps{})
+					RegisterTokenRoutesWithDeps(mux, db, TokenRoutesDeps{})
 					path := fmt.Sprintf("/api/imported-upstreams/%ss/%d", kind, id)
 					if kind == upstream.KindChannel {
 						path = fmt.Sprintf("/api/imported-upstreams/%d", id)

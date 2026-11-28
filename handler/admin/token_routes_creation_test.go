@@ -33,7 +33,7 @@ func exerciseAutomaticModelRoutesAdmin(t *testing.T, db *store.DB, r chi.Router,
 	config.SetRuntime(&config.RuntimeSettings{})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	RegisterSettingsRoutes(r, db, cfg)
-	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
+	RegisterTokenRoutesWithDeps(r, db, TokenRoutesDeps{})
 	var mu sync.Mutex
 	models := []string{"lifecycle-alpha", "lifecycle-beta"}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -57,15 +57,15 @@ func exerciseAutomaticModelRoutesAdmin(t *testing.T, db *store.DB, r chi.Router,
 	}))
 	t.Cleanup(upstream.Close)
 	now := time.Now().UTC().Format(time.RFC3339)
-	siteID, err := execInsertID(db.DB, "INSERT INTO sites (name,url,platform,status,created_at,updated_at) VALUES ('route lifecycle',?,'openai','active',?,?)", upstream.URL, now, now)
+	siteID, err := execInsertID(db, "INSERT INTO sites (name,url,platform,status,created_at,updated_at) VALUES ('route lifecycle',?,'openai','active',?,?)", upstream.URL, now, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	accountID, err := execInsertID(db.DB, "INSERT INTO accounts (site_id,username,access_token,api_token,status,checkin_enabled,created_at,updated_at) VALUES (?,'lifecycle','sk-route-lifecycle-fixture','sk-route-lifecycle-fixture','active',?,?,?)", siteID, false, now, now)
+	accountID, err := execInsertID(db, "INSERT INTO accounts (site_id,username,access_token,api_token,status,checkin_enabled,created_at,updated_at) VALUES (?,'lifecycle','sk-route-test','sk-route-test','active',?,?,?)", siteID, false, now, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := execInsertID(db.DB, "INSERT INTO account_tokens (account_id,name,token,value_status,enabled,is_default) VALUES (?,'default','sk-route-lifecycle-fixture','ready',?,?)", accountID, true, true); err != nil {
+	if _, err := execInsertID(db, "INSERT INTO account_tokens (account_id,name,token,value_status,enabled,is_default) VALUES (?,'default','sk-route-test','ready',?,?)", accountID, true, true); err != nil {
 		t.Fatal(err)
 	}
 	rebuild := func() map[string]any {

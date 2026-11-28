@@ -74,19 +74,19 @@ func TestMaintenanceClearCache_KeepsTheInputsTheRebuildNeeds(t *testing.T) {
 	db, r, _ := setupMaintenanceTest(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES ('clear-cache site', 'https://clearcache.example.com', 'openai', 'active', ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	accountID, err := execInsertID(db.DB,
+	accountID, err := execInsertID(db,
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, 'session-token', 'active', true, ?, ?)`, siteID, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
-	routeID, err := execInsertID(db.DB,
+	routeID, err := execInsertID(db,
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
 		 VALUES ('gpt-*', true, ?, ?)`, now, now)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestMaintenanceClearCache_KeepsTheInputsTheRebuildNeeds(t *testing.T) {
 	}
 	// A manual attachment: rebuild never deletes these, so a maintenance button
 	// must not either.
-	manualChannelID, err := execInsertID(db.DB,
+	manualChannelID, err := execInsertID(db,
 		`INSERT INTO route_channels (route_id, account_id, source_model, enabled, manual_override)
 		 VALUES (?, ?, 'gpt-4o', true, true)`, routeID, accountID)
 	if err != nil {

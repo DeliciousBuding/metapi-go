@@ -313,7 +313,7 @@ const channelListBaseQuery = `
 
 func (h *tokenRoutesHandler) loadAllChannelRows(r *http.Request) ([]channelListRow, error) {
 	var rows []channelListRow
-	err := h.db.SelectContext(r.Context(), &rows, h.db.Rebind(channelListBaseQuery))
+	err := h.db.SelectContext(r.Context(), &rows, channelListBaseQuery)
 	return rows, err
 }
 
@@ -383,8 +383,8 @@ func (h *tokenRoutesHandler) computeChannelsPage(r *http.Request, page, pageSize
 		rows, err = h.loadAllChannelRows(r)
 	} else {
 		offset := (page - 1) * pageSize
-		err = h.db.SelectContext(r.Context(), &rows, h.db.Rebind(channelListBaseQuery+`
-		LIMIT ? OFFSET ?`), pageSize, offset)
+		err = h.db.SelectContext(r.Context(), &rows, channelListBaseQuery+`
+		LIMIT ? OFFSET ?`, pageSize, offset)
 	}
 	if err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func (h *tokenRoutesHandler) computeChannelsPage(r *http.Request, page, pageSize
 	} else {
 		// COUNT(*) OVER () is absent from an empty page; fall back to a plain
 		// COUNT(*) so a pager past the last row still reports the true total.
-		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM route_channels"))
+		_ = h.db.Get(&total, "SELECT COUNT(*) FROM route_channels")
 	}
 	for _, row := range rows {
 		items = append(items, channelListItem(row))
@@ -580,7 +580,7 @@ func (h *tokenRoutesHandler) channelErrorSummary(w http.ResponseWriter, r *http.
 
 func (h *tokenRoutesHandler) computeChannelErrorSummary(r *http.Request) ([]byte, error) {
 	var rows []channelSummaryRow
-	err := h.db.SelectContext(r.Context(), &rows, h.db.Rebind(`
+	err := h.db.SelectContext(r.Context(), &rows, `
 		SELECT a.site_id, rc.source_model,
 		       COALESCE(tr.model_pattern, '') AS route_model_pattern,
 		       rc.enabled, rc.cooldown_until,
@@ -589,7 +589,7 @@ func (h *tokenRoutesHandler) computeChannelErrorSummary(r *http.Request) ([]byte
 		FROM route_channels rc
 		LEFT JOIN accounts a ON rc.account_id = a.id
 		LEFT JOIN sites s ON a.site_id = s.id
-		LEFT JOIN token_routes tr ON rc.route_id = tr.id`))
+		LEFT JOIN token_routes tr ON rc.route_id = tr.id`)
 	if err != nil {
 		return nil, err
 	}

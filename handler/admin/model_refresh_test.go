@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 // openModelRefreshTestDB opens an in-memory SQLite DB with the full schema
 // migrated, ready for model_availability / token_model_availability tests.
-func openModelRefreshTestDB(t *testing.T) *sqlx.DB {
+func openModelRefreshTestDB(t *testing.T) *store.DB {
 	t.Helper()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
@@ -24,12 +23,12 @@ func openModelRefreshTestDB(t *testing.T) *sqlx.DB {
 		t.Fatalf("automigrate: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-	return db.DB
+	return db
 }
 
 // seedAccountAndToken inserts a site, account, and an account_tokens row,
 // returning the accountID and tokenID for backfill tests.
-func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountID, tokenID int64) {
+func seedAccountAndToken(t *testing.T, db *store.DB, tokenValue string) (accountID, tokenID int64) {
 	t.Helper()
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
@@ -111,7 +110,7 @@ func TestRefreshAccountModels_TokenBackfillEndToEnd(t *testing.T) {
 	tokenID, _ := res.LastInsertId()
 
 	// Run the real refresh.
-	result := refreshAccountModels(context.Background(), dbConn.DB, accountID, false)
+	result := refreshAccountModels(context.Background(), dbConn, accountID, false)
 	if !modelRefreshSucceeded(result) {
 		t.Fatalf("refresh failed: %s", modelRefreshErrorMessage(result))
 	}
@@ -177,7 +176,7 @@ func TestRefreshAccountModels_TokenBackfillSkipsWhenNoTokenMatch(t *testing.T) {
 	accountID := int64(created["id"].(float64))
 
 	// No account_tokens row seeded — backfill should skip.
-	result := refreshAccountModels(context.Background(), dbConn.DB, accountID, false)
+	result := refreshAccountModels(context.Background(), dbConn, accountID, false)
 	if !modelRefreshSucceeded(result) {
 		t.Fatalf("refresh failed: %s", modelRefreshErrorMessage(result))
 	}

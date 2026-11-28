@@ -28,14 +28,14 @@ func seedMarketplacePaginationRows(t *testing.T, db *store.DB, prefix string) {
 	cleanup()
 	t.Cleanup(cleanup)
 
-	siteID, err := execInsertID(db.DB,
+	siteID, err := execInsertID(db,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES (?, 'https://marketplace.example.test', 'openai', 'active', ?, ?)`,
 		prefix+"-site", now, now)
 	if err != nil {
 		t.Fatalf("insert marketplace site: %v", err)
 	}
-	accountID, err := execInsertID(db.DB,
+	accountID, err := execInsertID(db,
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
 		 VALUES (?, ?, 'token', 'active', true, ?, ?)`,
 		siteID, prefix+"-account", now, now)

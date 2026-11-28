@@ -17,7 +17,7 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 	hours := config.ClampInt(getQueryInt(r, "hours", 24), 1, 168)
 	since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour).Format(time.RFC3339)
 
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			pl.id AS id,
 			COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), '') AS model,
@@ -75,7 +75,7 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
 	modelExpr := `COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), 'unknown')`
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT `+modelExpr+` AS model,
 			COUNT(*) AS calls,
 			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS cost,
@@ -149,7 +149,7 @@ func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) 
 	bucketMs := config.ClampInt(getQueryInt(r, "bucketMs", 500), 100, 60000)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT (COALESCE(pl.latency_ms, 0) / ?) * ? AS bucket_start,
 			COUNT(*) AS count
 		FROM proxy_logs pl
@@ -205,7 +205,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	dayExpr := dayBucketSQLExpr(h.db, "pl.created_at")
-	rows, err := queryRowsErr(h.db.DB, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT `+dayExpr+` AS day,
 			COUNT(*) AS requests,
 			AVG(CASE WHEN COALESCE(pl.latency_ms, 0) > 0 THEN pl.latency_ms END) AS avg_latency,
@@ -252,7 +252,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 		}
 		// COUNT(*) OVER () gives the true row count before LIMIT truncates,
 		// so p95 sampling stays honest when a day exceeds the sample cap.
-		samples, err := queryRowsErr(h.db.DB, `
+		samples, err := queryRowsErr(h.db, `
 			SELECT pl.latency_ms AS latency_ms, COUNT(*) OVER () AS total
 			FROM proxy_logs pl
 			WHERE pl.created_at >= ? AND pl.created_at < ?

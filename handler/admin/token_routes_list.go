@@ -41,7 +41,7 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 		// Separate COUNT keeps the row maps free of a window-function column
 		// (queryRows MapScans into map[string]any and would echo total_count
 		// into every route item otherwise).
-		if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM token_routes")); err != nil {
+		if err := h.db.Get(&total, "SELECT COUNT(*) FROM token_routes"); err != nil {
 			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to count routes")
 			return
 		}
@@ -82,8 +82,8 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 	// plaintext access_token/api_token — the full secret never crosses the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak it. The masked
 	// form is rebuilt in Go by routeChannelAccountPublic().
-	accessTokenFrags := store.CredentialFragmentsSelect(h.db, "a.access_token", "access_token")
-	apiTokenFrags := store.CredentialFragmentsSelect(h.db, "a.api_token", "api_token")
+	accessTokenFrags := store.CredentialFragmentsSelect(h.db.DB, "a.access_token", "access_token")
+	apiTokenFrags := store.CredentialFragmentsSelect(h.db.DB, "a.api_token", "api_token")
 	channelQuery := `SELECT rc.*, a.username, ` + accessTokenFrags + `, ` + apiTokenFrags + `,
 		       a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status

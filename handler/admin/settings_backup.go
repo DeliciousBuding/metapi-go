@@ -14,7 +14,6 @@ import (
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterBackupRoutes registers all /api/settings/backup routes.
@@ -269,15 +268,6 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		response["ignoredTables"] = ignoredTables
 	}
 	writeJSON(w, http.StatusOK, response)
-}
-
-// wrapStoreDB preserves dialect rebinding for services called by sqlx-backed handlers.
-func wrapStoreDB(db *sqlx.DB) *store.DB {
-	dialect := store.DialectSQLite
-	if db.DriverName() == "pgx" {
-		dialect = store.DialectPostgres
-	}
-	return &store.DB{DB: db, Dialect: dialect}
 }
 
 // backupImportPreview is the per-table preview summary.

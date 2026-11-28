@@ -19,12 +19,12 @@ func TestProxyLogDetailBooleanAndDownstreamIdentity(t *testing.T) {
 			} else {
 				db, mux = setupStatsSQLiteTest(t)
 			}
-			keyID, err := execInsertID(db.DB, `INSERT INTO downstream_api_keys (name,key,enabled) VALUES ('fixture-key-name','fixture-secret-do-not-return',?)`, true)
+			keyID, err := execInsertID(db, `INSERT INTO downstream_api_keys (name,key,enabled) VALUES ('fixture-key-name','fixture-secret-do-not-return',?)`, true)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, stream := range []bool{false, true} {
-				logID, err := execInsertID(db.DB, `INSERT INTO proxy_logs (is_stream,downstream_api_key_id,status,model_requested) VALUES (?,?,'success','gpt-6')`, stream, keyID)
+				logID, err := execInsertID(db, `INSERT INTO proxy_logs (is_stream,downstream_api_key_id,status,model_requested) VALUES (?,?,'success','gpt-6')`, stream, keyID)
 				if err != nil {
 					t.Fatal(err)
 				}
