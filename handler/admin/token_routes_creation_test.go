@@ -41,7 +41,7 @@ func exerciseAutomaticModelRoutesAdmin(t *testing.T, db *store.DB, r chi.Router,
 			http.NotFound(w, req)
 			return
 		}
-		if req.Header.Get("Authorization") != "Bearer sk-route-lifecycle-fixture" {
+		if req.Header.Get("Authorization") != "Bearer sk-route-test" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
