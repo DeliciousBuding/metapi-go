@@ -39,7 +39,7 @@ func runStableSiteAnnouncementTimeline(t *testing.T, db *store.DB) {
 	if _, err := db.Exec(`UPDATE sites SET platform = 'sub2api' WHERE id = ?`, siteID); err != nil {
 		t.Fatal(err)
 	}
-	if result := SyncSiteAnnouncements(db.DB, &siteID); result.Failed != 0 || result.Inserted != 2 {
+	if result := SyncSiteAnnouncements(db, &siteID); result.Failed != 0 || result.Inserted != 2 {
 		t.Fatalf("initial stable announcements: %+v", result)
 	}
 	if _, err := db.Exec(`UPDATE site_announcements SET read_at = '2026-10-01' WHERE site_id = ?`, siteID); err != nil {
@@ -49,7 +49,7 @@ func runStableSiteAnnouncementTimeline(t *testing.T, db *store.DB) {
 		{"id": 1, "title": "Site notice", "content": "First announcement", "updated_at": "2026-10-02"},
 		{"id": 2, "title": "Site notice", "content": "Separate announcement"},
 	}})
-	if result := SyncSiteAnnouncements(db.DB, &siteID); result.Failed != 0 || result.Events != 0 {
+	if result := SyncSiteAnnouncements(db, &siteID); result.Failed != 0 || result.Events != 0 {
 		t.Fatalf("metadata-only update: %+v", result)
 	}
 	var count int
@@ -63,7 +63,7 @@ func runStableSiteAnnouncementTimeline(t *testing.T, db *store.DB) {
 		{"id": 1, "title": "Site notice", "content": "Updated first announcement"},
 		{"id": 2, "title": "Site notice", "content": "Separate announcement"},
 	}})
-	if result := SyncSiteAnnouncements(db.DB, &siteID); result.Failed != 0 || result.Events != 1 {
+	if result := SyncSiteAnnouncements(db, &siteID); result.Failed != 0 || result.Events != 1 {
 		t.Fatalf("stable content update: %+v", result)
 	}
 	if err := db.Get(&count, `SELECT COUNT(*) FROM site_announcements WHERE site_id = ?`, siteID); err != nil || count != 2 {
@@ -87,7 +87,7 @@ func runSiteAnnouncementTimeline(t *testing.T, db *store.DB, router http.Handler
 	var id int64
 	for index, text := range []string{"Maintenance at midnight", "Maintenance at midnight", "Maintenance postponed", "Maintenance at midnight"} {
 		content.Store(text)
-		result := SyncSiteAnnouncements(db.DB, &siteID)
+		result := SyncSiteAnnouncements(db, &siteID)
 		if result.Failed != 0 {
 			t.Fatalf("sync %d failed: %+v", index, result)
 		}
@@ -126,7 +126,7 @@ func runSiteAnnouncementTimeline(t *testing.T, db *store.DB, router http.Handler
 	results := make(chan SiteAnnouncementSyncResult, 2)
 	for range 2 {
 		wait.Add(1)
-		go func() { defer wait.Done(); results <- SyncSiteAnnouncements(db.DB, &siteID) }()
+		go func() { defer wait.Done(); results <- SyncSiteAnnouncements(db, &siteID) }()
 	}
 	wait.Wait()
 	close(results)

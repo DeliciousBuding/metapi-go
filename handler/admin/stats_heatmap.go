@@ -8,7 +8,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +24,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	if dimension == "site" {
 		// Prefer projected hour aggregates (cheap, already limited by projector).
-		rows, err := queryRowsErr(h.db, `
+		rows, err := queryRowsErr(h.db.DB, `
 			SELECT
 				u.bucket_start_utc AS bucket,
 				CAST(u.site_id AS TEXT) AS key,
@@ -48,7 +48,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Fallback: bounded live aggregate from proxy_logs when projection is empty.
 			hourExpr := hourBucketSQLExpr(h.db, "pl.created_at")
-			rows, err = queryRowsErr(h.db, `
+			rows, err = queryRowsErr(h.db.DB, `
 				SELECT
 					`+hourExpr+` AS bucket,
 					CAST(s.id AS TEXT) AS key,
@@ -74,7 +74,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 		// Model density: no model_hour_usage table; aggregate proxy_logs with LIMIT.
 		hourExpr := hourBucketSQLExpr(h.db, "pl.created_at")
 		modelExpr := `COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), 'unknown')`
-		rows, err := queryRowsErr(h.db, `
+		rows, err := queryRowsErr(h.db.DB, `
 			SELECT
 				`+hourExpr+` AS bucket,
 				`+modelExpr+` AS key,
@@ -115,7 +115,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 
 // Top proxy_logs by latency_ms within a bounded time window.
 // Never returns request/response bodies or chat content.
-func dayBucketSQLExpr(db *sqlx.DB, column string) string {
+func dayBucketSQLExpr(db *store.DB, column string) string {
 	driver := ""
 	if db != nil {
 		driver = strings.ToLower(strings.TrimSpace(db.DriverName()))
@@ -136,7 +136,7 @@ func round4(v float64) float64 { return math.Round(v*10000) / 10000 }
 
 // hourBucketSQLExpr returns a dual-dialect SQL expression that truncates a
 // TEXT RFC3339 timestamp column to an hour bucket string (…T%H:00:00Z).
-func hourBucketSQLExpr(db *sqlx.DB, column string) string {
+func hourBucketSQLExpr(db *store.DB, column string) string {
 	driver := ""
 	if db != nil {
 		driver = strings.ToLower(strings.TrimSpace(db.DriverName()))

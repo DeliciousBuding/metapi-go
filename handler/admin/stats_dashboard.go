@@ -203,7 +203,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 				TotalTokens int64   `db:"total_tokens"`
 				TotalCost   float64 `db:"total_cost"`
 			}
-			if err := h.db.Get(&proxy24h, rebindAdminQuery(h.db, `
+			if err := h.db.Get(&proxy24h, `
 			SELECT
 				COUNT(*) AS total,
 				COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) AS success,
@@ -213,7 +213,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN accounts a ON a.id = pl.account_id
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE pl.created_at >= ? AND s.status = 'active'
-		`), since24h); err != nil {
+		`, since24h); err != nil {
 				markFailed("proxy24h", "load 24h proxy metrics", err)
 			} else {
 				result["proxy24h"] = map[string]any{
@@ -227,7 +227,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 				result["totalCost"] = roundMicro(proxy24h.TotalCost)
 			}
 
-			dailyMetrics, metricsErr := dailyservice.CollectDailySummaryMetrics(h.db, now)
+			dailyMetrics, metricsErr := dailyservice.CollectDailySummaryMetrics(h.db.DB, now)
 			if metricsErr != nil {
 				markFailed("todayMetricStatus", "load local-day metrics", metricsErr)
 				result["todaySpend"] = nil
@@ -287,7 +287,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 				Requests int64 `db:"requests"`
 				Tokens   int64 `db:"tokens"`
 			}
-			if err := h.db.Get(&perf, rebindAdminQuery(h.db, `
+			if err := h.db.Get(&perf, `
 			SELECT
 				COUNT(*) AS requests,
 				COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens
@@ -295,7 +295,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN accounts a ON a.id = pl.account_id
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE pl.created_at >= ? AND s.status = 'active'
-		`), sincePerf); err != nil {
+		`, sincePerf); err != nil {
 				markFailed("performance", "load performance metrics", err)
 			} else {
 				rpm := float64(perf.Requests) * 60 / float64(windowSeconds)
@@ -311,13 +311,13 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		if view == "insights" || view == "full" {
 			// All-time totals with effective token expression (no double count).
 			var totalTokens int64
-			if err := h.db.Get(&totalTokens, rebindAdminQuery(h.db, `
+			if err := h.db.Get(&totalTokens, `
 			SELECT COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0)
 			FROM proxy_logs pl
 			INNER JOIN accounts a ON a.id = pl.account_id
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE s.status = 'active'
-		`)); err != nil {
+		`); err != nil {
 				markFailed("totalTokens", "load total tokens", err)
 			} else {
 				result["totalTokens"] = totalTokens
@@ -337,7 +337,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 
 			// Site availability over last 24h from proxy_logs join path.
 			since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-			rows, err := queryRowsErr(h.db, `
+			rows, err := queryRowsErr(h.db.DB, `
 			SELECT
 				s.id AS site_id,
 				s.name AS site_name,

@@ -44,7 +44,7 @@ func setupEdgeTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterSitesRoutes(r, db.DB)
+	RegisterSitesRoutes(r, db)
 	RegisterAccountsRoutes(r, db.DB, cfg)
 	RegisterSettingsRoutes(r, db.DB, cfg)
 	return db, r, cfg

@@ -8,10 +8,9 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
-func checkMarketplaceSupplySources(t *testing.T, db *sqlx.DB) {
+func checkMarketplaceSupplySources(t *testing.T, db *store.DB) {
 	t.Helper()
 	tx, err := db.Beginx()
 	if err != nil {
@@ -100,7 +99,7 @@ func checkMarketplaceSupplySources(t *testing.T, db *sqlx.DB) {
 
 func TestMarketplaceDirectSupplySources(t *testing.T) {
 	db, _ := setupStatsSQLiteTest(t)
-	checkMarketplaceSupplySources(t, db.DB)
+	checkMarketplaceSupplySources(t, db)
 }
 
 func TestMarketplaceAccountSupplyKinds(t *testing.T) {
@@ -109,7 +108,7 @@ func TestMarketplaceAccountSupplyKinds(t *testing.T) {
 	if _, err := db.Exec(`UPDATE accounts SET oauth_provider='fixture-oauth' WHERE id=?`, account); err != nil {
 		t.Fatal(err)
 	}
-	models, err := (&statsHandler{db: db.DB}).buildMarketplaceModels()
+	models, err := (&statsHandler{db: db}).buildMarketplaceModels()
 	if err != nil {
 		t.Fatal(err)
 	}

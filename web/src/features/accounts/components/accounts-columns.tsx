@@ -1,48 +1,14 @@
-/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go features/accounts/components — TanStack Table column definitions
 // for the accounts list. Column meta drives the mobile card layout
 // (mobileTitle / mobileBadge / mobileHidden / mobileOrder) so the data-table
 // package's automatic mobile degradation needs zero per-feature card code.
 
 import type { ColumnDef } from '@tanstack/react-table'
-import {
-  CalendarCheck,
-  CheckCircle2,
-  Clock,
-  Eye,
-  HelpCircle,
-  MoreHorizontal,
-  PauseCircle,
-  Pencil,
-  Pin,
-  PinOff,
-  Power,
-  RefreshCw,
-  Trash2,
-  TriangleAlert,
-  XCircle,
-  type LucideIcon,
-} from 'lucide-react'
-import { memo, useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PlatformBadge } from '@/components/common/platform-badge'
-import {
-  ProbeHealthBar,
-  type ProbeHistoryMap,
-} from '@/components/common/probe-health-bar'
-import { RowDisclosureTrigger } from '@/components/common/row-disclosure'
-import { SafeExternalLink } from '@/components/common/safe-external-link'
-import { Badge } from '@/components/ui/badge'
+import type { ProbeHistoryMap } from '@/components/common/probe-health-bar'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
 import {
   Tooltip,
@@ -53,261 +19,22 @@ import {
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { resolveAccountDisplayName } from '../lib/accounts-display-name'
-import type { Account, AccountRowActions, RuntimeHealthState } from '../types'
+import type { Account, AccountRowActions } from '../types'
+import { accountHealthColumns } from './accounts-health-columns'
+import {
+  accountIdentityColumns,
+  type AccountsRowDisclosureOptions,
+} from './accounts-identity-columns'
+import { AccountsRowActions } from './accounts-row-actions'
 
-// ---------------------------------------------------------------------------
-// Health badge mapping
-// ---------------------------------------------------------------------------
-
-interface HealthBadgeConfig {
-  labelKey: string
-  variant: 'success' | 'secondary' | 'destructive' | 'warning' | 'outline'
-  icon: LucideIcon
-}
-
-const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
-  healthy: {
-    labelKey: 'accounts.columns.healthHealthy',
-    variant: 'success',
-    icon: CheckCircle2,
-  },
-  degraded: {
-    labelKey: 'accounts.columns.healthDegraded',
-    variant: 'warning',
-    icon: TriangleAlert,
-  },
-  unhealthy: {
-    labelKey: 'accounts.columns.healthUnhealthy',
-    variant: 'destructive',
-    icon: XCircle,
-  },
-  disabled: {
-    labelKey: 'accounts.columns.healthDisabled',
-    variant: 'secondary',
-    icon: PauseCircle,
-  },
-  unknown: {
-    labelKey: 'accounts.columns.healthUnknown',
-    variant: 'outline',
-    icon: HelpCircle,
-  },
-}
-
-function useResolveHealth() {
-  const { t } = useTranslation()
-  // Stable identity: the columns array is memoized below and must not
-  // re-build just because this page re-rendered, otherwise every row's
-  // memoization is defeated on each unrelated state change.
-  return useCallback(
-    function resolveHealth(
-      account: Account
-    ): HealthBadgeConfig & { label: string } {
-      if (account.status === 'expired') {
-        return {
-          labelKey: 'accounts.columns.healthExpired',
-          label: t('accounts.columns.healthExpired'),
-          variant: 'destructive',
-          icon: Clock,
-        }
-      }
-      const state = account.runtimeHealth?.state ?? 'unknown'
-      const config = HEALTH_BADGE_CONFIG[state] ?? HEALTH_BADGE_CONFIG.unknown
-      return { ...config, label: t(config.labelKey) }
-    },
-    [t]
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Formatting helpers
-// ---------------------------------------------------------------------------
+export { AccountsRowActions }
+export type { AccountsRowDisclosureOptions }
 
 function formatPercent(used: number, total: number): string {
   if (!total || total <= 0) return '—'
   const ratio = Math.min(1, Math.max(0, used / total))
   return `${(ratio * 100).toFixed(1)}%`
 }
-
-function useResolveDisplayName() {
-  const { t } = useTranslation()
-  // Stable identity — see useResolveHealth.
-  return useCallback(
-    function resolveDisplayName(account: Account): string {
-      return resolveAccountDisplayName(
-        account,
-        t('accounts.columns.fallbackApiKey'),
-        t('accounts.columns.fallbackUnnamed')
-      )
-    },
-    [t]
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Row actions cell
-// ---------------------------------------------------------------------------
-
-/**
- * Desktop inline enable/disable button + the existing "more actions" dropdown.
- *
- * The inline `Power` button surfaces the highest-frequency row action (status
- * toggle) as a single click, BEFORE the `MoreHorizontal` dropdown trigger. The
- * pending state is per-row: when `pendingStatusId === account.id`, this row's
- * button shows a `Spinner` and is disabled, while every other row's
- * button stays clickable (no global lock). The pin / check-in dropdown items
- * mirror the same pattern with their OWN pending ids (`pendingPinId` /
- * `pendingCheckinId`): while one of those toggles is in flight for this row,
- * the matching item is disabled and shows a `Spinner` — no cross-talk between
- * the three toggles, no global lock.
- *
- * Memoized: the row re-renders on selection/pending-state changes while
- * `account` / `actions` keep the same identity, and this cell (Tooltip +
- * DropdownMenu) is the heaviest subtree per row — skipping it keeps bulk
- * select and status toggles from re-rendering every row's popover machinery.
- */
-export const AccountsRowActions = memo(function AccountsRowActions({
-  account,
-  actions,
-  pendingStatusId = null,
-  pendingCheckinId = null,
-  pendingPinId = null,
-  pendingManualCheckinId = null,
-}: {
-  account: Account
-  actions: AccountRowActions
-  pendingStatusId?: number | null
-  pendingCheckinId?: number | null
-  pendingPinId?: number | null
-  pendingManualCheckinId?: number | null
-}) {
-  const { t } = useTranslation()
-  const canCheckin = account.capabilities?.canCheckin ?? false
-  const isThisRowPending = pendingStatusId === account.id
-  const isPinPending = pendingPinId === account.id
-  const isCheckinPending = pendingCheckinId === account.id
-  const isManualCheckinPending = pendingManualCheckinId === account.id
-  const toggleLabel =
-    account.status === 'disabled'
-      ? t('accounts.columns.enable')
-      : t('accounts.columns.disable')
-  let pinIcon = <Pin />
-  if (isPinPending) {
-    pinIcon = <Spinner />
-  } else if (account.isPinned) {
-    pinIcon = <PinOff />
-  }
-  return (
-    <div className='flex items-center gap-1'>
-      <TooltipProvider delay={200}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant='ghost'
-                size='icon-sm'
-                disabled={isThisRowPending}
-                aria-label={toggleLabel}
-                className='max-[640px]:hidden'
-                data-hit-area
-                onClick={() => actions.onToggleStatus(account)}
-              />
-            }
-          >
-            {isThisRowPending ? <Spinner /> : <Power className='size-4' />}
-          </TooltipTrigger>
-          <TooltipContent side='top'>{toggleLabel}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              className='data-popup-open:bg-accent'
-              aria-label={t('accounts.columns.rowActions')}
-              data-hit-area
-            />
-          }
-        >
-          <MoreHorizontal className='size-4' />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' sideOffset={4}>
-          <DropdownMenuItem onClick={() => actions.onViewDetail(account)}>
-            <Eye />
-            {t('accounts.columns.viewDetails')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => actions.onRefresh(account)}>
-            <RefreshCw />
-            {t('accounts.columns.refreshBalance')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={isPinPending}
-            onClick={() => actions.onTogglePin(account)}
-          >
-            {pinIcon}
-            {account.isPinned
-              ? t('accounts.columns.unpin')
-              : t('accounts.columns.pin')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={isThisRowPending}
-            onClick={() => actions.onToggleStatus(account)}
-          >
-            <Power />
-            {account.status === 'disabled'
-              ? t('accounts.columns.enable')
-              : t('accounts.columns.disable')}
-          </DropdownMenuItem>
-          {canCheckin && (
-            <DropdownMenuItem
-              disabled={pendingManualCheckinId !== null}
-              onClick={() => actions.onTriggerCheckin(account)}
-            >
-              {isManualCheckinPending ? <Spinner /> : <CalendarCheck />}
-              {t('accounts.columns.triggerCheckin')}
-            </DropdownMenuItem>
-          )}
-          {canCheckin && (
-            <DropdownMenuItem
-              disabled={isCheckinPending}
-              onClick={() => actions.onToggleCheckin(account)}
-            >
-              {isCheckinPending ? <Spinner /> : <CalendarCheck />}
-              {account.checkinEnabled
-                ? t('accounts.columns.disableCheckin')
-                : t('accounts.columns.enableCheckin')}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => actions.onEdit(account)}>
-            <Pencil />
-            {t('common.edit')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant='destructive'
-            onClick={() => actions.onDelete(account)}
-          >
-            <Trash2 />
-            {t('common.delete')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  )
-})
-
-// ---------------------------------------------------------------------------
-// Columns hook
-// ---------------------------------------------------------------------------
-
-export interface AccountsRowDisclosureOptions {
-  expandedIds: ReadonlySet<number>
-  toggle: (id: number) => void
-  getContentId: (id: number) => string
-}
-
 export function useAccountsColumns(
   actions: AccountRowActions,
   pendingStatusId: number | null = null,
@@ -318,190 +45,14 @@ export function useAccountsColumns(
   disclosure?: AccountsRowDisclosureOptions
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
-  const resolveHealth = useResolveHealth()
-  const resolveDisplayName = useResolveDisplayName()
   // Memoized: the shared data-table row component skips re-rendering a row
   // only when the column defs keep the same identity (table.options.columns),
   // so a fresh array every render re-renders all 100+ rows on any unrelated
   // state change — the previous ~2s freeze on interaction.
   return useMemo<ColumnDef<Account>[]>(
     () => [
-      {
-        id: 'select',
-        size: 40,
-        enableSorting: false,
-        enableHiding: false,
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(Boolean(value))
-            }
-            aria-label={t('accounts.columns.selectAll')}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-            aria-label={t('accounts.columns.selectRow')}
-          />
-        ),
-        meta: { mobileHidden: true },
-      },
-      {
-        id: 'name',
-        accessorFn: (row) => row.username ?? '',
-        header: t('accounts.columns.name'),
-        cell: ({ row }) => {
-          const account = row.original
-          const displayName = resolveDisplayName(account)
-          const isExpanded = disclosure?.expandedIds.has(account.id) ?? false
-          return (
-            <div className='flex flex-col gap-1'>
-              <div className='flex items-center gap-1.5'>
-                {disclosure && (
-                  <RowDisclosureTrigger
-                    expanded={isExpanded}
-                    controls={disclosure.getContentId(account.id)}
-                    aria-label={displayName}
-                    className='text-muted-foreground hover:text-foreground size-6 shrink-0 justify-center p-0'
-                    onClick={() => disclosure.toggle(account.id)}
-                  />
-                )}
-                <button
-                  type='button'
-                  data-slot='account-name'
-                  aria-label={`${t('accounts.columns.viewDetails')}: ${displayName}`}
-                  title={displayName}
-                  onClick={() => actions.onViewDetail(account)}
-                  className='hover:text-primary focus-visible:outline-focus-ring max-w-55 min-w-0 truncate rounded-sm text-left font-medium hover:underline focus-visible:outline-2 max-[640px]:line-clamp-2 max-[640px]:min-h-10 max-[640px]:max-w-full max-[640px]:break-all max-[640px]:whitespace-normal'
-                >
-                  {displayName}
-                </button>
-                <Badge variant='secondary'>
-                  {account.credentialMode === 'session'
-                    ? t('accounts.columns.credentialModeSession')
-                    : t('accounts.columns.credentialModeApiKey')}
-                </Badge>
-              </div>
-              {account.tags && account.tags.length > 0 && (
-                <div className='flex flex-wrap gap-1'>
-                  {account.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag} variant='outline' className='text-2xs'>
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        },
-        meta: { mobileTitle: true },
-      },
-      {
-        id: 'site',
-        accessorFn: (row) => String(row.siteId),
-        header: t('accounts.columns.site'),
-        cell: ({ row }) => {
-          const account = row.original
-          const site = account.site
-          if (!site) return <span className='text-muted-foreground'>—</span>
-          return (
-            <div className='flex flex-col'>
-              {/* Quick jump to the upstream site (#1108): the site name is a
-                  safe external link when the stored URL is a valid http(s)
-                  endpoint, plain text otherwise (same ladder as the sites
-                  page columns, #985). */}
-              <SafeExternalLink
-                url={site.url ?? ''}
-                className='max-w-40 text-sm max-[640px]:max-w-full max-[640px]:[&>span]:line-clamp-2 max-[640px]:[&>span]:break-words max-[640px]:[&>span]:whitespace-normal'
-                title={
-                  site.name && site.url
-                    ? `${site.name} — ${site.url}`
-                    : site.name || site.url || undefined
-                }
-              >
-                {site.name || site.url || `#${site.id}`}
-              </SafeExternalLink>
-              {site.platform && (
-                <PlatformBadge
-                  platform={site.platform}
-                  className='text-muted-foreground text-2xs w-fit'
-                />
-              )}
-            </div>
-          )
-        },
-        filterFn: (row, _columnId, filterValue: unknown) => {
-          if (!Array.isArray(filterValue) || filterValue.length === 0) {
-            return true
-          }
-          return filterValue.includes(String(row.original.siteId))
-        },
-        meta: { mobileOrder: 1 },
-      },
-      {
-        id: 'status',
-        accessorFn: (row) => row.status,
-        header: t('common.status'),
-        cell: ({ row }) => {
-          const account = row.original
-          const config = resolveHealth(account)
-          const HealthIcon = config.icon
-          const reason = account.runtimeHealth?.reason?.trim()
-          const badge = (
-            <Badge variant={config.variant}>
-              <HealthIcon className='size-3' aria-hidden='true' />
-              {config.label}
-            </Badge>
-          )
-          if (!reason) {
-            return badge
-          }
-          return (
-            <TooltipProvider delay={200}>
-              <Tooltip>
-                <TooltipTrigger
-                  render={<span className='w-fit'>{badge}</span>}
-                />
-                <TooltipContent side='top' className='max-w-xs'>
-                  <div className='flex flex-col gap-0.5'>
-                    <span className='font-medium'>
-                      {t('accounts.columns.healthDetail')}
-                    </span>
-                    <span className='text-xs'>{reason}</span>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )
-        },
-        filterFn: (row, _columnId, filterValue: unknown) => {
-          if (!Array.isArray(filterValue) || filterValue.length === 0) {
-            return true
-          }
-          return filterValue.includes(row.original.status)
-        },
-        meta: { mobileBadge: true },
-      },
-      {
-        id: 'probeHealth',
-        accessorFn: (row) => probeHistory?.[row.id]?.length ?? 0,
-        enableSorting: false,
-        header: () => (
-          <span className='text-muted-foreground text-xs'>
-            {t('probeHealth.column')}
-          </span>
-        ),
-        cell: ({ row }) => (
-          <ProbeHealthBar
-            results={probeHistory?.[row.original.id]}
-            pending={probeHistory === undefined}
-          />
-        ),
-        meta: { mobileHidden: true },
-      },
+      ...accountIdentityColumns(t, actions, disclosure),
+      ...accountHealthColumns(t, probeHistory),
       {
         accessorKey: 'balance',
         header: t('accounts.columns.balance'),
@@ -649,8 +200,6 @@ export function useAccountsColumns(
       pendingCheckinId,
       pendingPinId,
       pendingManualCheckinId,
-      resolveHealth,
-      resolveDisplayName,
       t,
       probeHistory,
       disclosure,

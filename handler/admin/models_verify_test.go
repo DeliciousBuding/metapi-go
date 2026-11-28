@@ -75,7 +75,7 @@ func setupVerifyHarness(t *testing.T) (chi.Router, *store.DB, int64) {
 
 	// Rebuild the router on the harness db so routes include verify-batch.
 	r2 := chi.NewRouter()
-	RegisterStatsRoutes(r2, db.DB)
+	RegisterStatsRoutes(r2, db)
 	return r2, db, accountID
 }
 

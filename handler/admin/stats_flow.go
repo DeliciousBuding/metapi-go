@@ -15,7 +15,7 @@ func (h *statsHandler) flow(w http.ResponseWriter, r *http.Request) {
 	topN := config.ClampInt(getQueryInt(r, "topN", 20), 1, 50)
 	condition, args := win.attemptFilter()
 	// Compute totals before limiting edges, in the same database snapshot.
-	rows, err := queryRowsErr(h.db, `WITH grouped AS (
+	rows, err := queryRowsErr(h.db.DB, `WITH grouped AS (
   SELECT pl.downstream_api_key_id AS downstream_key_id,
    COALESCE(NULLIF(pl.model_actual,''),NULLIF(pl.model_requested,''),'unknown') AS model,
    a.site_id, pl.channel_id, COUNT(*) AS requests,

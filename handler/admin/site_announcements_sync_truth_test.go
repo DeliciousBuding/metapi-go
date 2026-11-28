@@ -121,7 +121,7 @@ func runSiteAnnouncementSyncTruth(t *testing.T, db *store.DB, suffix string) {
 	siteID := seedSiteAnnouncementSyncSite(t, db, suffix, server.URL)
 	cleanupSiteAnnouncementSyncRows(t, db, siteID)
 
-	result := SyncSiteAnnouncements(db.DB, &siteID)
+	result := SyncSiteAnnouncements(db, &siteID)
 	if result.ScannedSites != 1 || result.Inserted != 1 || result.Events != 1 || result.Failed != 0 {
 		t.Fatalf("unexpected sync result: %+v", result)
 	}
@@ -148,7 +148,7 @@ func TestSyncSiteAnnouncements_RollsBackAnnouncementWhenEventInsertFails(t *test
 		t.Fatalf("drop events: %v", err)
 	}
 
-	result := SyncSiteAnnouncements(db.DB, &siteID)
+	result := SyncSiteAnnouncements(db, &siteID)
 	if result.Inserted != 0 || result.Events != 0 || result.Failed != 1 {
 		t.Fatalf("unexpected failed sync result: %+v", result)
 	}
@@ -170,8 +170,8 @@ func TestSyncSiteAnnouncements_UpdatesExistingWithoutDuplicateEvent(t *testing.T
 	siteID := seedSiteAnnouncementSyncSite(t, db, "update-existing", server.URL)
 	cleanupSiteAnnouncementSyncRows(t, db, siteID)
 
-	first := SyncSiteAnnouncements(db.DB, &siteID)
-	second := SyncSiteAnnouncements(db.DB, &siteID)
+	first := SyncSiteAnnouncements(db, &siteID)
+	second := SyncSiteAnnouncements(db, &siteID)
 	if first.Inserted != 1 || first.Events != 1 || first.Failed != 0 {
 		t.Fatalf("initial sync failed: %+v", first)
 	}
@@ -197,7 +197,7 @@ func TestSyncSiteAnnouncements_DoesNotCountFailedUpdate(t *testing.T) {
 	siteID := seedSiteAnnouncementSyncSite(t, db, "update-failure", server.URL)
 	cleanupSiteAnnouncementSyncRows(t, db, siteID)
 
-	first := SyncSiteAnnouncements(db.DB, &siteID)
+	first := SyncSiteAnnouncements(db, &siteID)
 	if first.Inserted != 1 || first.Failed != 0 {
 		t.Fatalf("initial sync failed: %+v", first)
 	}
@@ -211,7 +211,7 @@ func TestSyncSiteAnnouncements_DoesNotCountFailedUpdate(t *testing.T) {
 		t.Fatalf("create update failure trigger: %v", err)
 	}
 
-	second := SyncSiteAnnouncements(db.DB, &siteID)
+	second := SyncSiteAnnouncements(db, &siteID)
 	if second.Updated != 0 || second.Failed != 1 {
 		t.Fatalf("failed update was counted as success: %+v", second)
 	}
@@ -224,7 +224,7 @@ func TestSiteAnnouncementSyncTaskFailsWhenAllTargetedSitesFail(t *testing.T) {
 	resetBackgroundTasksForTests()
 	t.Cleanup(resetBackgroundTasksForTests)
 	db, r := setupEventsAnnouncementsTest(t)
-	SetBackgroundTaskDB(db.DB)
+	SetBackgroundTaskDB(db)
 	t.Cleanup(func() { SetBackgroundTaskDB(nil) })
 	server := newSiteAnnouncementNoticeServer(t, http.StatusOK, `{"success":false,"message":"upstream denied"}`)
 	siteID := seedSiteAnnouncementSyncSite(t, db, "task-failure", server.URL)
@@ -241,7 +241,7 @@ func TestSiteAnnouncementSyncTaskFailsWhenAllTargetedSitesFail(t *testing.T) {
 		t.Fatalf("decode queue response: %v", err)
 	}
 	waitAllBackgroundTasksForTests(5 * time.Second)
-	task := getBackgroundTask(db.DB, payload.TaskID)
+	task := getBackgroundTask(db, payload.TaskID)
 	if task == nil {
 		t.Fatal("background task not found")
 	}

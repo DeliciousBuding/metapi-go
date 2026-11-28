@@ -1,16 +1,7 @@
-// metapi-go/features/observability/sections/health — site/account health +
-// routing breaker/cooldown aggregation. Reads the read-only
-// /api/monitor/health projection; never mutates routing state.
-
-import { Link } from '@tanstack/react-router'
-import { CheckCircle2, Server, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { Server, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ExpandableText } from '@/components/common/expandable-text'
-import { ModelPill } from '@/components/common/model-pill'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -18,80 +9,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-} from '@/components/ui/empty'
-import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  formatRemainingCooldown,
-  useCooldownClock,
-} from '@/hooks/use-cooldown-clock'
+import { useCooldownClock } from '@/hooks/use-cooldown-clock'
 import { toBcp47 } from '@/i18n/languages'
-import { formatDateTime, formatInt } from '@/lib/format'
 
 import { useMonitorHealth } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
-import type { CooldownChannel, RuntimeHealthBreaker } from '../../types'
-
-type Translate = (
-  key: string,
-  options?: Record<string, string | number>
-) => string
-
-const KNOWN_COOLDOWN_REASON_CODES = new Set([
-  'usage_limit',
-  'rate_limited',
-  'auth_error',
-  'upstream_error',
-  'client_error',
-  'timeout',
-  'network_error',
-  'probe_failure',
-  'unknown',
-])
-
-function formatCooldownReasonCode(code: string, t: Translate): string {
-  return KNOWN_COOLDOWN_REASON_CODES.has(code)
-    ? t(`channels.reason.codes.${code}`)
-    : code
-}
-
-function resolveToneClass(tone: 'neutral' | 'warning' | 'success'): string {
-  if (tone === 'warning') return 'text-warning-soft-fg'
-  if (tone === 'success') return 'text-success-soft-fg'
-  return 'text-foreground'
-}
-
-function StatCell({
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  label: string
-  value: string
-  tone?: 'neutral' | 'warning' | 'success'
-}) {
-  return (
-    <div className='bg-card rounded-lg border p-3'>
-      <p className='text-muted-foreground text-xs'>{label}</p>
-      <KpiValue size='lg' className={resolveToneClass(tone)}>
-        {value}
-      </KpiValue>
-    </div>
-  )
-}
+import { HealthBreakerTable } from './health-breaker-table'
+import { HealthCoolingChannels } from './health-cooling-channels'
+import { RuntimeStats, InventoryCard } from './health-metrics'
 
 export function HealthSection() {
   const { t, i18n } = useTranslation()
@@ -136,7 +62,7 @@ export function HealthSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {renderRuntimeStats(health.isLoading, runtime, t)}
+          <RuntimeStats loading={health.isLoading} runtime={runtime} />
         </CardContent>
       </Card>
 
@@ -152,13 +78,12 @@ export function HealthSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderBreakersBody(
-              health.isLoading,
-              runtime?.openBreakers ?? [],
-              t,
-              locale,
-              now
-            )}
+            <HealthBreakerTable
+              loading={health.isLoading}
+              breakers={runtime?.openBreakers ?? []}
+              locale={locale}
+              now={now}
+            />
           </CardContent>
         </Card>
 
@@ -173,7 +98,12 @@ export function HealthSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderCooldownBody(health.isLoading, cooldown, t, locale, now)}
+            <HealthCoolingChannels
+              loading={health.isLoading}
+              cooldown={cooldown}
+              locale={locale}
+              now={now}
+            />
           </CardContent>
         </Card>
       </div>
@@ -196,418 +126,15 @@ export function HealthSection() {
               <InventoryCard
                 title={t('observability.health.inventory.sites')}
                 data={data?.sites}
-                t={t}
               />
               <InventoryCard
                 title={t('observability.health.inventory.accounts')}
                 data={data?.accounts}
-                t={t}
               />
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
-  )
-}
-
-function renderRuntimeStats(
-  loading: boolean,
-  runtime:
-    | {
-        sitesTracked: number
-        sitesBreakerOpen: number
-        modelsTracked: number
-        modelsBreakerOpen: number
-      }
-    | undefined,
-  t: Translate
-) {
-  if (loading) {
-    return (
-      <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className='h-20 rounded-lg' />
-        ))}
-      </div>
-    )
-  }
-  return (
-    <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-      <StatCell
-        label={t('observability.health.runtime.sitesTracked')}
-        value={formatInt(runtime?.sitesTracked)}
-      />
-      <StatCell
-        label={t('observability.health.runtime.sitesBreakerOpen')}
-        value={formatInt(runtime?.sitesBreakerOpen)}
-        tone={runtime?.sitesBreakerOpen ? 'warning' : 'success'}
-      />
-      <StatCell
-        label={t('observability.health.runtime.modelsTracked')}
-        value={formatInt(runtime?.modelsTracked)}
-      />
-      <StatCell
-        label={t('observability.health.runtime.modelsBreakerOpen')}
-        value={formatInt(runtime?.modelsBreakerOpen)}
-        tone={runtime?.modelsBreakerOpen ? 'warning' : 'success'}
-      />
-    </div>
-  )
-}
-
-function renderBreakersBody(
-  loading: boolean,
-  breakers: RuntimeHealthBreaker[],
-  t: Translate,
-  locale: string,
-  now: number
-) {
-  if (loading) {
-    return <Skeleton className='h-40 w-full rounded-md' />
-  }
-  if (breakers.length === 0) {
-    return (
-      <Empty className='min-h-24 border'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon' className='bg-success/10 text-success'>
-            <CheckCircle2 />
-          </EmptyMedia>
-          <EmptyDescription>
-            {t('observability.health.breakers.empty')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('observability.health.breakers.colSite')}</TableHead>
-          <TableHead>{t('observability.health.breakers.colModel')}</TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.breakers.colLevel')}
-          </TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.breakers.colPenalty')}
-          </TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.breakers.colUntil')}
-          </TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.breakers.colActions')}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {breakers.map((breaker) => {
-          const remaining = formatRemainingCooldown(breaker.breakerUntilMs, now)
-          const siteName = breaker.siteName?.trim()
-          return (
-            <TableRow key={`${breaker.siteId}:${breaker.model}`}>
-              <TableCell className='max-w-44 tabular-nums'>
-                <Link
-                  to='/sites'
-                  search={{ edit: breaker.siteId }}
-                  className='text-primary inline-flex max-w-full items-baseline gap-1.5 font-medium hover:underline'
-                  title={siteName || `#${breaker.siteId}`}
-                >
-                  {siteName ? (
-                    <>
-                      <span className='truncate'>{siteName}</span>
-                      <span className='text-muted-foreground text-2xs shrink-0 font-mono font-normal'>
-                        #{breaker.siteId}
-                      </span>
-                    </>
-                  ) : (
-                    `#${breaker.siteId}`
-                  )}
-                </Link>
-              </TableCell>
-              <TableCell className='truncate'>
-                {breaker.model ? <ModelPill model={breaker.model} /> : '—'}
-              </TableCell>
-              <TableCell
-                className='text-right tabular-nums'
-                title={t('observability.health.breakers.levelTooltip', {
-                  level: breaker.breakerLevel,
-                  score: breaker.penaltyScore,
-                })}
-              >
-                <Badge variant='warning'>L{breaker.breakerLevel}</Badge>
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                {formatInt(breaker.penaltyScore, locale)}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                <div className='flex flex-col items-end gap-0.5'>
-                  <span>{formatDateTime(breaker.breakerUntilMs, locale)}</span>
-                  {remaining && (
-                    <span className='text-warning-soft-fg text-2xs'>
-                      {t('observability.health.cooldown.remaining', {
-                        remaining,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className='text-right'>
-                <div className='flex flex-wrap justify-end gap-1'>
-                  <Link
-                    to='/proxy-logs'
-                    search={{
-                      view: 'attempts',
-                      siteId: breaker.siteId,
-                      status: 'failed',
-                      ...(breaker.model ? { q: breaker.model } : {}),
-                    }}
-                    className={buttonVariants({
-                      size: 'xs',
-                      variant: 'outline',
-                    })}
-                  >
-                    {t('observability.health.breakers.inspectLogs')}
-                  </Link>
-                  {breaker.model && (
-                    <Link
-                      to='/token-routes'
-                      search={{ workspaceModel: breaker.model }}
-                      className={buttonVariants({
-                        size: 'xs',
-                        variant: 'ghost',
-                      })}
-                    >
-                      {t('observability.health.breakers.inspectRoute')}
-                    </Link>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
-  )
-}
-
-function renderCooldownBody(
-  loading: boolean,
-  cooldown:
-    | {
-        channelsCooling: number
-        channelsWithFailures: number
-        channelsRecentlyFailed: number
-        cooling: CooldownChannel[]
-      }
-    | undefined,
-  t: Translate,
-  locale: string,
-  now: number
-) {
-  if (loading) {
-    return <Skeleton className='h-40 w-full rounded-md' />
-  }
-  return (
-    <>
-      <div className='mb-3 grid grid-cols-3 gap-2'>
-        <StatCell
-          label={t('observability.health.cooldown.channelsCooling')}
-          value={formatInt(cooldown?.channelsCooling)}
-          tone={cooldown?.channelsCooling ? 'warning' : 'success'}
-        />
-        <StatCell
-          label={t('observability.health.cooldown.channelsWithFailures')}
-          value={formatInt(cooldown?.channelsWithFailures)}
-        />
-        <StatCell
-          label={t('observability.health.cooldown.channelsRecentlyFailed')}
-          value={formatInt(cooldown?.channelsRecentlyFailed)}
-        />
-      </div>
-      {renderCoolingTable(cooldown?.cooling ?? [], t, locale, now)}
-    </>
-  )
-}
-
-function renderCoolingTable(
-  channels: CooldownChannel[],
-  t: Translate,
-  locale: string,
-  now: number
-) {
-  if (channels.length === 0) {
-    return (
-      <Empty className='min-h-16 border'>
-        <EmptyHeader>
-          <EmptyDescription>
-            {t('observability.health.cooldown.empty')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-  const hasAnyReason = channels.some(
-    (channel) =>
-      Boolean(channel.cooldownReasonCode?.trim()) ||
-      Boolean(channel.cooldownReason?.trim())
-  )
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('observability.health.cooldown.colSite')}</TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.cooldown.colChannel')}
-          </TableHead>
-          {hasAnyReason && (
-            <TableHead>
-              {t('observability.health.cooldown.colReason')}
-            </TableHead>
-          )}
-          <TableHead className='text-right'>
-            {t('observability.health.cooldown.colFailCount')}
-          </TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.cooldown.colUntil')}
-          </TableHead>
-          <TableHead className='text-right'>
-            {t('observability.health.cooldown.colActions')}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {channels.map((channel) => {
-          const remaining = formatRemainingCooldown(channel.cooldownUntil, now)
-          const reasonCode = channel.cooldownReasonCode?.trim() || null
-          const reasonText = channel.cooldownReason?.trim() || null
-          return (
-            <TableRow key={channel.channelId}>
-              <TableCell className='truncate'>
-                {channel.siteName || `#${channel.siteId}`}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                <Link
-                  to='/channels'
-                  search={{ channelId: channel.channelId }}
-                  className='text-primary hover:underline'
-                >
-                  #{channel.channelId}
-                </Link>
-              </TableCell>
-              {hasAnyReason && (
-                <TableCell className='max-w-56 align-top'>
-                  {reasonCode || reasonText ? (
-                    <div className='flex min-w-0 flex-col gap-1'>
-                      {reasonCode && (
-                        <Badge
-                          variant='outline'
-                          className='w-fit font-normal'
-                          title={reasonCode}
-                        >
-                          {formatCooldownReasonCode(reasonCode, t)}
-                        </Badge>
-                      )}
-                      {reasonText && (
-                        <ExpandableText
-                          text={reasonText}
-                          threshold={72}
-                          className='text-muted-foreground text-xs leading-snug'
-                        />
-                      )}
-                    </div>
-                  ) : null}
-                </TableCell>
-              )}
-              <TableCell className='text-right tabular-nums'>
-                {channel.failCount}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                <div className='flex flex-col items-end gap-0.5'>
-                  <span>{formatDateTime(channel.cooldownUntil, locale)}</span>
-                  {remaining && (
-                    <span className='text-warning-soft-fg text-2xs'>
-                      {t('observability.health.cooldown.remaining', {
-                        remaining,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className='text-right'>
-                <Link
-                  to='/proxy-logs'
-                  search={{
-                    view: 'attempts',
-                    channelId: channel.channelId,
-                    status: 'failed',
-                  }}
-                  className={buttonVariants({ size: 'xs', variant: 'outline' })}
-                >
-                  {t('observability.health.breakers.inspectLogs')}
-                </Link>
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
-  )
-}
-
-function InventoryCard({
-  title,
-  data,
-  t,
-}: {
-  title: string
-  data?: { total: number; active: number; disabled: number; other: number }
-  t: Translate
-}) {
-  return (
-    <div className='bg-card rounded-lg border p-3'>
-      <p className='text-muted-foreground mb-2 text-xs font-medium'>{title}</p>
-      <div className='grid grid-cols-4 gap-2 text-center'>
-        <InventoryMetric
-          label={t('observability.health.inventory.total')}
-          value={formatInt(data?.total)}
-          className='text-foreground'
-        />
-        <InventoryMetric
-          label={t('observability.health.inventory.active')}
-          value={formatInt(data?.active)}
-          className='text-success'
-        />
-        <InventoryMetric
-          label={t('observability.health.inventory.disabled')}
-          value={formatInt(data?.disabled)}
-          className='text-muted-foreground'
-        />
-        <InventoryMetric
-          label={t('observability.health.inventory.other')}
-          value={formatInt(data?.other)}
-          className='text-foreground'
-        />
-      </div>
-    </div>
-  )
-}
-
-function InventoryMetric({
-  label,
-  value,
-  className,
-}: {
-  label: string
-  value: string
-  className: string
-}) {
-  return (
-    <div>
-      <p className='text-muted-foreground text-xs'>{label}</p>
-      <KpiValue size='sm' className={className}>
-        {value}
-      </KpiValue>
     </div>
   )
 }

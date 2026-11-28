@@ -46,7 +46,7 @@ func TestRequestAttemptBoundary(t *testing.T) {
 			if err := db.Close(); err != nil {
 				t.Fatal(err)
 			}
-			failed := (&statsHandler{db: db.DB}).buildRequestAttempts(map[string]any{
+			failed := (&statsHandler{db: db}).buildRequestAttempts(map[string]any{
 				"id": first, "requestId": "boundary-request", "status": "failed", "httpStatus": 502,
 			})
 			if value, exists := failed["lastAttempt"]; !exists || value != nil || failed["partial"] != true {

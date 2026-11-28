@@ -7,7 +7,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // ---- Model Rate Overview ----
@@ -19,14 +18,14 @@ import (
 //
 
 // RegisterModelRatesRoutes mounts the rate overview endpoint.
-func RegisterModelRatesRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterModelRatesRoutes(r chi.Router, db *store.DB) {
 	h := &modelRatesHandler{db: db}
 	r.Get("/api/models/rates", h.rates)
 	r.Put("/api/models/rates", h.updateRates)
 }
 
 type modelRatesHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // PUT /api/models/rates — batch update body:
@@ -62,7 +61,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "unitCost must be >= 0"})
 			return
 		}
-		res, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE accounts SET unit_cost = ? WHERE id = ?"), *acc.UnitCost, acc.ID)
+		res, err := h.db.Exec("UPDATE accounts SET unit_cost = ? WHERE id = ?", *acc.UnitCost, acc.ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update account unit cost"})
 			return
@@ -82,7 +81,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "weight must be >= 0"})
 			return
 		}
-		res, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE route_channels SET weight = ? WHERE id = ?"), *ch.Weight, ch.ID)
+		res, err := h.db.Exec("UPDATE route_channels SET weight = ? WHERE id = ?", *ch.Weight, ch.ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update channel weight"})
 			return
@@ -105,7 +104,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 // GET /api/models/rates
 func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	// Accounts with their unit cost (nullable) and channel footprint.
-	accRows, err := queryRowsErr(h.db, `
+	accRows, err := queryRowsErr(h.db.DB, `
 		SELECT a.id AS account_id, COALESCE(a.username, '') AS username,
 			s.id AS site_id, COALESCE(s.name, '') AS site_name,
 			a.unit_cost AS unit_cost,
@@ -135,7 +134,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Channels with their weight (the effective routing multiplier).
-	chRows, err := queryRowsErr(h.db, `
+	chRows, err := queryRowsErr(h.db.DB, `
 		SELECT rc.id AS channel_id, rc.route_id, rc.account_id, rc.weight, rc.enabled,
 			COALESCE(rc.source_model, '') AS model_name,
 			COALESCE(tr.model_pattern, '') AS route_pattern,
@@ -164,7 +163,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sites with global weight.
-	siteRows, err := queryRowsErr(h.db, `
+	siteRows, err := queryRowsErr(h.db.DB, `
 		SELECT id AS site_id, COALESCE(name, '') AS site_name, global_weight
 		FROM sites ORDER BY global_weight DESC, id ASC
 	`)
@@ -182,7 +181,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Downstream keys with weight (the per-key multiplier).
-	keyRows, err := queryRowsErr(h.db, `
+	keyRows, err := queryRowsErr(h.db.DB, `
 		SELECT id AS key_id, COALESCE(name, '') AS name, key_weight
 		FROM downstream_api_keys
 		ORDER BY COALESCE(key_weight, 1.0) DESC, id ASC
@@ -201,7 +200,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Observed model costs (30d) — the effective price evidence.
-	modelRows, err := queryRowsErr(h.db, `
+	modelRows, err := queryRowsErr(h.db.DB, `
 		SELECT model,
 			COALESCE(SUM(total_calls), 0) AS calls,
 			COALESCE(SUM(total_spend), 0) AS spend,

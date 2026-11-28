@@ -44,7 +44,7 @@ func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 
 	r := chi.NewRouter()
-	RegisterStatsRoutes(r, db.DB)
+	RegisterStatsRoutes(r, db)
 	return db, r
 }
 
@@ -56,7 +56,7 @@ func setupStatsSQLiteTest(t *testing.T) (*store.DB, chi.Router) {
 	globalProxyLogsSummaryCache.clear()
 	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
-	RegisterStatsRoutes(r, db.DB)
+	RegisterStatsRoutes(r, db)
 	return db, r
 }
 

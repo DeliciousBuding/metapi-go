@@ -25,7 +25,7 @@ func setupDownstreamPricingTest(t *testing.T) (*store.DB, chi.Router, downstream
 	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		RegisterDownstreamPricingRoutes(r, db.DB)
+		RegisterDownstreamPricingRoutes(r, db)
 	})
 	return db, r, seedDownstreamPricing(t, db)
 }

@@ -38,7 +38,7 @@ func setupRouteGrantTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
-	RegisterDownstreamKeysRoutes(r, db.DB)
+	RegisterDownstreamKeysRoutes(r, db)
 	return db, r
 }
 

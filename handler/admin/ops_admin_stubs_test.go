@@ -33,8 +33,8 @@ func setupOpsAdminStubsTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 	// (it must stay outside the Bearer admin auth group in production); the
 	// stub harness mounts both so handler-level tests keep their routes.
 	RegisterMonitorProxyRoutes(r, db, cfg)
-	RegisterTasksRoutes(r, db.DB)
-	RegisterSiteAnnouncementsRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
+	RegisterSiteAnnouncementsRoutes(r, db)
 	return db, r, cfg
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 const defaultSiteAnnouncementIntervalMs = 15 * 60 * 1000 // 15 minutes
@@ -28,7 +27,7 @@ type SiteAnnouncementSyncResult struct {
 // SiteAnnouncementSyncFunc runs a full announcement sync against the given DB.
 // Implementations must call real platform adapters (no invented success counts).
 // Injected from app/admin composition root so scheduler does not import handler/admin.
-type SiteAnnouncementSyncFunc func(db *sqlx.DB) SiteAnnouncementSyncResult
+type SiteAnnouncementSyncFunc func(db *store.DB) SiteAnnouncementSyncResult
 
 var (
 	defaultSiteAnnouncementSyncMu sync.RWMutex
@@ -133,7 +132,7 @@ func (s *SiteAnnouncementScheduler) runSyncLocked(dbw *store.DB) {
 	}
 
 	slog.Info("site-announcement: running sync")
-	result := fn(dbw.DB)
+	result := fn(dbw)
 	slog.Info("site-announcement: sync complete",
 		"scanned", result.ScannedSites,
 		"inserted", result.Inserted,

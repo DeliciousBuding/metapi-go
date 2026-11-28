@@ -28,7 +28,7 @@ func TestSearch_MixedCaseQueryMatchesMixedCaseRows(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 	r := chi.NewRouter()
-	RegisterSearchRoutes(r, db.DB)
+	RegisterSearchRoutes(r, db)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.Exec(

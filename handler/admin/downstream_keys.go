@@ -8,11 +8,10 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterDownstreamKeysRoutes registers all /api/downstream-keys routes.
-func RegisterDownstreamKeysRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterDownstreamKeysRoutes(r chi.Router, db *store.DB) {
 	handler := &downstreamKeysHandler{db: db}
 
 	r.Get("/api/downstream-keys/summary", handler.summary)
@@ -28,7 +27,7 @@ func RegisterDownstreamKeysRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type downstreamKeysHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // routeGrantHeal is the outcome of reconciling a key's route allowlist with the
@@ -61,11 +60,7 @@ func (h *downstreamKeysHandler) healInheritedRouteGrants(requested, inherited []
 		return out, nil
 	}
 	existing := make(map[int64]bool, len(requested))
-	query, args, err := sqlx.In("SELECT id FROM token_routes WHERE id IN (?)", requested)
-	if err != nil {
-		return out, err
-	}
-	rows, err := queryRowsErr(h.db, query, args...)
+	rows, err := h.queryPolicyIDs("SELECT id FROM token_routes WHERE id IN", requested)
 	if err != nil {
 		return out, err
 	}
@@ -109,6 +104,15 @@ func (h *downstreamKeysHandler) healInheritedRouteGrants(requested, inherited []
 	return out, nil
 }
 
+// queryPolicyIDs binds the non-empty ID list supplied by the policy checks.
+func (h *downstreamKeysHandler) queryPolicyIDs(query string, ids []int64) ([]map[string]any, error) {
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	return queryRowsErr(h.db.DB, query+" ("+sqlPlaceholders(len(ids))+")", args...)
+}
+
 // rowInt64 reads an integer column across both dialects: SQLite scans into
 // int64, PostgreSQL into int64 as well but a driver change or a NUMERIC column
 // must not silently read as "no id".
@@ -142,27 +146,24 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 ) (string, error) {
 	// Validate allowedRouteIds exist in token_routes.
 	if len(allowedRouteIds) > 0 {
-		query, args, err := sqlx.In("SELECT id FROM token_routes WHERE id IN (?)", allowedRouteIds)
-		if err == nil {
-			rows, qErr := queryRowsErr(h.db, query, args...)
-			if qErr != nil {
-				return "", qErr
+		rows, qErr := h.queryPolicyIDs("SELECT id FROM token_routes WHERE id IN", allowedRouteIds)
+		if qErr != nil {
+			return "", qErr
+		}
+		existingIds := make(map[int64]bool)
+		for _, row := range rows {
+			if id, ok := row["id"].(int64); ok {
+				existingIds[id] = true
 			}
-			existingIds := make(map[int64]bool)
-			for _, row := range rows {
-				if id, ok := row["id"].(int64); ok {
-					existingIds[id] = true
-				}
+		}
+		var missing []string
+		for _, rid := range allowedRouteIds {
+			if !existingIds[rid] {
+				missing = append(missing, strconv.FormatInt(rid, 10))
 			}
-			var missing []string
-			for _, rid := range allowedRouteIds {
-				if !existingIds[rid] {
-					missing = append(missing, strconv.FormatInt(rid, 10))
-				}
-			}
-			if len(missing) > 0 {
-				return fmt.Sprintf("allowedRouteIds contains unknown routes: %s", strings.Join(missing, ", ")), nil
-			}
+		}
+		if len(missing) > 0 {
+			return fmt.Sprintf("allowedRouteIds contains unknown routes: %s", strings.Join(missing, ", ")), nil
 		}
 	}
 
@@ -189,27 +190,24 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 		for id := range siteIdSet {
 			ids = append(ids, id)
 		}
-		query, args, err := sqlx.In("SELECT id FROM sites WHERE id IN (?)", ids)
-		if err == nil {
-			rows, qErr := queryRowsErr(h.db, query, args...)
-			if qErr != nil {
-				return "", qErr
+		rows, qErr := h.queryPolicyIDs("SELECT id FROM sites WHERE id IN", ids)
+		if qErr != nil {
+			return "", qErr
+		}
+		existingIds := make(map[int64]bool)
+		for _, row := range rows {
+			if id, ok := row["id"].(int64); ok {
+				existingIds[id] = true
 			}
-			existingIds := make(map[int64]bool)
-			for _, row := range rows {
-				if id, ok := row["id"].(int64); ok {
-					existingIds[id] = true
-				}
+		}
+		var missing []string
+		for _, sid := range ids {
+			if !existingIds[sid] {
+				missing = append(missing, strconv.FormatInt(sid, 10))
 			}
-			var missing []string
-			for _, sid := range ids {
-				if !existingIds[sid] {
-					missing = append(missing, strconv.FormatInt(sid, 10))
-				}
-			}
-			if len(missing) > 0 {
-				return fmt.Sprintf("policy contains unknown sites: %s", strings.Join(missing, ", ")), nil
-			}
+		}
+		if len(missing) > 0 {
+			return fmt.Sprintf("policy contains unknown sites: %s", strings.Join(missing, ", ")), nil
 		}
 	}
 
@@ -223,7 +221,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 		if kind == "direct_grant" {
 			grantID := coerceInt64(obj["grantId"])
 			var count int
-			if err := h.db.Get(&count, rebindAdminQuery(h.db, `SELECT COUNT(*) FROM upstream_grants WHERE id = ?`), grantID); err != nil {
+			if err := h.db.Get(&count, `SELECT COUNT(*) FROM upstream_grants WHERE id = ?`, grantID); err != nil {
 				return "", err
 			}
 			if count != 1 {

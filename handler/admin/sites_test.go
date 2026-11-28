@@ -74,7 +74,7 @@ func setupSitesTest(t *testing.T) (*store.DB, chi.Router) {
 	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
-	RegisterSitesRoutes(r, db.DB)
+	RegisterSitesRoutes(r, db)
 	return db, r
 }
 
@@ -102,7 +102,7 @@ func setupSitesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 
 	r := chi.NewRouter()
-	RegisterSitesRoutes(r, db.DB)
+	RegisterSitesRoutes(r, db)
 	return db, r
 }
 
@@ -1261,7 +1261,7 @@ func TestSites_MaxConcurrencyRoundTrip(t *testing.T) {
 // site-announcements); the message text stays the display fallback.
 func TestErrorCodeSiteNotFound(t *testing.T) {
 	db, r := setupSitesTest(t)
-	RegisterSiteAnnouncementsRoutes(r, db.DB)
+	RegisterSiteAnnouncementsRoutes(r, db)
 	RegisterAccountsRoutes(r, db.DB, &config.Config{AccountCredentialSecret: "test-secret-for-accounts"})
 
 	cases := []struct {

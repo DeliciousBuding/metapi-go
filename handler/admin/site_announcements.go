@@ -19,14 +19,13 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/notify"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
 // RegisterSiteAnnouncementsRoutes registers all /api/site-announcements routes.
 // Also wires the background SiteAnnouncementScheduler to real SyncSiteAnnouncements
 // . Routes register before StartBackgroundServices, so the package-level
 // default is installed for NewSiteAnnouncementScheduler to pick up.
-func RegisterSiteAnnouncementsRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterSiteAnnouncementsRoutes(r chi.Router, db *store.DB) {
 	wireSiteAnnouncementSchedulerSync()
 
 	handler := &siteAnnouncementsHandler{db: db}
@@ -43,7 +42,7 @@ func RegisterSiteAnnouncementsRoutes(r chi.Router, db *sqlx.DB) {
 // scheduler package without creating an app→admin import cycle (admin already
 // imports scheduler; app cannot import admin).
 func wireSiteAnnouncementSchedulerSync() {
-	scheduler.SetDefaultSiteAnnouncementSyncFunc(func(db *sqlx.DB) scheduler.SiteAnnouncementSyncResult {
+	scheduler.SetDefaultSiteAnnouncementSyncFunc(func(db *store.DB) scheduler.SiteAnnouncementSyncResult {
 		result := SyncSiteAnnouncements(db, nil)
 		return scheduler.SiteAnnouncementSyncResult{
 			ScannedSites:  result.ScannedSites,
@@ -58,7 +57,7 @@ func wireSiteAnnouncementSchedulerSync() {
 }
 
 type siteAnnouncementsHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 // SiteAnnouncementSyncResult mirrors the TS syncSiteAnnouncements result shape.
@@ -110,7 +109,7 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	}
 	query += " ORDER BY first_seen_at DESC, id DESC"
 
-	rows, err := h.db.Queryx(h.db.Rebind(query), args...)
+	rows, err := h.db.Queryx(query, args...)
 	if err != nil {
 		slog.Error("Failed to load announcements", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcements", "errorCode": "resourceLoadFailed"})
@@ -205,7 +204,7 @@ func (h *siteAnnouncementsHandler) history(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var current store.SiteAnnouncement
-	if err := h.db.Get(&current, h.db.Rebind(`SELECT * FROM site_announcements WHERE id = ?`), id); err != nil {
+	if err := h.db.Get(&current, `SELECT * FROM site_announcements WHERE id = ?`, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Announcement not found"})
 			return
@@ -217,7 +216,7 @@ func (h *siteAnnouncementsHandler) history(w http.ResponseWriter, r *http.Reques
 		ID       int64  `db:"id"`
 		Snapshot string `db:"snapshot"`
 	}
-	if err := h.db.Select(&snapshots, h.db.Rebind(`SELECT id, snapshot FROM site_announcement_history WHERE announcement_id = ? ORDER BY id DESC`), id); err != nil {
+	if err := h.db.Select(&snapshots, `SELECT id, snapshot FROM site_announcement_history WHERE announcement_id = ? ORDER BY id DESC`, id); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcement history", "errorCode": "resourceLoadFailed"})
 		return
 	}
@@ -244,7 +243,7 @@ func (h *siteAnnouncementsHandler) markRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ? WHERE id = ?"), now, id); err != nil {
+	if _, err := h.db.Exec("UPDATE site_announcements SET read_at = ? WHERE id = ?", now, id); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to mark announcement read"})
 		return
 	}
@@ -254,7 +253,7 @@ func (h *siteAnnouncementsHandler) markRead(w http.ResponseWriter, r *http.Reque
 // POST /api/site-announcements/read-all
 func (h *siteAnnouncementsHandler) markAllRead(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ?"), now); err != nil {
+	if _, err := h.db.Exec("UPDATE site_announcements SET read_at = ?", now); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to mark announcements read"})
 		return
 	}
@@ -280,7 +279,7 @@ func (h *siteAnnouncementsHandler) syncAnnouncements(w http.ResponseWriter, r *h
 	}
 	if siteID != nil {
 		var exists int
-		err := h.db.Get(&exists, h.db.Rebind(`SELECT 1 FROM sites WHERE id = ?`), *siteID)
+		err := h.db.Get(&exists, `SELECT 1 FROM sites WHERE id = ?`, *siteID)
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found.")
@@ -382,7 +381,7 @@ func siteAnnouncementSyncTerminalError(result SiteAnnouncementSyncResult) error 
 // SyncSiteAnnouncements fetches announcements for active sites (or one site)
 // via platform adapters and upserts site_announcements. Exported so the
 // background SiteAnnouncementScheduler can reuse this path without HTTP.
-func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResult {
+func SyncSiteAnnouncements(db *store.DB, siteID *int64) SiteAnnouncementSyncResult {
 	result := SiteAnnouncementSyncResult{
 		FailedSites: []SiteAnnouncementFailedSite{},
 	}
@@ -398,7 +397,7 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 	var sites []siteRow
 	var err error
 	if siteID != nil && *siteID > 0 {
-		err = db.Select(&sites, db.Rebind(`SELECT id, name, url, platform, api_key FROM sites WHERE id = ?`), *siteID)
+		err = db.Select(&sites, `SELECT id, name, url, platform, api_key FROM sites WHERE id = ?`, *siteID)
 	} else {
 		err = db.Select(&sites, `SELECT id, name, url, platform, api_key FROM sites WHERE status = 'active'`)
 	}
@@ -490,7 +489,7 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 			if !isNew {
 				var previous store.SiteAnnouncement
 				query := `SELECT * FROM site_announcements WHERE site_id = ? AND source_key = ?`
-				if db.DriverName() == "pgx" {
+				if db.Dialect == store.DialectPostgres {
 					query += " FOR UPDATE"
 				}
 				if err := tx.Get(&previous, tx.Rebind(query), site.ID, sourceKey); err != nil {
@@ -611,14 +610,14 @@ func recordSiteAnnouncementFailure(result *SiteAnnouncementSyncResult, siteID in
 	})
 }
 
-func resolveSiteAccessToken(db *sqlx.DB, siteID int64) string {
+func resolveSiteAccessToken(db *store.DB, siteID int64) string {
 	var token *string
-	err := db.Get(&token, db.Rebind(`
+	err := db.Get(&token, `
 		SELECT access_token FROM accounts
 		WHERE site_id = ? AND status = 'active'
 		ORDER BY id ASC
 		LIMIT 1
-	`), siteID)
+	`, siteID)
 	if err != nil || token == nil {
 		return ""
 	}

@@ -30,7 +30,7 @@ func TestSiteDisableUpdatesWarmChannelListsAndRouting(t *testing.T) {
 			}
 			globalChannelsCache.clear()
 			globalChannelsErrorSummaryCache.clear()
-			RegisterSitesRoutes(mux, db.DB)
+			RegisterSitesRoutes(mux, db)
 			routeID, accountID, _ := seedChannelsCacheFleet(t, db, 1)
 			var siteID int64
 			if err := db.Get(&siteID, `SELECT site_id FROM accounts WHERE id=?`, accountID); err != nil {

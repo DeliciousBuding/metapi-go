@@ -228,7 +228,7 @@ func (h *statsHandler) modelCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := accountModelRefresher(r.Context(), h.db, id, true)
+	result := accountModelRefresher(r.Context(), h.db.DB, id, true)
 	writeJSON(w, http.StatusOK, result)
 }
 

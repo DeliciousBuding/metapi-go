@@ -41,7 +41,7 @@ func setupRedirectTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
 		VALUES (?, ?, TRUE, FALSE, ?)`, accountID, "claude-3-5-sonnet-20241022", now)
 
 	r := chi.NewRouter()
-	RegisterModelRedirectRoutes(r, db.DB)
+	RegisterModelRedirectRoutes(r, db)
 	return db, r, siteID, accountID
 }
 

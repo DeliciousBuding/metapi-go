@@ -25,7 +25,7 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	q += ` ORDER BY local_day ASC, account_id ASC`
 
-	rows, err := queryRowsErr(h.db, q, args...)
+	rows, err := queryRowsErr(h.db.DB, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load balance history")
 		return
@@ -80,7 +80,7 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 	}
 	q += ` ORDER BY account_id ASC, local_day ASC`
 
-	rows, err := queryRowsErr(h.db, q, args...)
+	rows, err := queryRowsErr(h.db.DB, q, args...)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load balance income/outcome")
 		return
@@ -192,7 +192,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	items := make([]attentionItem, 0, limit)
 
 	// 1. Expired accounts — critical.
-	expired, err := queryRowsErr(h.db, `SELECT id, username, site_id, updated_at
+	expired, err := queryRowsErr(h.db.DB, `SELECT id, username, site_id, updated_at
 		FROM accounts WHERE status = 'expired' ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
@@ -218,7 +218,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	// NULL balances are explicitly excluded here and surfaced separately below:
 	// NULL means "never fetched / unknown", not "0" — coercing it to zero
 	// flooded the panel with false "Low balance (0.00)" rows.
-	low, err := queryRowsErr(h.db, `SELECT id, username, balance, site_id, updated_at
+	low, err := queryRowsErr(h.db.DB, `SELECT id, username, balance, site_id, updated_at
 		FROM accounts WHERE status = 'active' AND balance IS NOT NULL AND balance < 1.0
 		ORDER BY balance ASC LIMIT ?`, limit)
 	if err != nil {
@@ -246,7 +246,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	// operator should refresh / investigate the account rather than read it
 	// as a $0.00 balance; the target keeps the account deep link so one
 	// click lands on the account row with a refresh affordance.
-	unknown, err := queryRowsErr(h.db, `SELECT id, username, site_id, updated_at
+	unknown, err := queryRowsErr(h.db.DB, `SELECT id, username, site_id, updated_at
 		FROM accounts WHERE status = 'active' AND balance IS NULL
 		ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
@@ -270,7 +270,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Disabled sites — warning.
-	disabledSites, err := queryRowsErr(h.db, `SELECT id, name, updated_at
+	disabledSites, err := queryRowsErr(h.db.DB, `SELECT id, name, updated_at
 		FROM sites WHERE status = 'disabled' ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
 		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
@@ -300,7 +300,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	// is excluded from the generic event query below to avoid duplicate bell
 	// items and two competing read-state owners.
 	nowStr := time.Now().UTC().Format(time.RFC3339)
-	announcementRows, err := queryRowsErr(h.db, `SELECT id, title, level, first_seen_at
+	announcementRows, err := queryRowsErr(h.db.DB, `SELECT id, title, level, first_seen_at
 		FROM site_announcements
 		WHERE read_at IS NULL AND dismissed_at IS NULL
 		  AND (starts_at IS NULL OR starts_at = '' OR starts_at <= ?)
@@ -341,7 +341,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	// COALESCE: rows written before the structured-event registry (or by
 	// direct SQL seeding) can carry an empty title with the human-readable
 	// text in message — the attention feed must never render a blank row.
-	evRows, err := queryRowsErr(h.db, `SELECT id, type, COALESCE(NULLIF(title, ''), message) AS title, level, related_id, related_type, created_at
+	evRows, err := queryRowsErr(h.db.DB, `SELECT id, type, COALESCE(NULLIF(title, ''), message) AS title, level, related_id, related_type, created_at
 		FROM events WHERE read = ? AND level IN ('warning', 'error') AND created_at >= ?
 		  AND (related_type IS NULL OR related_type <> 'site_announcement')
 		ORDER BY created_at DESC LIMIT ?`, false, since24h, limit)

@@ -20,7 +20,7 @@ func TestQueryRowErrorContract(t *testing.T) {
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			db, router := fixture.setup(t)
-			RegisterDownstreamKeysRoutes(router, db.DB)
+			RegisterDownstreamKeysRoutes(router, db)
 			RegisterTokenRoutesWithDeps(router, db.DB, TokenRoutesDeps{})
 
 			row, err := queryRow(db.DB, "SELECT ? AS site_name, NULL AS optional_value", "example")
@@ -51,7 +51,7 @@ func TestQueryRowErrorContract(t *testing.T) {
 				}
 			}
 
-			h := &downstreamKeysHandler{db: db.DB}
+			h := &downstreamKeysHandler{db: db}
 			for _, kind := range []string{"account_token", "default_api_key"} {
 				refs := []any{map[string]any{"kind": kind, "tokenId": 1, "accountId": 1, "siteId": 1}}
 				message, err := h.validateDownstreamPolicyReferences(nil, nil, nil, nil, nil, refs)

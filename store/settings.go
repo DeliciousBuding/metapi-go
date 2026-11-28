@@ -6,212 +6,24 @@ import (
 	"log/slog"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// LoadRuntimeSettings reads the settings table and applies runtime overrides
-// to the config. Mirrors TS runtimeSettingsHydration behavior.
-func LoadRuntimeSettings(db *DB, cfg *config.Config, rt *config.RuntimeSettings) error {
-	if db == nil {
-		return fmt.Errorf("settings: database not initialized")
-	}
-
-	settingsStore := NewSettingsStore(db)
-	all, err := settingsStore.GetAll()
-	if err != nil {
-		return err
-	}
-
-	settingsMap := toSettingsMap(all)
-	if len(settingsMap) == 0 {
-		slog.Info("settings: no runtime settings found in DB")
-	} else {
-		slog.Info("settings: loaded runtime settings", "count", len(settingsMap))
-		// Apply runtime overrides to the static + runtime drafts.
-		ApplyRuntimeSettings(cfg, rt, settingsMap)
-	}
-	if err := MigrateLegacyProxyToken(db, rt, cfg.ProxyGlobalTokenRPM); err != nil {
-		return fmt.Errorf("migrate legacy downstream key: %w", err)
-	}
-
-	// Which log-retention regime owns the log tables is decided by explicit
-	// operator intent only: an admin-saved log-cleanup setting, or an env
-	// toggle explicitly set to true (config.LogCleanupEnvEnabled). It used to
-	// be inferred from "retention > 0", but config.Load floors retention at 1
-	// day, so the inference fired as soon as the settings table held any row at
-	// all: it silently flipped an explicit LOG_CLEANUP_*_ENABLED=false to true
-	// and disabled the legacy proxy-log retention scheduler. Saving an
-	// unrelated setting (the site name, say) must not switch the regime, and
-	// an env-only deployment must not lose the regime it asked for either.
-	//
-	// The two sources are asymmetric on purpose: env can turn the regime ON but
-	// cannot "claim" it while off, because claiming it disables the legacy
-	// PROXY_LOG_RETENTION_DAYS pruner and would leave proxy_logs unpruned.
-	// Values still come from the settings table when it has them (hydration ran
-	// above); env only contributes the regime bit.
-	dbExplicit := HasExplicitLogCleanupSettings(settingsMap)
-	cfg.LogCleanupConfigured = dbExplicit || cfg.LogCleanupEnvEnabled
-
-	slog.Info("settings: log retention regime",
-		"regime", logRetentionRegime(cfg.LogCleanupConfigured),
-		"configured", cfg.LogCleanupConfigured,
-		"source", logRetentionRegimeSource(dbExplicit, cfg.LogCleanupEnvEnabled),
-		"usage_logs_enabled", rt.LogCleanupUsageLogsEnabled,
-		"program_logs_enabled", rt.LogCleanupProgramLogsEnabled,
-		"retention_days", rt.LogCleanupRetentionDays)
-
-	return nil
-}
-
-// logRetentionRegime names the scheduler that owns the log tables, for the
-// single startup line above: "log_cleanup" prunes usage/program logs on
-// LOG_CLEANUP_CRON, "legacy_fallback" leaves proxy_logs to the
-// PROXY_LOG_RETENTION_DAYS pruner.
-func logRetentionRegime(configured bool) string {
-	if configured {
-		return "log_cleanup"
-	}
-	return "legacy_fallback"
-}
-
-// logRetentionRegimeSource reports which kind of operator intent claimed the
-// regime. Admin-saved settings win over the env toggle because they are also
-// the source of the values, so the two never disagree about what is running.
-func logRetentionRegimeSource(dbExplicit, envEnabled bool) string {
-	switch {
-	case dbExplicit:
-		return "db_settings"
-	case envEnabled:
-		return "env_toggle"
-	default:
-		return "none"
-	}
-}
-
-// toSettingsMap converts flat settings rows into a nested map structure.
-// Keys containing dots (e.g. "log_cleanup.retention_days") are treated as
-// namespaced keys; the caller interprets the namespace.
-func toSettingsMap(rows map[string]string) map[string]string {
-	return rows
-}
-
-// logCleanupExplicitKeys are the settings keys whose presence proves the
-// operator configured log cleanup themselves, so startup must neither infer
-// nor override anything for that subsystem.
-//
-// The underscore spellings are what the admin write path persists
-// (handler/admin/settings_apply.go). The dotted spellings are deprecated
-// read-only aliases: no release ever wrote them, they only matter for
-// hand-edited or externally imported rows, and they can be dropped once such
-// rows are extinct.
-var logCleanupExplicitKeys = []string{
-	"log_cleanup_usage_logs_enabled",
-	"log_cleanup_program_logs_enabled",
-	"log_cleanup_retention_days",
-	"log_cleanup.enabled",
-	"log_cleanup.usage_logs_enabled",
-	"log_cleanup.program_logs_enabled",
-	"log_cleanup.retention_days",
-}
-
-// HasExplicitLogCleanupSettings checks whether log cleanup was explicitly
-// configured via the settings table. Mirrors TS behavior: checks for specific
-// setting keys that indicate user-intended log cleanup config.
-func HasExplicitLogCleanupSettings(settingsMap map[string]string) bool {
-	for _, key := range logCleanupExplicitKeys {
-		if _, ok := settingsMap[key]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// nonHydratedSettingKeys are settings that legitimately live in the settings
-// table but are deliberately NOT folded into the startup snapshot by
-// ApplyRuntimeSettings, each with the reason why. Two shapes belong here: keys
-// whose consumer reads the settings table itself at use time (and re-validates
-// what it reads), and keys whose value is consumed before hydration runs.
-//
-// Everything else that production code can persist must have a case in
-// ApplyRuntimeSettings. settings_rehydration_gate_test.go fails when it does
-// not, because a persisted key that nothing reads back means the operator's
-// change evaporates on the next restart. That gate reads every writer in the
-// repo (R1 for the admin write side, R6 for the service/scheduler/store side),
-// so a key written from outside handler/admin cannot slip past it: an
-// unallowlisted key there is what made every boot log a hydration warning for
-// oauth.identity_backfill_complete, a marker its own writer reads back.
-var nonHydratedSettingKeys = map[string]string{
-	LegacyProxyTokenMigrationKey: "consumed by MigrateLegacyProxyToken at startup",
-	// Resolved by store.EnsureRuntimeDatabase from the env-derived snapshot:
-	// the database is already open (and is the very thing being read) by the
-	// time LoadRuntimeSettings runs.
-	"db_type": "consumed by store.EnsureRuntimeDatabase before hydration runs",
-	"db_url":  "consumed by store.EnsureRuntimeDatabase before hydration runs",
-	"db_ssl":  "consumed by store.EnsureRuntimeDatabase before hydration runs",
-	// v2 ScheduleSpec mirrors of the cron keys, read by the schedule
-	// migration service and the admin schedule endpoints.
-	"checkin_schedule_v2":         "read by service/settingsmigration + handler/admin/checkin_schedule.go",
-	"balance_refresh_schedule_v2": "read by service/settingsmigration",
-	"log_cleanup_schedule_v2":     "read by service/settingsmigration",
-	// Secret read at use time by its own handler; never published to the
-	// runtime snapshot, where a stale copy would outlive rotation.
-	"monitor_ldoh_cookie": "read at use time by handler/admin/monitor.go",
-	// Backup destination + resume cursor, read at use time by the scheduler.
-	"backup_webdav_config_v1": "read at use time by scheduler/backup_webdav.go",
-	"backup_webdav_state_v1":  "read at use time by scheduler/backup_webdav.go",
-	// Read at use time by the daily-summary scheduler.
-	"daily_summary_cron": "read at use time by scheduler/daily_summary.go",
-	// Startup-migration completion marker written by service/oauth and read
-	// back at use time by the very function that writes it. It carries no
-	// operator intent, so there is nothing for the snapshot to hold.
-	"oauth.identity_backfill_complete": "read at use time by service/oauth.RunOauthIdentityBackfillOnce",
-	// Catalog auto-sync toggle, read at use time by its own store on every
-	// sync pass; a snapshot copy would only be a stale second owner.
-	"catalog_auto_sync_enabled": "read at use time by service/catalogsync.Store.AutoSyncEnabled",
-	// Removed setting: it was stored but never rendered.
-	// Legacy rows are intentionally ignored, and listed here so they do not
-	// trip the unknown-key warning on every boot.
-	"home_page_content": "setting removed; legacy rows intentionally ignored",
-}
-
-// unknownKeyLogLimit bounds the aggregated unknown-key warning so a database
-// carrying many legacy rows cannot produce an unbounded log line.
-const unknownKeyLogLimit = 20
-
-// ApplyRuntimeSettings applies DB-backed settings overrides to the config.
-// Each known key overrides the corresponding config field.
-
-// Mirrors TS runtime settings application logic. Settings stored in the
-// settings table are JSON-encoded; this function parses and applies them.
-// Numeric keys are clamped exactly like the env path in config.Load, so a
-// value persisted through the admin API cannot bypass a floor the same value
-// would hit when it arrives through env.
+// ApplyRuntimeSettings hydrates the runtime and static drafts from JSON-encoded
+// settings rows using the same numeric limits as config.Load.
 func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settingsMap map[string]string) {
 	var unknown []string
 	for key, rawValue := range settingsMap {
 		value := strings.TrimSpace(rawValue)
 		if value == "" {
-			// A NULL/absent row carries no operator intent. An explicit clear
-			// is the two-character JSON string `""`, which the per-key cases
-			// below decide on individually.
+			// A blank cell is absent. A JSON empty string is an explicit clear.
 			continue
 		}
 
 		switch key {
-		// Auth. These keep their non-empty guard on purpose: a blank persisted
-		// value must never replace a credential that env (or an earlier
-		// rotation) already configured, or a restart would silently downgrade
-		// the deployment to the built-in default token. The branding keys
-		// below are the opposite case and do accept an explicit blank.
-		//
-		// The values are JSON-encoded like every other setting (the admin
-		// write path marshals them), so they must be decoded like every other
-		// string setting: reading the raw row used to rehydrate the token with
-		// its surrounding quotes, which made a token rotated through the admin
-		// API stop authenticating after the next restart.
+		// A blank credential must not clear an env-provided or rotated token.
 		case "auth_token":
 			if v := parseJSONSettingString(value); v != "" {
 				rt.AuthToken = v
@@ -248,29 +60,14 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 
 		// Checkin schedule
 		case "checkin_cron":
-			// Validated like the env path (config.Validate rejects an
-			// unparseable CHECKIN_CRON): an invalid expression must keep the
-			// resolved default instead of becoming the scheduler's fallback.
-			if v := parseJSONSettingString(value); config.ValidateCronExpr(v) {
+			if v, ok := validatedCronSetting(key, parseJSONSettingString(value)); ok {
 				rt.CheckinCron = v
-			} else {
-				slog.Warn("settings: ignoring invalid checkin_cron value")
 			}
 		case "checkin_enabled":
 			// Persisted as the positive switch, published inverted (zero value
 			// = enabled), mirroring config.Load's CHECKIN_ENABLED handling.
 			rt.CheckinDisabled = !parseBoolSetting(value, !rt.CheckinDisabled)
 		case "checkin_schedule_mode":
-			// config.Load resolves CHECKIN_SCHEDULE_MODE through the same
-			// three-value enum, and RuntimeSettings.Validate reports anything
-			// else as a critical boot error, so an unreadable row must keep the
-			// resolved mode instead of poisoning the snapshot. Keeping it
-			// silently left the row and GET /api/settings/runtime disagreeing
-			// forever: scheduler/settings.go re-reads the row and falls back the
-			// same way, so nothing ever surfaced the stale value. Reachable
-			// through a backup import (the tables path validates only the cell
-			// type), a hand edit, or a legacy row service/settingsmigration
-			// leaves behind without validating the mode.
 			mode := strings.ToLower(parseJSONSettingString(value))
 			switch mode {
 			case "cron", "interval", "window":
@@ -283,12 +80,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 				warnUnreadableSettingRow("checkin_schedule_mode", reason, rt.CheckinScheduleMode)
 			}
 		case "checkin_interval_hours":
-			// config.Load resolves CHECKIN_INTERVAL_HOURS as
-			// ClampInt(trunc(parseNumber(n)), 1, 24), so this clamps with the
-			// same two-sided shape instead of guarding on the range. The guard
-			// dropped an out-of-range row: a persisted 30 left the process on
-			// the env-resolved 6, GET /api/settings/runtime echoed 6, and
-			// nothing was logged, because the key counted as handled.
+			// Keep the same inclusive range as CHECKIN_INTERVAL_HOURS.
 			rt.CheckinIntervalHours = config.ClampInt(
 				parseIntSetting(value, float64(rt.CheckinIntervalHours), 1), 1, 24)
 		// E1: random-window mode bounds (HH:mm, 24h).
@@ -301,34 +93,21 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 				rt.CheckinWindowEnd = v
 			}
 
-		// Periodic job schedules and kill switches. Each scheduler re-resolves
-		// its own keys from the settings table when it starts; hydrating them
-		// here keeps the published snapshot (and GET /api/settings/runtime)
-		// truthful before that happens, and gives the schedulers a valid
-		// fallback instead of an env value the operator already overrode.
+		// Publish the periodic schedules before the schedulers start.
 		case "balance_refresh_cron":
-			if v := parseJSONSettingString(value); config.ValidateCronExpr(v) {
+			if v, ok := validatedCronSetting(key, parseJSONSettingString(value)); ok {
 				rt.BalanceRefreshCron = v
-			} else {
-				slog.Warn("settings: ignoring invalid balance_refresh_cron value")
 			}
 		case "balance_refresh_enabled":
 			rt.BalanceRefreshDisabled = !parseBoolSetting(value, !rt.BalanceRefreshDisabled)
 		case "auto_create_model_routes":
 			rt.AutoCreateModelRoutes = parseBoolSetting(value, rt.AutoCreateModelRoutes)
 		case "model_sync_cron":
-			if v := parseJSONSettingString(value); config.ValidateCronExpr(v) {
+			if v, ok := validatedCronSetting(key, parseJSONSettingString(value)); ok {
 				rt.ModelSyncCron = v
-			} else {
-				slog.Warn("settings: ignoring invalid model_sync_cron value")
 			}
 
-		// Site & Branding. An explicit blank is honored: the embedded defaults
-		// are empty strings and the admin write path persists whatever the
-		// operator typed (including ""), so dropping empty values here made a
-		// cleared site name/logo/footer/about/server address reappear as the
-		// env value after a restart — while clearing a webhook URL in the same
-		// form stuck. Both write paths now share one empty-value semantics.
+		// Branding accepts explicit clears, including over env-provided values.
 		case "system_name":
 			rt.SystemName = parseJSONSettingString(value)
 		case "logo":
@@ -392,16 +171,10 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		case "smtp_secure":
 			rt.SmtpSecure = parseBoolSetting(value, rt.SmtpSecure)
 
-		// Log cleanup. The admin write path persists the underscore keys; the
-		// dotted spellings are deprecated read-only aliases (see
-		// logCleanupExplicitKeys). Hydration used to read only the dotted
-		// spellings, which nothing ever wrote, so this whole block was dead
-		// code and persisted log-cleanup settings never reached the snapshot.
+		// Keep the dotted read aliases for older log-cleanup rows.
 		case "log_cleanup_cron":
-			if v := parseJSONSettingString(value); config.ValidateCronExpr(v) {
+			if v, ok := validatedCronSetting(key, parseJSONSettingString(value)); ok {
 				rt.LogCleanupCron = v
-			} else {
-				slog.Warn("settings: ignoring invalid log_cleanup_cron value")
 			}
 		case "log_cleanup_usage_logs_enabled", "log_cleanup.usage_logs_enabled":
 			rt.LogCleanupUsageLogsEnabled = parseBoolSetting(value, rt.LogCleanupUsageLogsEnabled)
@@ -488,14 +261,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 			} else {
 				slog.Warn("settings: ignoring invalid global_allowed_models value")
 			}
-		// Non-destructive: a row hydration cannot read means the persisted
-		// intent is unrecoverable, not that the operator asked for no rules.
-		// Both branches used to assign the parse result directly, and
-		// config.ParseJsonValue encodes failure as nil, so one bad row emptied
-		// a configured rule set on the next restart with nothing in the log.
-		// An explicit clear still works: the admin write path persists JSON
-		// null or `[]` (upsertSettingDB normalizes a nil body value to an empty
-		// slice), both of which parse.
+		// Malformed rules keep the resolved value. JSON null or [] explicitly clears it.
 		case "payload_rules":
 			if rules, err := parseJSONValueSetting(value); err == nil {
 				rt.PayloadRules = rules
@@ -547,14 +313,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		// Stored as {"token_expired":true,"low_balance":false,...}; missing
 		// keys default to enabled (backward-compatible). nil/empty = all enabled.
 		case "notify_task_toggles":
-			// service/notify gates each alert type on this map and treats a
-			// missing key as enabled, so a row hydration cannot read must not
-			// become "every alert type is unmuted": keep the resolved toggles
-			// and say so. The admin write path marshals whatever the request
-			// carried without checking that it is an object of booleans
-			// (handler/admin/settings_apply.go), so a wrong-shaped row is
-			// reachable without hand-editing the table. The loop above already
-			// skipped empty cells, which carry no intent.
+			// Merge only readable overrides. A missing alert type defaults to enabled.
 			if toggles, err := parseNotifyTaskTogglesSetting(value); err == nil {
 				if rt.NotifyTaskToggles == nil {
 					rt.NotifyTaskToggles = map[string]bool{}
@@ -582,257 +341,5 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		slog.Warn("settings: persisted keys not applied at startup hydration",
 			"count", len(unknown),
 			"keys", strings.Join(truncateKeyList(unknown, unknownKeyLogLimit), ","))
-	}
-}
-
-// truncateKeyList caps a key list destined for a single log line, appending a
-// "+N more" marker when it had to cut entries.
-func truncateKeyList(keys []string, limit int) []string {
-	if len(keys) <= limit {
-		return keys
-	}
-	out := append([]string{}, keys[:limit]...)
-	return append(out, fmt.Sprintf("(+%d more)", len(keys)-limit))
-}
-
-// parseStringListSetting decodes a settings-table value into a trimmed,
-// de-duplicated string list. It accepts:
-// - JSON arrays: ["a","b"]
-// - JSON null → empty list
-// - legacy double-encoded JSON arrays: "[\"a\",\"b\"]"
-// - comma-separated plain strings: "a, b"
-
-// ok=false means the value is present but unusable; callers must not overwrite
-// the in-memory setting with an empty default in that case.
-func parseStringListSetting(raw string) ([]string, bool) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, false
-	}
-
-	var decoded any
-	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
-		// Non-JSON legacy plain string (comma-separated).
-		return normalizeStringList(raw), true
-	}
-
-	switch v := decoded.(type) {
-	case nil:
-		return []string{}, true
-	case []any:
-		return normalizeStringListAny(v), true
-	case []string:
-		return normalizeStringList(v...), true
-	case string:
-		// Double-encoded JSON array/string, or comma-separated plain string.
-		inner := strings.TrimSpace(v)
-		if inner == "" {
-			return []string{}, true
-		}
-		var nested any
-		if err := json.Unmarshal([]byte(inner), &nested); err == nil {
-			switch nv := nested.(type) {
-			case nil:
-				return []string{}, true
-			case []any:
-				return normalizeStringListAny(nv), true
-			case []string:
-				return normalizeStringList(nv...), true
-			case string:
-				return normalizeStringList(nv), true
-			default:
-				return nil, false
-			}
-		}
-		return normalizeStringList(inner), true
-	default:
-		return nil, false
-	}
-}
-
-func normalizeStringListAny(items []any) []string {
-	out := make([]string, 0, len(items))
-	seen := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		s, ok := item.(string)
-		if !ok {
-			continue
-		}
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		if _, exists := seen[s]; exists {
-			continue
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
-	}
-	return out
-}
-
-func normalizeStringList(parts ...string) []string {
-	out := make([]string, 0, len(parts))
-	seen := make(map[string]struct{}, len(parts))
-	for _, part := range parts {
-		for _, item := range strings.Split(part, ",") {
-			s := strings.TrimSpace(item)
-			if s == "" {
-				continue
-			}
-			if _, exists := seen[s]; exists {
-				continue
-			}
-			seen[s] = struct{}{}
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-// parseNumberSetting decodes a JSON number setting. The admin write path
-// marshals ints and floats with encoding/json, so values arrive as "30" or
-// "0.25". Unlike parseFloatSetting it keeps negative numbers, letting each
-// case apply the exact clamp config.Load uses for the matching env var instead
-// of silently substituting the fallback. Unparseable or non-finite values keep
-// the fallback.
-func parseNumberSetting(raw string, fallback float64) float64 {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return fallback
-	}
-	v, err := strconv.ParseFloat(raw, 64)
-	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
-		return fallback
-	}
-	return v
-}
-
-// parseIntSetting mirrors the "max(lo, trunc(n))" shape config.Load uses for
-// its integer settings, so a number persisted through the admin API is clamped
-// identically to the same number supplied through env.
-func parseIntSetting(raw string, fallback float64, lo int) int {
-	return config.MaxInt(lo, int(math.Trunc(parseNumberSetting(raw, fallback))))
-}
-
-// parseBoolSetting parses a boolean setting value.
-func parseBoolSetting(value string, fallback bool) bool {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	if normalized == "" {
-		return fallback
-	}
-	return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on"
-}
-
-// parseInt parses an integer setting value, returning fallback on failure.
-func parseInt(value string, fallback int) int {
-	v, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil {
-		return fallback
-	}
-	return v
-}
-
-// parseFloatSetting parses a non-negative float setting; returns fallback on
-// parse error, NaN, Inf, or negative. 0 is preserved (free cache read).
-func parseFloatSetting(value string, fallback float64) float64 {
-	v, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-	if err != nil || !(v >= 0) || isNaNOrInf(v) {
-		return fallback
-	}
-	return v
-}
-
-func isNaNOrInf(v float64) bool {
-	return v != v || v > 1e308 || v < -1e308
-}
-
-func parseJSONSettingString(value string) string {
-	value = strings.TrimSpace(value)
-	var decoded string
-	if err := json.Unmarshal([]byte(value), &decoded); err == nil {
-		return strings.TrimSpace(decoded)
-	}
-	return strings.TrimSpace(value)
-}
-
-// parseJSONValueSetting decodes a settings row that holds arbitrary JSON. An
-// empty cell, or one encoding/json cannot read, means the persisted intent is
-// unrecoverable: the caller must keep the value it already resolved instead of
-// assigning the failure result, because config.ParseJsonValue encodes that
-// failure as nil and a direct assignment turned one unreadable row into an
-// empty rule set. A readable JSON null IS intent ("no rules") and comes back as
-// (nil, nil).
-func parseJSONValueSetting(raw string) (any, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return nil, fmt.Errorf("value is empty")
-	}
-	var decoded any
-	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
-		return nil, fmt.Errorf("not valid JSON: %v", err)
-	}
-	return decoded, nil
-}
-
-// parseNotifyTaskTogglesSetting decodes the per-alert-type mute map. Only a
-// JSON object of booleans — or null, meaning "no per-type overrides" — carries
-// a readable intent; an array, a bare scalar or a non-boolean flag is a row the
-// caller must refuse to apply.
-func parseNotifyTaskTogglesSetting(raw string) (map[string]bool, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return nil, fmt.Errorf("value is empty")
-	}
-	var decoded any
-	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
-		return nil, fmt.Errorf("not valid JSON: %v", err)
-	}
-	switch v := decoded.(type) {
-	case nil:
-		return map[string]bool{}, nil
-	case map[string]any:
-		toggles := make(map[string]bool, len(v))
-		for name, flag := range v {
-			enabled, ok := flag.(bool)
-			if !ok {
-				return nil, fmt.Errorf("toggle %q is %s, want a boolean",
-					name, describeJSONSettingValue(flag))
-			}
-			toggles[name] = enabled
-		}
-		return toggles, nil
-	default:
-		return nil, fmt.Errorf("JSON %s, want an object of booleans", describeJSONSettingValue(decoded))
-	}
-}
-
-// warnUnreadableSettingRow logs the one line an operator needs when hydration
-// refuses a persisted row: which key, why, and which value the process keeps.
-// A refusal the log does not mention leaves the settings table and
-// GET /api/settings/runtime disagreeing with nothing to explain the gap.
-func warnUnreadableSettingRow(key, reason string, kept any) {
-	slog.Warn("settings: persisted value not applied, keeping the resolved value",
-		"key", key, "reason", reason, "kept", kept)
-}
-
-// describeJSONSettingValue names the shape of a resolved JSON setting so a
-// warning can say what the process keeps without echoing the whole blob.
-func describeJSONSettingValue(v any) string {
-	switch value := v.(type) {
-	case nil:
-		return "null"
-	case map[string]any:
-		return fmt.Sprintf("object with %d keys", len(value))
-	case []any:
-		return fmt.Sprintf("array with %d items", len(value))
-	case string:
-		return "string"
-	case bool:
-		return fmt.Sprintf("bool %t", value)
-	case float64:
-		return "number"
-	default:
-		return fmt.Sprintf("%T", v)
 	}
 }

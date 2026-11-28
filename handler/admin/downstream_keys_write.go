@@ -55,7 +55,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 			return
 		}
 		var userID int64
-		if err := h.db.Get(&userID, h.db.Rebind(`SELECT u.id FROM gateway_users u JOIN gateway_user_groups g ON g.id=u.group_id WHERE u.id=? AND u.enabled=TRUE AND g.enabled=TRUE`), *body.OwnerUserID); err != nil {
+		if err := h.db.Get(&userID, `SELECT u.id FROM gateway_users u JOIN gateway_user_groups g ON g.id=u.group_id WHERE u.id=? AND u.enabled=TRUE AND g.enabled=TRUE`, *body.OwnerUserID); err != nil {
 			if err == sql.ErrNoRows {
 				writeError(w, http.StatusBadRequest, "user or group is unavailable")
 			} else {
@@ -81,7 +81,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 
 	// Check for duplicate key
 	var count int
-	h.db.Get(&count, rebindAdminQuery(h.db, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ?"), body.Key)
+	h.db.Get(&count, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ?", body.Key)
 	if count > 0 {
 		writeError(w, http.StatusConflict, "API key already exists")
 		return
@@ -166,7 +166,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	ipAllowlist := normalizeIPListPtr(body.IPAllowlist)
 	ipBlocklist := normalizeIPListPtr(body.IPBlocklist)
 
-	id, err := execInsertID(h.db,
+	id, err := execInsertID(h.db.DB,
 		`INSERT INTO downstream_api_keys
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, key_weight, excluded_site_ids, excluded_credential_refs,
@@ -531,7 +531,7 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 			return
 		}
 		var dupCount int
-		h.db.Get(&dupCount, rebindAdminQuery(h.db, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ? AND id != ?"), key, id)
+		h.db.Get(&dupCount, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ? AND id != ?", key, id)
 		if dupCount > 0 {
 			writeError(w, http.StatusConflict, "API key already exists")
 			return
@@ -563,14 +563,13 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	allowedSitesJSON := toPersistenceJSON(allowedSiteIds)
 	allowedCredRefsJSON := toPersistenceJSON(allowedCredentialRefs)
 	_, err = h.db.Exec(
-		rebindAdminQuery(h.db,
-			`UPDATE downstream_api_keys SET
+		`UPDATE downstream_api_keys SET
 			name = ?, key = ?, description = ?, group_name = ?, tags = ?,
 			enabled = ?, expires_at = ?, max_cost = ?, max_requests = ?, max_rpm = ?, max_tpm = ?,
 			supported_models = ?, allowed_route_ids = ?, site_weight_multipliers = ?, key_weight = ?,
 			excluded_site_ids = ?, excluded_credential_refs = ?,
 				allowed_site_ids = ?, allowed_credential_refs = ?, proxy_url = ?, ip_allowlist = ?, ip_blocklist = ?, access_policy = ?, updated_at = ?
-		WHERE id = ?`),
+		WHERE id = ?`,
 		name, key, description, groupName, tagsJSON,
 		enabled, expiresAt, maxCost, maxRequests, maxRpm, maxTpm,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight,
@@ -622,7 +621,7 @@ func (h *downstreamKeysHandler) resetUsage(w http.ResponseWriter, r *http.Reques
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET used_cost = 0, used_requests = 0, updated_at = ? WHERE id = ?"), now, id); err != nil {
+	if _, err := h.db.Exec("UPDATE downstream_api_keys SET used_cost = 0, used_requests = 0, updated_at = ? WHERE id = ?", now, id); err != nil {
 		writeError(w, http.StatusInternalServerError, "reset failed")
 		return
 	}
@@ -647,7 +646,7 @@ func (h *downstreamKeysHandler) deleteKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if _, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM downstream_api_keys WHERE id = ?"), id); err != nil {
+	if _, err := h.db.Exec("DELETE FROM downstream_api_keys WHERE id = ?", id); err != nil {
 		writeError(w, http.StatusInternalServerError, "delete failed")
 		return
 	}
@@ -700,33 +699,33 @@ func (h *downstreamKeysHandler) batchKeys(w http.ResponseWriter, r *http.Request
 		now := time.Now().UTC().Format(time.RFC3339)
 		switch action {
 		case "delete":
-			if _, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM downstream_api_keys WHERE id = ?"), id); err != nil {
+			if _, err := h.db.Exec("DELETE FROM downstream_api_keys WHERE id = ?", id); err != nil {
 				failedItems = append(failedItems, map[string]any{"id": id, "message": "delete failed"})
 				continue
 			}
 		case "resetUsage":
-			if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET used_cost = 0, used_requests = 0, updated_at = ? WHERE id = ?"), now, id); err != nil {
+			if _, err := h.db.Exec("UPDATE downstream_api_keys SET used_cost = 0, used_requests = 0, updated_at = ? WHERE id = ?", now, id); err != nil {
 				failedItems = append(failedItems, map[string]any{"id": id, "message": "reset failed"})
 				continue
 			}
 		case "enable":
-			if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET enabled = ?, updated_at = ? WHERE id = ?"), true, now, id); err != nil {
+			if _, err := h.db.Exec("UPDATE downstream_api_keys SET enabled = ?, updated_at = ? WHERE id = ?", true, now, id); err != nil {
 				failedItems = append(failedItems, map[string]any{"id": id, "message": "enable failed"})
 				continue
 			}
 		case "disable":
-			if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET enabled = ?, updated_at = ? WHERE id = ?"), false, now, id); err != nil {
+			if _, err := h.db.Exec("UPDATE downstream_api_keys SET enabled = ?, updated_at = ? WHERE id = ?", false, now, id); err != nil {
 				failedItems = append(failedItems, map[string]any{"id": id, "message": "disable failed"})
 				continue
 			}
 		case "updateMetadata":
 			if body.GroupOperation != nil && *body.GroupOperation == "set" && body.GroupName != nil {
-				if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET group_name = ?, updated_at = ? WHERE id = ?"), *body.GroupName, now, id); err != nil {
+				if _, err := h.db.Exec("UPDATE downstream_api_keys SET group_name = ?, updated_at = ? WHERE id = ?", *body.GroupName, now, id); err != nil {
 					failedItems = append(failedItems, map[string]any{"id": id, "message": "metadata update failed"})
 					continue
 				}
 			} else if body.GroupOperation != nil && *body.GroupOperation == "clear" {
-				if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET group_name = NULL, updated_at = ? WHERE id = ?"), now, id); err != nil {
+				if _, err := h.db.Exec("UPDATE downstream_api_keys SET group_name = NULL, updated_at = ? WHERE id = ?", now, id); err != nil {
 					failedItems = append(failedItems, map[string]any{"id": id, "message": "metadata update failed"})
 					continue
 				}

@@ -51,7 +51,7 @@ func awaitRebuildTask(t *testing.T, r chi.Router, id string) map[string]any {
 func TestTokenRoutes_RebuildAsyncAcknowledgesAndDeduplicatesBeforeWorkCompletes(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	resetBackgroundTasksForTests()
-	RegisterTasksRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
 	started, release := make(chan struct{}), make(chan struct{})
 	var releaseOnce sync.Once
 	var calls atomic.Int32
@@ -118,7 +118,7 @@ func TestTokenRoutes_RebuildAsyncAcknowledgesAndDeduplicatesBeforeWorkCompletes(
 func TestTokenRoutes_RebuildAsyncActuallyWritesChannels(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	resetBackgroundTasksForTests()
-	RegisterTasksRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
 	t.Cleanup(func() { resetBackgroundTasksForTests(); SetBackgroundTaskDB(nil) })
 	routeID, _, tokenID := seedRouteChannelRefs(t, db)
 	if _, err := db.Exec(`INSERT INTO token_model_availability (token_id, model_name, available) VALUES (?, 'gpt-4o', TRUE)`, tokenID); err != nil {
@@ -150,7 +150,7 @@ func TestTokenRoutes_RebuildAsyncActuallyWritesChannels(t *testing.T) {
 func TestTokenRoutes_RebuildAsyncFailureRemainsObservable(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	resetBackgroundTasksForTests()
-	RegisterTasksRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
 	t.Cleanup(func() { resetBackgroundTasksForTests(); SetBackgroundTaskDB(nil) })
 	db.Close()
 	rec := httptest.NewRecorder()

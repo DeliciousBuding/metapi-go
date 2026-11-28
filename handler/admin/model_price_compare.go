@@ -133,7 +133,7 @@ func (h *statsHandler) refreshPriceCompareAccount(w http.ResponseWriter, r *http
 		writeError(w, http.StatusBadRequest, "invalid accountId")
 		return
 	}
-	if err := service.RefreshAccountPricing(r.Context(), h.db, id); err != nil {
+	if err := service.RefreshAccountPricing(r.Context(), h.db.DB, id); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -141,7 +141,7 @@ func (h *statsHandler) refreshPriceCompareAccount(w http.ResponseWriter, r *http
 }
 
 func (h *statsHandler) topModelsForPriceCompare(limit int, since string) ([]string, error) {
-	rows, err := queryRowsErr(h.db, `
+	rows, err := queryRowsErr(h.db.DB, `
 		SELECT COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '') AS model,
 			COUNT(*) AS calls
 		FROM proxy_logs pl
@@ -174,7 +174,7 @@ func (h *statsHandler) topModelsForPriceCompare(limit int, since string) ([]stri
 		return out, nil
 	}
 
-	avail, err := queryRowsErr(h.db, `
+	avail, err := queryRowsErr(h.db.DB, `
 		SELECT model_name AS model, COUNT(*) AS cnt
 		FROM model_availability
 		GROUP BY model_name
@@ -233,7 +233,7 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string, ex
 			AND LOWER(COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')) %s ?
 		GROUP BY pl.account_id, COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')
 	`, modelOperator)
-	obsRows, err := queryRowsErr(h.db, observedQuery, since, modelArgument)
+	obsRows, err := queryRowsErr(h.db.DB, observedQuery, since, modelArgument)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string, ex
 		FROM model_availability
 		WHERE LOWER(model_name) %s ?
 	`, modelOperator)
-	availRows, err := queryRowsErr(h.db, availabilityQuery, modelArgument)
+	availRows, err := queryRowsErr(h.db.DB, availabilityQuery, modelArgument)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string, ex
 	}
 
 	// Active accounts on non-disabled sites.
-	accountRows, err := queryRowsErr(h.db, `
+	accountRows, err := queryRowsErr(h.db.DB, `
 		SELECT
 			s.id AS site_id,
 			s.name AS site_name,

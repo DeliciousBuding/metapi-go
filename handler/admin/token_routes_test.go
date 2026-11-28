@@ -1083,7 +1083,7 @@ func TestRouteDecision_WithSQLiteRouterFixture(t *testing.T) {
 	refresher := &fakeDecisionRefresher{exact: 1}
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{Router: fake, Decisions: refresher})
-	RegisterTasksRoutes(r, db.DB)
+	RegisterTasksRoutes(r, db)
 
 	resp := doGet(t, r, "/api/routes/decision?model=gpt-4o")
 	if resp.Code != http.StatusOK {
