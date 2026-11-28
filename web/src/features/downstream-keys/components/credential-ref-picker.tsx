@@ -10,12 +10,9 @@
 // with collapsible site/account groups so the tree stays navigable on large
 // fleets.
 
-import { ChevronRight, X } from 'lucide-react'
 import { useMemo, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { formLabelIdFor } from '@/components/ui/form'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -24,30 +21,23 @@ import {
   type Account,
   type AccountToken,
 } from '@/features/accounts'
-import { useSites, type Site } from '@/features/sites'
-import { cn } from '@/lib/utils'
+import { useSites } from '@/features/sites'
 
 import { useScopeSelectionFocus } from '../hooks/use-scope-selection-focus'
-import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
 import {
   credentialRefKey,
   serializeCredentialRefs,
   type CredentialRef,
 } from '../lib/credential-refs'
+import { CredentialRefCandidateList } from './credential-ref-candidate-list'
+import { useCredentialRefExpansion } from './credential-ref-candidates'
+import { UnresolvedCredentialRefs } from './credential-ref-unresolved'
 import { ScopePickerToolbar } from './scope-picker-toolbar'
 
 type CredentialRefPickerProps = {
   value: CredentialRef[]
   onChange: (refs: CredentialRef[]) => void
 } & Omit<ComponentProps<'div'>, 'onChange'>
-
-/** Machine-readable description for refs whose upstream object is gone. */
-function describeUnresolvedRef(ref: CredentialRef): string {
-  const base = `${ref.kind} · siteId ${ref.siteId} · accountId ${ref.accountId}`
-  return ref.kind === 'account_token'
-    ? `${base} · tokenId ${ref.tokenId}`
-    : base
-}
 
 export function CredentialRefPicker({
   value,
@@ -62,8 +52,6 @@ export function CredentialRefPicker({
   const [search, setSearch] = useState('')
   const [onlySelected, setOnlySelected] = useState(false)
   const focus = useScopeSelectionFocus()
-  const query = search.trim().toLocaleLowerCase()
-  const matches = (text: string) => text.toLocaleLowerCase().includes(query)
   const sitesQuery = useSites()
   const accountsQuery = useAccounts()
   const tokensQuery = useAllAccountTokens()
@@ -73,23 +61,7 @@ export function CredentialRefPicker({
     [value]
   )
 
-  // Sites (and token lists) holding a selection start expanded so edit mode
-  // reveals the checked rows immediately. Mount-only state: the hosting form
-  // remounts per sheet open, so a stale expansion set never leaks across
-  // keys.
-  const [expandedSiteIds, setExpandedSiteIds] = useState<Set<number>>(
-    () => new Set(value.map((ref) => ref.siteId))
-  )
-  const [expandedTokenAccounts, setExpandedTokenAccounts] = useState<
-    Set<number>
-  >(
-    () =>
-      new Set(
-        value
-          .filter((ref) => ref.kind === 'account_token')
-          .map((ref) => ref.accountId)
-      )
-  )
+  const expansion = useCredentialRefExpansion(value)
 
   const sites = useMemo(() => sitesQuery.data ?? [], [sitesQuery.data])
 
@@ -116,30 +88,6 @@ export function CredentialRefPicker({
     }
     return map
   }, [tokensQuery.data])
-
-  function toggleSite(siteId: number) {
-    setExpandedSiteIds((previous) => {
-      const next = new Set(previous)
-      if (next.has(siteId)) {
-        next.delete(siteId)
-      } else {
-        next.add(siteId)
-      }
-      return next
-    })
-  }
-
-  function toggleTokenList(accountId: number) {
-    setExpandedTokenAccounts((previous) => {
-      const next = new Set(previous)
-      if (next.has(accountId)) {
-        next.delete(accountId)
-      } else {
-        next.add(accountId)
-      }
-      return next
-    })
-  }
 
   function toggleRef(ref: CredentialRef, checked: boolean) {
     const key = credentialRefKey(ref)
@@ -181,203 +129,6 @@ export function CredentialRefPicker({
     )
   }
 
-  // Dangling refs: stored refs whose site/account/token no longer exists.
-  // They never match a candidate (a dangling allow ref fails closed) and the
-  // backend rejects writing them back, so surface them for explicit removal
-  // instead of hiding them inside the tree.
-  const knownSiteIds = new Set(sites.map((site) => site.id))
-  const knownAccountIds = new Set(
-    (accountsQuery.data?.accounts ?? []).map((account) => account.id)
-  )
-  const knownTokenIds = new Set(
-    (tokensQuery.data ?? []).map((token) => token.id)
-  )
-  const unresolvedRefs = value.filter((ref) => {
-    if (!knownSiteIds.has(ref.siteId)) return true
-    if (!knownAccountIds.has(ref.accountId)) return true
-    return ref.kind === 'account_token' && !knownTokenIds.has(ref.tokenId)
-  })
-
-  function renderAccount(site: Site, account: Account) {
-    const accountMatches = matches(
-      `${site.name} ${accountDisplayName(account)} ${account.id}`
-    )
-    const accountTokens = (tokensByAccount.get(account.id) ?? []).filter(
-      (token) =>
-        (!onlySelected ||
-          selectedKeys.has(
-            credentialRefKey({
-              kind: 'account_token',
-              siteId: site.id,
-              accountId: account.id,
-              tokenId: token.id,
-            })
-          )) &&
-        (accountMatches || matches(`${tokenDisplayName(token)} ${token.id}`))
-    )
-    const tokensExpanded =
-      onlySelected || Boolean(query) || expandedTokenAccounts.has(account.id)
-    // The snapshot redacts apiToken to apiTokenMasked, so the masked field
-    // is the honest "account has a default API key" indicator.
-    const hasDefaultKey = Boolean(account.apiTokenMasked)
-    const defaultRef: CredentialRef = {
-      kind: 'default_api_key',
-      siteId: site.id,
-      accountId: account.id,
-    }
-    const accountName = accountDisplayName(account)
-    const showDefault =
-      (!onlySelected || selectedKeys.has(credentialRefKey(defaultRef))) &&
-      accountMatches
-    const accountSelectedCount = value.filter(
-      (ref) => ref.siteId === site.id && ref.accountId === account.id
-    ).length
-    if (!showDefault && accountTokens.length === 0) return null
-
-    return (
-      <div key={account.id}>
-        <div className='flex items-center gap-1'>
-          {accountTokens.length > 0 ? (
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon-sm'
-              aria-expanded={tokensExpanded}
-              aria-label={t(
-                'settings.downstream.keys.credentials.expandTokensAria',
-                { account: accountName }
-              )}
-              onClick={() => toggleTokenList(account.id)}
-            >
-              <ChevronRight
-                aria-hidden='true'
-                className={cn(
-                  'transition-transform',
-                  tokensExpanded && 'rotate-90'
-                )}
-              />
-            </Button>
-          ) : (
-            <span aria-hidden='true' className='w-8 shrink-0' />
-          )}
-          {showDefault ? (
-            <label className='flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-sm'>
-              <input
-                type='checkbox'
-                checked={selectedKeys.has(credentialRefKey(defaultRef))}
-                disabled={
-                  !hasDefaultKey &&
-                  !selectedKeys.has(credentialRefKey(defaultRef))
-                }
-                onChange={(event) =>
-                  toggleRef(defaultRef, event.target.checked)
-                }
-              />
-              <span className='truncate'>{accountName}</span>
-              <span className='text-muted-foreground shrink-0 text-xs'>
-                {hasDefaultKey
-                  ? t('settings.downstream.keys.credentials.defaultApiKey')
-                  : t('settings.downstream.keys.credentials.noDefaultKey')}
-              </span>
-            </label>
-          ) : (
-            <span className='min-w-0 flex-1 text-sm break-words'>
-              {accountName}
-            </span>
-          )}
-          {accountSelectedCount > 0 && (
-            <Badge variant='secondary'>
-              {t('settings.downstream.keys.picker.selected', {
-                count: accountSelectedCount,
-              })}
-            </Badge>
-          )}
-        </div>
-        {tokensExpanded
-          ? accountTokens.map((token) => {
-              const tokenRef: CredentialRef = {
-                kind: 'account_token',
-                siteId: site.id,
-                accountId: account.id,
-                tokenId: token.id,
-              }
-              return (
-                <label
-                  key={token.id}
-                  className='text-muted-foreground ml-9 flex cursor-pointer items-center gap-2 py-0.5 text-xs'
-                >
-                  <input
-                    type='checkbox'
-                    checked={selectedKeys.has(credentialRefKey(tokenRef))}
-                    onChange={(event) =>
-                      toggleRef(tokenRef, event.target.checked)
-                    }
-                  />
-                  <span className='truncate'>
-                    {t('settings.downstream.keys.credentials.tokenPrefix')}{' '}
-                    {tokenDisplayName(token)}
-                  </span>
-                </label>
-              )
-            })
-          : null}
-      </div>
-    )
-  }
-
-  function renderSite(site: Site) {
-    const siteAccounts = accountsBySite.get(site.id) ?? []
-    const expanded =
-      onlySelected || Boolean(query) || expandedSiteIds.has(site.id)
-    const accountRows = siteAccounts
-      .map((account) => renderAccount(site, account))
-      .filter((row) => row !== null)
-    if (accountRows.length === 0 && (onlySelected || query)) return null
-    const selectedCount = value.filter((ref) => ref.siteId === site.id).length
-
-    return (
-      <div key={site.id} className='border-border border-b last:border-b-0'>
-        <button
-          type='button'
-          aria-expanded={expanded}
-          aria-label={t('settings.downstream.keys.credentials.expandSiteAria', {
-            site: site.name,
-          })}
-          onClick={() => toggleSite(site.id)}
-          className='hover:bg-accent flex w-full items-center gap-2 px-2 py-1.5 text-sm'
-        >
-          <ChevronRight
-            aria-hidden='true'
-            className={cn(
-              'shrink-0 transition-transform',
-              expanded && 'rotate-90'
-            )}
-          />
-          <span className='flex-1 truncate text-left'>{site.name}</span>
-          {selectedCount > 0 ? (
-            <Badge variant='secondary'>
-              {t('settings.downstream.keys.credentials.selectedCount', {
-                count: selectedCount,
-              })}
-            </Badge>
-          ) : null}
-        </button>
-        {expanded ? (
-          <div className='space-y-0.5 px-2 pb-2'>
-            {siteAccounts.length === 0 ? (
-              <p className='text-muted-foreground ps-9 text-xs'>
-                {t('settings.downstream.keys.credentials.noAccounts')}
-              </p>
-            ) : (
-              accountRows
-            )}
-          </div>
-        ) : null}
-      </div>
-    )
-  }
-
-  const siteRows = sites.map(renderSite).filter((row) => row !== null)
   return (
     <div
       data-testid='credential-ref-picker'
@@ -402,48 +153,24 @@ export function CredentialRefPicker({
         ref={focus.listRef}
         className='border-border max-h-56 overflow-y-auto rounded-md border'
       >
-        {sites.length === 0 && (
-          <p className='text-muted-foreground p-2 text-xs'>
-            {t('settings.downstream.keys.credentials.noSites')}
-          </p>
-        )}
-        {sites.length > 0 && siteRows.length > 0 && siteRows}
-        {sites.length > 0 && siteRows.length === 0 && (
-          <p className='text-muted-foreground p-2 text-xs'>
-            {t('settings.downstream.keys.picker.noMatches')}
-          </p>
-        )}
-        {unresolvedRefs.length > 0 ? (
-          <div className='border-border border-t p-2'>
-            <p className='text-xs font-medium'>
-              {t('settings.downstream.keys.credentials.unresolvedTitle')}
-            </p>
-            <ul className='mt-1 space-y-1'>
-              {unresolvedRefs.map((ref) => (
-                <li
-                  key={credentialRefKey(ref)}
-                  className='text-muted-foreground flex items-center gap-2 text-xs'
-                >
-                  <span className='flex-1 truncate font-mono'>
-                    {describeUnresolvedRef(ref)}
-                  </span>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon-sm'
-                    data-unresolved-ref
-                    aria-label={t(
-                      'settings.downstream.keys.credentials.unresolvedRemoveAria'
-                    )}
-                    onClick={() => toggleRef(ref, false)}
-                  >
-                    <X aria-hidden='true' />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+        <CredentialRefCandidateList
+          sites={sites}
+          accountsBySite={accountsBySite}
+          tokensByAccount={tokensByAccount}
+          value={value}
+          selectedKeys={selectedKeys}
+          search={search}
+          onlySelected={onlySelected}
+          expansion={expansion}
+          toggleRef={toggleRef}
+        />
+        <UnresolvedCredentialRefs
+          value={value}
+          sites={sites}
+          accounts={accountsQuery.data?.accounts ?? []}
+          tokens={tokensQuery.data ?? []}
+          onRemove={(ref) => toggleRef(ref, false)}
+        />
       </div>
     </div>
   )

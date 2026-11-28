@@ -7,45 +7,27 @@ import {
   Search,
   Video,
 } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import type {
-  ImportedEndpoint,
-  ImportedEndpointConfig,
-} from '@/lib/api/imported-upstreams'
 
 import {
-  availableProfiles,
-  connectionSchema,
   upstreamProtocolGroups,
   upstreamProtocols,
 } from '../lib/upstream-config'
-import { UpstreamModelWireEditor } from './upstream-model-wire-editor'
+import {
+  endpointValidation,
+  type EndpointEditorProps,
+} from './upstream-endpoint-config'
+import { EndpointRow } from './upstream-endpoint-row'
 
-type EndpointEditorProps = {
-  value: ImportedEndpointConfig
-  onChange: (value: ImportedEndpointConfig) => void
-  provider: string
-  disabled?: boolean
-}
 const groupIcons = {
   conversation: MessageSquare,
   retrieval: Search,
@@ -63,27 +45,10 @@ export function UpstreamEndpointsEditor(props: EndpointEditorProps) {
   const form = useFormContext()
   const showValidation = !!form?.formState.errors.endpointConfig
   const validationAttempt = form?.formState.submitCount ?? 0
-  const invalidKeys = new Set(
-    upstreamProtocols
-      .filter((protocol) => {
-        const endpoint = props.value[protocol.key]
-        return (
-          showValidation &&
-          endpoint &&
-          !connectionSchema.shape.endpointConfig.safeParse({
-            [protocol.key]: endpoint,
-          }).success
-        )
-      })
-      .map((protocol) => protocol.key)
+  const { invalidKeys, invalidGroups } = endpointValidation(
+    props.value,
+    showValidation
   )
-  const invalidGroups = upstreamProtocolGroups
-    .filter((group) =>
-      upstreamProtocols.some(
-        (protocol) => protocol.group === group && invalidKeys.has(protocol.key)
-      )
-    )
-    .join(',')
   useEffect(() => {
     if (!invalidGroups) return
     setExpanded((previous) => ({
@@ -143,331 +108,6 @@ export function UpstreamEndpointsEditor(props: EndpointEditorProps) {
           </Collapsible>
         )
       })}
-    </div>
-  )
-}
-
-function EndpointRow(
-  props: EndpointEditorProps & {
-    protocol: (typeof upstreamProtocols)[number]
-    invalid: boolean
-    validationAttempt: number
-  }
-) {
-  const { t } = useTranslation()
-  const id = useId()
-  const protocol = props.protocol
-  const profiles = availableProfiles(protocol.key, props.provider)
-  const endpoint = props.value[protocol.key]
-  let endpointUrlLabel = 'channels.upstream.endpointUrl'
-  if (endpoint?.profile === 'bedrock') {
-    endpointUrlLabel = 'channels.upstream.modelPrefixUrl'
-  }
-  if (
-    endpoint?.profile === 'vertex' ||
-    endpoint?.profile === 'vertex-anthropic'
-  ) {
-    endpointUrlLabel = 'channels.upstream.vertexModelPrefixUrl'
-  }
-  const optionalAuth =
-    endpoint?.profile === 'ollama' || endpoint?.profile === 'ollama-messages'
-  const authModes =
-    protocol.authModes ??
-    (optionalAuth
-      ? ['bearer', 'none']
-      : ['bearer', 'x-api-key', 'x-goog-api-key'])
-  function authLabel(value: unknown) {
-    if (value === 'none') return t('channels.upstream.noAuthentication')
-    return value === 'bearer' ? 'Bearer' : String(value ?? '')
-  }
-  const [editing, setEditing] = useState(false)
-  useEffect(() => {
-    if (props.invalid) setEditing(true)
-  }, [props.invalid, props.validationAttempt])
-  function update(patch: Partial<ImportedEndpoint>) {
-    if (endpoint) {
-      props.onChange({
-        ...props.value,
-        [protocol.key]: { ...endpoint, ...patch },
-      })
-    }
-  }
-  return (
-    <div
-      role='group'
-      aria-label={t(`channels.capabilities.names.${protocol.key}`)}
-      className='min-w-0'
-    >
-      <div className='flex min-w-0 items-center gap-3 px-4 py-2.5'>
-        <label className='flex shrink-0 cursor-pointer items-center gap-3 text-sm font-medium'>
-          <Checkbox
-            checked={!!endpoint}
-            disabled={props.disabled}
-            onCheckedChange={(checked) => {
-              const next = { ...props.value }
-              setEditing(checked === true)
-              if (checked) {
-                let auth: ImportedEndpoint['auth'] = 'bearer'
-                if (protocol.key === 'messages') {
-                  auth = 'x-api-key'
-                }
-                if (
-                  protocol.key === 'gemini' ||
-                  protocol.key === 'geminiEmbeddings'
-                ) {
-                  auth = 'x-goog-api-key'
-                }
-                next[protocol.key] = {
-                  url: '',
-                  auth,
-                  ...(protocol.requiredProfile
-                    ? { profile: protocol.requiredProfile }
-                    : {}),
-                }
-              } else delete next[protocol.key]
-              props.onChange(next)
-            }}
-          />
-          {t(`channels.capabilities.names.${protocol.key}`)}
-        </label>
-        {endpoint && (
-          <Button
-            type='button'
-            variant='ghost'
-            size='sm'
-            className='text-muted-foreground min-w-0 flex-1 justify-end gap-2 px-1 text-sm font-normal'
-            aria-label={t('channels.capabilities.configureEndpoint', {
-              name: t(`channels.capabilities.names.${protocol.key}`),
-            })}
-            aria-expanded={editing}
-            aria-controls={editing ? `${id}-${protocol.key}-editor` : undefined}
-            aria-invalid={props.invalid || undefined}
-            disabled={props.disabled}
-            onClick={() => setEditing((current) => !current)}
-          >
-            <span className='truncate' title={endpoint.url}>
-              {endpoint.url || t('channels.upstream.endpointUrl')}
-            </span>
-            <ChevronDown
-              className={`size-4 shrink-0 transition-transform ${editing ? 'rotate-180' : ''}`}
-              aria-hidden='true'
-            />
-          </Button>
-        )}
-      </div>
-      {endpoint && editing && (
-        <div
-          id={`${id}-${protocol.key}-editor`}
-          className='space-y-3 border-t px-4 py-3'
-        >
-          <label
-            className='block space-y-1.5 text-sm font-medium'
-            htmlFor={`${id}-${protocol.key}-url`}
-          >
-            <span>{t(endpointUrlLabel)}</span>
-            <Input
-              id={`${id}-${protocol.key}-url`}
-              value={endpoint.url}
-              aria-invalid={
-                (props.invalid &&
-                  !connectionSchema.shape.baseUrl.safeParse(endpoint.url)
-                    .success) ||
-                undefined
-              }
-              disabled={props.disabled}
-              onChange={(event) => update({ url: event.target.value })}
-              placeholder={
-                endpoint.profile === 'bedrock'
-                  ? 'https://bedrock-runtime.us-east-1.amazonaws.com/model'
-                  : 'https://…'
-              }
-            />
-          </label>
-          <div className='grid gap-3 sm:grid-cols-2'>
-            <div className='space-y-1.5'>
-              <label
-                className='text-sm font-medium'
-                id={`${id}-${protocol.key}-auth`}
-              >
-                {t('channels.upstream.auth')}
-              </label>
-              <Select
-                value={endpoint.auth}
-                disabled={
-                  props.disabled ||
-                  authModes.length === 1 ||
-                  (!!endpoint.profile && !optionalAuth)
-                }
-                onValueChange={(value) =>
-                  value && update({ auth: value as ImportedEndpoint['auth'] })
-                }
-              >
-                <SelectTrigger
-                  className='w-full'
-                  aria-labelledby={`${id}-${protocol.key}-auth`}
-                >
-                  <SelectValue>{authLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent aria-labelledby={`${id}-${protocol.key}-auth`}>
-                  {authModes.map((auth) => (
-                    <SelectItem key={auth} value={auth}>
-                      {authLabel(auth)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {(['chat', 'responses', 'messages'].includes(protocol.key) ||
-              profiles.length > 0 ||
-              endpoint.profile) && (
-              <div className='space-y-1.5'>
-                <label
-                  className='text-sm font-medium'
-                  id={`${id}-${protocol.key}-profile`}
-                >
-                  {t('channels.upstream.profile')}
-                </label>
-                <Select
-                  value={
-                    endpoint.profile ?? protocol.requiredProfile ?? 'generic'
-                  }
-                  disabled={props.disabled || !!protocol.requiredProfile}
-                  onValueChange={(value) => {
-                    if (value) {
-                      const modelPath = [
-                        'bedrock',
-                        'vertex',
-                        'vertex-anthropic',
-                      ].includes(value)
-                      const previousModelPath = [
-                        'bedrock',
-                        'vertex',
-                        'vertex-anthropic',
-                      ].includes(endpoint.profile ?? '')
-                      update({
-                        profile:
-                          value === 'generic'
-                            ? undefined
-                            : (value as ImportedEndpoint['profile']),
-                        ...(value !== 'generic' || endpoint.auth === 'none'
-                          ? { auth: 'bearer' }
-                          : {}),
-                        ...(modelPath || previousModelPath
-                          ? { modelPath: modelPath || undefined }
-                          : {}),
-                        ...(value !== 'codex-image'
-                          ? { requestModel: undefined }
-                          : {}),
-                        modelWireUrls:
-                          value === 'opencode-go'
-                            ? (endpoint.modelWireUrls ?? {
-                                responses: '',
-                                messages: '',
-                              })
-                            : undefined,
-                      })
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    className='w-full'
-                    aria-labelledby={`${id}-${protocol.key}-profile`}
-                    aria-describedby={
-                      endpoint.profile === 'moonshot'
-                        ? `${id}-moonshot-json`
-                        : undefined
-                    }
-                  >
-                    <SelectValue>
-                      {(value) =>
-                        value === 'generic'
-                          ? t('channels.upstream.generic')
-                          : t(`channels.upstream.profiles.${value}`)
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent
-                    aria-labelledby={`${id}-${protocol.key}-profile`}
-                  >
-                    {!protocol.requiredProfile && (
-                      <SelectItem value='generic'>
-                        {t('channels.upstream.generic')}
-                      </SelectItem>
-                    )}
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile} value={profile}>
-                        {t(`channels.upstream.profiles.${profile}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          {endpoint.profile === 'moonshot' && (
-            <p
-              id={`${id}-moonshot-json`}
-              role='note'
-              className='text-muted-foreground text-xs'
-            >
-              {t('channels.upstream.moonshotJsonMode')}
-            </p>
-          )}
-          {endpoint.profile === 'opencode-go' && (
-            <UpstreamModelWireEditor
-              value={endpoint.modelWireUrls}
-              onChange={(modelWireUrls) => update({ modelWireUrls })}
-              disabled={props.disabled}
-              invalid={props.invalid}
-              validationAttempt={props.validationAttempt}
-            />
-          )}
-          {endpoint.profile === 'codex-image' && (
-            <div className='space-y-1.5 text-sm'>
-              <label
-                className='font-medium'
-                htmlFor={`${id}-${protocol.key}-request-model`}
-              >
-                {t('channels.capabilities.requestModel')}
-              </label>
-              <Input
-                id={`${id}-${protocol.key}-request-model`}
-                aria-describedby={`${id}-${protocol.key}-request-model-hint`}
-                value={endpoint.requestModel ?? ''}
-                aria-invalid={
-                  (props.invalid &&
-                    (!endpoint.requestModel?.trim() ||
-                      endpoint.requestModel.length > 255)) ||
-                  undefined
-                }
-                disabled={props.disabled}
-                onChange={(event) =>
-                  update({ requestModel: event.target.value })
-                }
-              />
-              <p
-                id={`${id}-${protocol.key}-request-model-hint`}
-                className='text-muted-foreground'
-              >
-                {t('channels.capabilities.requestModelHint')}
-              </p>
-            </div>
-          )}
-          {(protocol.key === 'gemini' ||
-            protocol.key === 'geminiEmbeddings') && (
-            <label className='flex items-center gap-2 text-sm'>
-              <Checkbox
-                checked={endpoint.modelPath ?? false}
-                disabled={props.disabled || endpoint.profile === 'vertex'}
-                onCheckedChange={(checked) =>
-                  update({ modelPath: checked === true })
-                }
-              />
-              {t('channels.upstream.modelPath')}
-            </label>
-          )}
-        </div>
-      )}
     </div>
   )
 }
