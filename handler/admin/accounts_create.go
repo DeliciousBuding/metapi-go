@@ -33,7 +33,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 
 	// Check site exists
 	var site store.Site
-	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
+	if err := h.db.Get(&site, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?", body.SiteID); err != nil {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "site not found")
 		return
 	}
@@ -188,7 +188,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 
 	// Return the initialized credential state, not the pre-sync snapshot.
 	var account store.Account
-	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), created.ID); err != nil {
+	if err := h.db.Get(&account, "SELECT * FROM accounts WHERE id = ?", created.ID); err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Account saved, but its initialized state could not be loaded.")
 		return
 	}
@@ -222,7 +222,7 @@ func (h *accountsHandler) refreshModelsAfterAccountCreate(ctx context.Context, b
 	if body.SkipModelFetch != nil && *body.SkipModelFetch {
 		return 0, map[string]any{"success": true, "skipped": true, "reason": "skipModelFetch"}
 	}
-	result := accountModelRefresher(ctx, h.db, accountID, false)
+	result := accountModelRefresher(ctx, h.db.DB, accountID, false)
 	count := 0
 	if success, _ := result["success"].(bool); success {
 		if refresh, ok := result["refresh"].(map[string]any); ok {
@@ -438,16 +438,16 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 		apiTokenPtr = &t
 	}
 
-	sortOrder, _ := service.GetNextAccountSortOrder(h.db)
+	sortOrder, _ := service.GetNextAccountSortOrder(h.db.DB)
 	status := "active"
 	isPinned := false
 
 	var id int64
 	err := h.db.QueryRowx(
-		h.db.Rebind(`INSERT INTO accounts (site_id, username, access_token, api_token, status, is_pinned, sort_order,
+		`INSERT INTO accounts (site_id, username, access_token, api_token, status, is_pinned, sort_order,
 		 checkin_enabled, extra_config, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 RETURNING id`),
+		 RETURNING id`,
 		site.ID, usernameVal, accessTokenVal, apiTokenPtr, status, isPinned, sortOrder,
 		checkinEnabled, extraConfigStr, now, now,
 	).Scan(&id)

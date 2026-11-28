@@ -122,7 +122,7 @@ func TestImportTableRowsWithConnAllowsKnownColumns(t *testing.T) {
 
 func TestImportBackupUsesBackupPayloadLimitNotGenericAdminLimit(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	oldAdminLimit := adminJSONBodyLimitBytes
 	oldBackupLimit := backupWebdavImportMaxBytes
@@ -154,7 +154,7 @@ func TestImportBackupUsesBackupPayloadLimitNotGenericAdminLimit(t *testing.T) {
 
 func TestImportBackupRejectsPayloadOverBackupLimit(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	oldBackupLimit := backupWebdavImportMaxBytes
 	backupWebdavImportMaxBytes = 8
@@ -182,7 +182,7 @@ func TestImportBackupRejectsPayloadOverBackupLimit(t *testing.T) {
 func TestExportBackupRejectsPayloadOverLimit(t *testing.T) {
 	setBackupExportLimitsForTest(t, 50_000, 4<<20, 32)
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/backup/export?type=preferences", nil)
 	rec := httptest.NewRecorder()
@@ -198,7 +198,7 @@ func TestExportBackupRejectsPayloadOverLimit(t *testing.T) {
 // and writes nothing.
 func TestPreviewBackupImportReportsPlanWithoutWriting(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Seed one existing site (id 1) and one existing settings key.
@@ -265,7 +265,7 @@ func TestPreviewBackupImportReportsPlanWithoutWriting(t *testing.T) {
 
 func TestOctopusV5PreviewAndCommitAreRealAndCredentialSafe(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(backupsvcFixtureV5))
 	previewReq.Header.Set("X-External-Origin-Key", "octopus-prod")
 	previewRec := httptest.NewRecorder()
@@ -305,7 +305,7 @@ func TestOctopusV5CommitInvalidatesHotRouteCache(t *testing.T) {
 		t.Fatalf("pre-import select = %+v, err=%v; want no route", selected, err)
 	}
 	importRouter := chi.NewRouter()
-	RegisterBackupRoutes(importRouter, db.DB)
+	RegisterBackupRoutes(importRouter, db)
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupsvcFixtureV5))
 	req.Header.Set("X-External-Origin-Key", "hot-cache-source")
 	rec := httptest.NewRecorder()
@@ -321,7 +321,7 @@ func TestOctopusV5CommitInvalidatesHotRouteCache(t *testing.T) {
 
 func TestOctopusV5PreviewAndCommitChannelsOnlyAcknowledgement(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	payload := strings.Replace(backupsvcFixtureV5, `"settings":[]`, `"settings":[{"key":"model_filter","value":"model-*"}]`, 1)
 	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(payload))
 	previewReq.Header.Set("X-External-Origin-Key", "acknowledged-source")
@@ -368,7 +368,7 @@ const backupFixtureAxonHubV14 = `{"version":"1.4","timestamp":"2026-10-05T00:00:
 
 func TestAxonHubV14PreviewAndCommitAreRealAndCredentialSafe(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(backupFixtureAxonHubV14))
 	previewReq.Header.Set("X-External-Origin-Key", "axonhub-prod")
 	previewRec := httptest.NewRecorder()
@@ -424,7 +424,7 @@ func TestAxonHubV14CommitInvalidatesHotRouteCache(t *testing.T) {
 		t.Fatalf("pre-import select = %+v, err=%v; want no route", selected, err)
 	}
 	importRouter := chi.NewRouter()
-	RegisterBackupRoutes(importRouter, db.DB)
+	RegisterBackupRoutes(importRouter, db)
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupFixtureAxonHubV14))
 	req.Header.Set("X-External-Origin-Key", "axonhub-hot-cache")
 	rec := httptest.NewRecorder()
@@ -444,7 +444,7 @@ func TestAxonHubV14CommitInvalidatesHotRouteCache(t *testing.T) {
 
 func TestAxonHubV14ReplacementRequiresConfirmation(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	importFixture := func(payload, replace string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
 		req.Header.Set("X-External-Origin-Key", "axonhub-replace")
@@ -482,7 +482,7 @@ func TestAxonHubV14ReplacementRequiresConfirmation(t *testing.T) {
 
 func TestAxonHubV14BackupWithoutServableChannelIsRejected(t *testing.T) {
 	db := setupBackupTestDB(t)
-	h := &backupHandler{db: db.DB}
+	h := &backupHandler{db: db}
 	payload := strings.Replace(backupFixtureAxonHubV14, `"type":"openai"`, `"type":"gemini_vertex"`, 1)
 	payload = strings.Replace(payload, `"type":"anthropic"`, `"type":"gemini_vertex"`, 1)
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
@@ -503,7 +503,7 @@ func TestAxonHubV14BackupWithoutServableChannelIsRejected(t *testing.T) {
 // always 400'd because the top-level key was "data" not "tables").
 func TestImportBackupAcceptsFrontendDataWrapper(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(
 		`{"data":{"tables":{"settings":[{"key":"theme","value":"\"dark\""}]}}}`,
@@ -525,7 +525,7 @@ func TestImportBackupAcceptsFrontendDataWrapper(t *testing.T) {
 
 func TestWebdavConfigRoundTripMasksPassword(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/settings/backup/webdav", strings.NewReader(`{
 		"enabled": true,
@@ -600,7 +600,7 @@ func TestExportToWebdavUploadsBackupPayload(t *testing.T) {
 	allowPrivateWebdavTargetsForTest(t)
 
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	if _, err := db.Exec("INSERT INTO settings (key, value) VALUES (?, ?)", "theme", `"dark"`); err != nil {
 		t.Fatalf("insert setting: %v", err)
@@ -682,7 +682,7 @@ func TestExportToWebdavRejectsOversizedPayloadBeforeUpload(t *testing.T) {
 	setBackupExportLimitsForTest(t, 50_000, 4<<20, 32)
 
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	called := false
 	webdav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -722,7 +722,7 @@ func TestImportFromWebdavDownloadsAndImportsBackupPayload(t *testing.T) {
 	allowPrivateWebdavTargetsForTest(t)
 
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	backup := map[string]any{
 		"metadata": map[string]any{
@@ -816,7 +816,7 @@ func TestImportFromWebdavRejectsOversizedBackupPayload(t *testing.T) {
 	allowPrivateWebdavTargetsForTest(t)
 
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	oldLimit := backupWebdavImportMaxBytes
 	backupWebdavImportMaxBytes = 8
@@ -861,7 +861,7 @@ func TestImportFromWebdavFailurePreservesLastSuccessfulSync(t *testing.T) {
 	allowPrivateWebdavTargetsForTest(t)
 
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	webdav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -998,7 +998,7 @@ func TestImportBackupTablesRollsBackWhenLaterTableFails(t *testing.T) {
 		),
 	}
 
-	if _, err := importBackupTables(db.DB, tables, false); err == nil {
+	if _, err := importBackupTables(db, tables, false); err == nil {
 		t.Fatalf("importBackupTables succeeded, want failure on invalid downstream_api_keys column")
 	}
 
@@ -1018,7 +1018,7 @@ func TestImportBackupTablesRejectsUnknownTableKey(t *testing.T) {
 		"settings_typo": json.RawMessage(`[{"key":"theme","value":"\"dark\""}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables, false); err == nil {
+	if _, err := importBackupTables(db, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want unknown table error")
 	} else if !strings.Contains(err.Error(), "unknown table settings_typo") {
 		t.Fatalf("error = %v, want unknown table", err)
@@ -1044,7 +1044,7 @@ func TestImportBackupTablesRejectsTooManyRowsBeforeInsert(t *testing.T) {
 		]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables, false); err == nil {
+	if _, err := importBackupTables(db, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want row limit error")
 	} else if !strings.Contains(err.Error(), "exceeds the max rows of 1") {
 		t.Fatalf("error = %v, want row limit", err)
@@ -1067,7 +1067,7 @@ func TestImportBackupTablesRejectsTooManyColumnsBeforeInsert(t *testing.T) {
 		"settings": json.RawMessage(`[{"key":"theme","value":"\"dark\""}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables, false); err == nil {
+	if _, err := importBackupTables(db, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want column limit error")
 	} else if !strings.Contains(err.Error(), "exceeds limit 1") {
 		t.Fatalf("error = %v, want column limit", err)
@@ -1090,7 +1090,7 @@ func TestImportBackupTablesRejectsOversizedCellBeforeInsert(t *testing.T) {
 		"settings": json.RawMessage(`[{"key":"theme","value":"12345"}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables, false); err == nil {
+	if _, err := importBackupTables(db, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want cell size error")
 	} else if !strings.Contains(err.Error(), "exceeds limit 4 bytes") {
 		t.Fatalf("error = %v, want cell size limit", err)
@@ -1120,7 +1120,7 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 		]`),
 	}
 
-	result, err := importBackupTables(db.DB, tables, false)
+	result, err := importBackupTables(db, tables, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
@@ -1164,7 +1164,7 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 // skippedSettings and never store them, while benign keys keep importing.
 func TestImportBackupRejectsMaliciousRuntimeLocalSettings(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{"tables":{"settings":[
 		{"key":"theme","value":"\"dark\""},
@@ -1209,7 +1209,7 @@ func TestImportBackupRejectsMaliciousRuntimeLocalSettings(t *testing.T) {
 // Same regression through the TS v2.1 branch of the import endpoint.
 func TestImportBackupTSV21RejectsMaliciousRuntimeLocalSettings(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{
 		"version": "2.1",
@@ -1258,7 +1258,7 @@ func TestImportBackupTSV21RejectsMaliciousRuntimeLocalSettings(t *testing.T) {
 // the import response and in the events audit trail.
 func TestImportBackupReportsNewDownstreamApiKeys(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	first := `{"tables":{"downstream_api_keys":[
 		{"name":"客户端A","key":"sk-first-secret","enabled":1}
@@ -1362,7 +1362,7 @@ func setupBackupPostgresTestDB(t *testing.T) *store.DB {
 // is covered too.
 func TestImportBackupRejectsMaliciousSettingsPostgres(t *testing.T) {
 	db := setupBackupPostgresTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	benignKey := "theme_v6sec_" + suffix
@@ -1415,7 +1415,7 @@ func TestImportBackupRejectsMaliciousSettingsPostgres(t *testing.T) {
 // through the pgx driver (Rebind / $N placeholders).
 func TestImportBackupTSV21MaliciousSettingsPostgres(t *testing.T) {
 	db := setupBackupPostgresTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	payload := `{
@@ -1467,7 +1467,7 @@ func TestImportBackupTSV21MaliciousSettingsPostgres(t *testing.T) {
 // exists-snapshot queries and the Rebind'd events insert).
 func TestImportBackupReportsNewDownstreamApiKeysPostgres(t *testing.T) {
 	db := setupBackupPostgresTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	nameA := "v6sec-" + suffix + "-A"
@@ -1537,7 +1537,7 @@ func TestImportBackupReportsNewDownstreamApiKeysPostgres(t *testing.T) {
 func TestOctopusBackupPreviewEnforces20MiBRequestLimit(t *testing.T) {
 	db := setupBackupTestDB(t)
 	r := chi.NewRouter()
-	RegisterBackupRoutes(r, db.DB)
+	RegisterBackupRoutes(r, db)
 	body := "{}" + strings.Repeat(" ", int(backupWebdavImportMaxBytes-1))
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -1551,7 +1551,7 @@ func TestWebdavSaveRejectsInvalidAutoSyncCron(t *testing.T) {
 	db := setupBackupTestDB(t)
 	allowPrivateWebdavTargetsForTest(t)
 	r := chi.NewRouter()
-	RegisterBackupRoutes(r, db.DB)
+	RegisterBackupRoutes(r, db)
 
 	rec := doPutJSON(t, r, "/api/settings/backup/webdav", map[string]any{
 		"enabled":         true,
@@ -1568,7 +1568,7 @@ func TestWebdavSaveAcceptsValidAutoSyncCron(t *testing.T) {
 	db := setupBackupTestDB(t)
 	allowPrivateWebdavTargetsForTest(t)
 	r := chi.NewRouter()
-	RegisterBackupRoutes(r, db.DB)
+	RegisterBackupRoutes(r, db)
 
 	rec := doPutJSON(t, r, "/api/settings/backup/webdav", map[string]any{
 		"enabled":         true,
@@ -1598,7 +1598,7 @@ const tsV21EndpointBackup = `{
 func TestImportTSV21Endpoint(t *testing.T) {
 	db := setupBackupTestDB(t)
 	r := chi.NewRouter()
-	RegisterBackupRoutes(r, db.DB)
+	RegisterBackupRoutes(r, db)
 
 	rec := doPostJSON(t, r, "/api/settings/backup/import", json.RawMessage(tsV21EndpointBackup))
 	if rec.Code != http.StatusOK {
@@ -1642,7 +1642,7 @@ func TestImportTSV21Endpoint(t *testing.T) {
 func TestPreviewTSV21Endpoint(t *testing.T) {
 	db := setupBackupTestDB(t)
 	r := chi.NewRouter()
-	RegisterBackupRoutes(r, db.DB)
+	RegisterBackupRoutes(r, db)
 
 	rec := doPostJSON(t, r, "/api/settings/backup/import/preview", json.RawMessage(tsV21EndpointBackup))
 	if rec.Code != http.StatusOK {
@@ -1686,7 +1686,7 @@ func TestImportBackupTablesDropsForbiddenSiteURLs(t *testing.T) {
 		]`),
 	}
 
-	result, err := importBackupTables(db.DB, tables, false)
+	result, err := importBackupTables(db, tables, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
@@ -1708,7 +1708,7 @@ func TestImportBackupTablesDropsForbiddenSiteURLs(t *testing.T) {
 
 func TestImportBackupSkipsSchedulerAndEgressSettings(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{"tables":{"settings":[
 		{"key":"theme","value":"\"dark\""},
@@ -1742,7 +1742,7 @@ func TestImportBackupSkipsSchedulerAndEgressSettings(t *testing.T) {
 
 func TestImportBackupRejectsNegativeQuotaLedger(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{"tables":{"downstream_quota_usage":[
 		{"key_id":1,"event_key":"forged","occurred_at":1700000000000,"requests":-1000000,"total_tokens":-1000000000,"cost":-1000000}
@@ -1764,7 +1764,7 @@ func TestImportBackupRejectsNegativeQuotaLedger(t *testing.T) {
 
 func TestImportBackupSitesFillsMissingTimestamps(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{"tables":{"sites":[
 		{"name":"synthetic-site","url":"https://synthetic.example","platform":"newapi"}

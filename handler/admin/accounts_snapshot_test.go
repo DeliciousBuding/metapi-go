@@ -47,7 +47,7 @@ func TestAccountsSnapshot_EmptyDB_SerializesEmptyArrays(t *testing.T) {
 
 func TestComputeAccountsSnapshot_EmptyDB_SerializesEmptyArrays(t *testing.T) {
 	db, _, _ := setupAccountsTest(t)
-	handler := &accountsHandler{db: db.DB}
+	handler := &accountsHandler{db: db}
 
 	data, err := handler.computeAccountsSnapshot()
 	if err != nil {

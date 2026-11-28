@@ -389,7 +389,7 @@ func TestAccountModels_Postgres(t *testing.T) {
 		t.Fatalf("insert account: %v", err)
 	}
 
-	h := &accountsHandler{db: db, cfg: &config.Config{}}
+	h := &accountsHandler{db: dbx, cfg: &config.Config{}}
 	r := chi.NewRouter()
 	r.Get("/api/accounts/{id}/models", h.getAccountModels)
 	r.Post("/api/accounts/{id}/models/manual", h.manualModels)

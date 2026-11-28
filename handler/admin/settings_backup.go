@@ -18,7 +18,7 @@ import (
 )
 
 // RegisterBackupRoutes registers all /api/settings/backup routes.
-func RegisterBackupRoutes(r chi.Router, db *sqlx.DB) {
+func RegisterBackupRoutes(r chi.Router, db *store.DB) {
 	handler := &backupHandler{db: db}
 
 	r.Get("/api/settings/backup/export", handler.exportBackup)
@@ -32,7 +32,7 @@ func RegisterBackupRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 type backupHandler struct {
-	db *sqlx.DB
+	db *store.DB
 }
 
 const (
@@ -85,8 +85,8 @@ func backupExportErrorStatus(err error) int {
 	return http.StatusInternalServerError
 }
 
-func buildBackupPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
-	return backupsvc.BuildPayload(db, exportType)
+func buildBackupPayload(db *store.DB, exportType string) (map[string]any, error) {
+	return backupsvc.BuildPayload(db.DB, exportType)
 }
 
 // POST /api/settings/backup/import
@@ -193,7 +193,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if magpie {
 		originKey := magpieOriginKey(r)
-		preview, err := backupsvc.PreviewMagpieBackup(wrapStoreDB(h.db), raw, passphrase, originKey)
+		preview, err := backupsvc.PreviewMagpieBackup(h.db, raw, passphrase, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, magpieImportErrorMessage(err))
 			return
@@ -203,7 +203,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if backupsvc.IsOctopusV5Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-		preview, err := backupsvc.PreviewOctopusV5(wrapStoreDB(h.db), raw, originKey)
+		preview, err := backupsvc.PreviewOctopusV5(h.db, raw, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -213,7 +213,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if backupsvc.IsAxonHubV14Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-		preview, err := backupsvc.PreviewAxonHubV14(wrapStoreDB(h.db), raw, originKey)
+		preview, err := backupsvc.PreviewAxonHubV14(h.db, raw, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -228,7 +228,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid import data: %v", err))
 			return
 		}
-		preview, err := backupsvc.PreviewTSV21(wrapStoreDB(h.db), raw)
+		preview, err := backupsvc.PreviewTSV21(h.db, raw)
 		if err != nil {
 			writeError(w, backupImportErrorStatus(err), err.Error())
 			return
@@ -290,7 +290,7 @@ type backupImportPreview struct {
 
 // previewBackupImportTables computes the import plan without writing anything.
 // PK detection: "id" for every table except "settings" which uses "key".
-func previewBackupImportTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[string]backupImportPreview, error) {
+func previewBackupImportTables(db *store.DB, tables map[string]json.RawMessage) (map[string]backupImportPreview, error) {
 	plan := make(map[string]backupImportPreview, len(tables))
 	for _, table := range allTables {
 		raw, ok := tables[table]
@@ -363,7 +363,7 @@ func previewBackupImportTables(db *sqlx.DB, tables map[string]json.RawMessage) (
 
 // queryExistingPKs returns the set of PK values already present in the table,
 // chunked to stay under SQL variable limits (SQLite 999 / PG 65535).
-func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[string]bool {
+func queryExistingPKs(db *store.DB, table, pkCol string, values []string) map[string]bool {
 	out := map[string]bool{}
 	if len(values) == 0 {
 		return out
@@ -383,7 +383,7 @@ func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[str
 		}
 		query := fmt.Sprintf("SELECT %s FROM %s WHERE %s IN (%s)",
 			quoteIdentifier(pkCol), quoteIdentifier(table), quoteIdentifier(pkCol), strings.Join(placeholders, ","))
-		rows, err := db.Queryx(db.Rebind(query), args...)
+		rows, err := db.Query(query, args...)
 		if err != nil {
 			// Preview is best-effort: a read failure degrades to "no existing
 			// PKs known" rather than blocking the import flow.
@@ -424,7 +424,7 @@ type backupImportResult struct {
 	newDownstreamApiKeys []string
 }
 
-func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage, fromExport bool) (*backupImportResult, error) {
+func importBackupTables(db *store.DB, tables map[string]json.RawMessage, fromExport bool) (*backupImportResult, error) {
 	if tables == nil {
 		return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 	}
@@ -458,7 +458,7 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage, fromExpo
 
 type backupImportConn interface {
 	DriverName() string
-	Queryx(query string, args ...any) (*sqlx.Rows, error)
+	Query(query string, args ...any) (*sql.Rows, error)
 	QueryRow(query string, args ...any) *sql.Row
 	Exec(query string, args ...any) (sql.Result, error)
 }
@@ -468,7 +468,7 @@ type backupImportConn interface {
 // logged. Importing an untrusted backup is equivalent to accepting the keys
 // it carries; this event gives operators a durable trail. Best-effort: a
 // failed insert never blocks the import response.
-func logImportedDownstreamKeys(db *sqlx.DB, names []string) {
+func logImportedDownstreamKeys(db *store.DB, names []string) {
 	if len(names) == 0 {
 		return
 	}
@@ -483,8 +483,8 @@ func logImportedDownstreamKeys(db *sqlx.DB, names []string) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	// "read" is bound as a boolean parameter: a literal 0 is rejected by
 	// PostgreSQL's boolean column type (matches service.CreateEvent).
-	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'backup', ?, ?)`)
+	const query = `INSERT INTO events (type, title, message, level, related_type, created_at, "read")
+		VALUES (?, ?, ?, ?, 'backup', ?, ?)`
 	if _, err := db.Exec(query, "backup", "Backup import added downstream API keys", message, "warning", now, false); err != nil {
 		slog.Warn("backup import: failed to log downstream key event", "error", err)
 	}

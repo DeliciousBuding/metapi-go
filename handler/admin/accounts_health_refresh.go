@@ -49,7 +49,7 @@ func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	result, err := balanceService.RefreshBalance(h.cfg, h.db, id)
+	result, err := balanceService.RefreshBalance(h.cfg, h.db.DB, id)
 	if result == nil && err == nil {
 		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found or platform not supported")
 		return

@@ -62,7 +62,7 @@ func TestKeyRoutingAdminAndPortableBackup(t *testing.T) {
 			if _, err := db.Exec(`DELETE FROM token_routes`); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := importBackupTables(db.DB, tables, true); err != nil {
+			if _, err := importBackupTables(db, tables, true); err != nil {
 				t.Fatal(err)
 			}
 			var sticky string

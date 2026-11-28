@@ -2146,7 +2146,7 @@ func TestTokenRoutes_Rebuild_ZeroRoutesTruthfulEnvelope(t *testing.T) {
 func TestErrorCodeResourceNotFound(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	cfg := &config.Config{AccountCredentialSecret: "test-secret-for-accounts"}
-	RegisterAccountTokensRoutesWithConfig(r, db.DB, cfg)
+	RegisterAccountTokensRoutesWithConfig(r, db, cfg)
 
 	cases := []struct {
 		name     string

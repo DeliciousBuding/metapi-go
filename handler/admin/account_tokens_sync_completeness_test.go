@@ -107,7 +107,7 @@ func TestAccountTokenSyncIncompleteNewAPIListingDoesNotPersistOrChangeDefault(t 
 			if err != nil {
 				t.Fatalf("GetAccountWithSiteByID: %v", err)
 			}
-			_, syncErr := executeAccountTokenSync(context.Background(), db.DB, cfg, row)
+			_, syncErr := executeAccountTokenSync(context.Background(), db, cfg, row)
 			if syncErr == nil {
 				t.Fatal("executeAccountTokenSync succeeded on an incomplete New API listing")
 			}

@@ -18,7 +18,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	"github.com/deliciousbuding/metapi-go/scheduler"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func (h *backupHandler) getWebdavConfig(w http.ResponseWriter, r *http.Request) {
@@ -168,11 +168,11 @@ func (h *backupHandler) exportToWebdav(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, respPayload)
 }
 
-func loadWebdavBackupConfig(db *sqlx.DB) (webdavBackupConfig, error) {
+func loadWebdavBackupConfig(db *store.DB) (webdavBackupConfig, error) {
 	cfg := defaultWebdavBackupConfig()
 
 	var raw string
-	err := db.Get(&raw, db.Rebind("SELECT value FROM settings WHERE key = ?"), backupWebdavConfigSettingKey)
+	err := db.Get(&raw, "SELECT value FROM settings WHERE key = ?", backupWebdavConfigSettingKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return cfg, nil
 	}
@@ -189,7 +189,7 @@ func loadWebdavBackupConfig(db *sqlx.DB) (webdavBackupConfig, error) {
 	return cfg, nil
 }
 
-func saveWebdavBackupConfig(db *sqlx.DB, cfg webdavBackupConfig) error {
+func saveWebdavBackupConfig(db *store.DB, cfg webdavBackupConfig) error {
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return err
@@ -197,9 +197,9 @@ func saveWebdavBackupConfig(db *sqlx.DB, cfg webdavBackupConfig) error {
 	return saveBackupSettingString(db, backupWebdavConfigSettingKey, string(data))
 }
 
-func saveBackupSettingString(db *sqlx.DB, key, value string) error {
-	query := db.Rebind(`INSERT INTO settings (key, value) VALUES (?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+func saveBackupSettingString(db *store.DB, key, value string) error {
+	const query = `INSERT INTO settings (key, value) VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`
 	_, err := db.Exec(query, key, value)
 	return err
 }
@@ -317,11 +317,11 @@ func maskedWebdavBackupConfig(cfg webdavBackupConfig) map[string]any {
 	}
 }
 
-func loadWebdavBackupState(db *sqlx.DB) map[string]any {
+func loadWebdavBackupState(db *store.DB) map[string]any {
 	state := defaultWebdavBackupState()
 
 	var raw string
-	err := db.Get(&raw, db.Rebind("SELECT value FROM settings WHERE key = ?"), backupWebdavStateSettingKey)
+	err := db.Get(&raw, "SELECT value FROM settings WHERE key = ?", backupWebdavStateSettingKey)
 	if err != nil || strings.TrimSpace(raw) == "" {
 		return state
 	}
@@ -349,7 +349,7 @@ func defaultWebdavBackupState() map[string]any {
 	}
 }
 
-func updateWebdavBackupState(db *sqlx.DB, syncErr error) map[string]any {
+func updateWebdavBackupState(db *store.DB, syncErr error) map[string]any {
 	previous := loadWebdavBackupState(db)
 	now := time.Now().UTC().Format(time.RFC3339)
 	state := map[string]any{

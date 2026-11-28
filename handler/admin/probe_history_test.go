@@ -27,7 +27,7 @@ func setupProbeHistoryHarness(t *testing.T) (*store.DB, chi.Router) {
 
 	r := chi.NewRouter()
 	channels := &tokenRoutesHandler{db: db.DB}
-	accounts := &accountsHandler{db: db.DB}
+	accounts := &accountsHandler{db: db}
 	r.Get("/api/channels/probe-history", channels.channelProbeHistory)
 	r.Get("/api/accounts/probe-history", accounts.accountProbeHistory)
 	return db, r

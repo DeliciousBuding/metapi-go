@@ -32,7 +32,7 @@ func exerciseAutomaticModelRoutesAdmin(t *testing.T, db *store.DB, r chi.Router,
 	config.Set(cfg)
 	config.SetRuntime(&config.RuntimeSettings{})
 	t.Cleanup(func() { config.SetRuntime(nil) })
-	RegisterSettingsRoutes(r, db.DB, cfg)
+	RegisterSettingsRoutes(r, db, cfg)
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
 	var mu sync.Mutex
 	models := []string{"lifecycle-alpha", "lifecycle-beta"}

@@ -1262,7 +1262,7 @@ func TestSites_MaxConcurrencyRoundTrip(t *testing.T) {
 func TestErrorCodeSiteNotFound(t *testing.T) {
 	db, r := setupSitesTest(t)
 	RegisterSiteAnnouncementsRoutes(r, db)
-	RegisterAccountsRoutes(r, db.DB, &config.Config{AccountCredentialSecret: "test-secret-for-accounts"})
+	RegisterAccountsRoutes(r, db, &config.Config{AccountCredentialSecret: "test-secret-for-accounts"})
 
 	cases := []struct {
 		name   string

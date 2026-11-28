@@ -8,7 +8,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/service"
 	balanceService "github.com/deliciousbuding/metapi-go/service/balance"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,7 @@ func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		accountID := int64(*body.AccountID)
-		if _, err := service.GetAccountWithSiteByID(h.db, accountID); err != nil {
+		if _, err := service.GetAccountWithSiteByID(h.db.DB, accountID); err != nil {
 			writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 			return
 		}
@@ -90,7 +90,7 @@ func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-func listAccountIDsForHealthRefresh(db *sqlx.DB) ([]int64, error) {
+func listAccountIDsForHealthRefresh(db *store.DB) ([]int64, error) {
 	var ids []int64
 	if err := db.Select(&ids, "SELECT id FROM accounts ORDER BY id"); err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (h *accountsHandler) runAccountHealthRefresh(accountIDs []int64) (healthRef
 }
 
 func (h *accountsHandler) refreshOneAccountHealth(accountID int64) healthRefreshResultItem {
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
+	row, err := service.GetAccountWithSiteByID(h.db.DB, accountID)
 	if err != nil {
 		return healthRefreshResultItem{
 			AccountID: accountID,
@@ -171,10 +171,10 @@ func (h *accountsHandler) refreshOneAccountHealth(accountID int64) healthRefresh
 		}
 	}
 
-	result, refreshErr := balanceService.RefreshBalance(h.cfg, h.db, accountID)
+	result, refreshErr := balanceService.RefreshBalance(h.cfg, h.db.DB, accountID)
 
 	// Re-read after refresh so state reflects persisted runtimeHealth / status.
-	if updated, loadErr := service.GetAccountWithSiteByID(h.db, accountID); loadErr == nil {
+	if updated, loadErr := service.GetAccountWithSiteByID(h.db.DB, accountID); loadErr == nil {
 		row = updated
 	}
 	sessionCapable = service.BuildCapabilitiesForAccount(&row.Account).CanRefreshBalance

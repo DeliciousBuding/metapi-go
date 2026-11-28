@@ -281,7 +281,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	// When status is forced to expired, align stored runtime health with  auth class.
 	if status, ok := updates["status"].(string); ok && status == "expired" {
-		_ = service.SetAccountRuntimeHealth(h.db, id, service.RuntimeHealthEntry{
+		_ = service.SetAccountRuntimeHealth(h.db.DB, id, service.RuntimeHealthEntry{
 			State:  service.HealthUnhealthy,
 			Reason: "connection credential expired; update the credential",
 			Source: service.HealthSourceAuth,
@@ -290,9 +290,9 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	var modelRefresh map[string]any
 	if recovery {
-		modelRefresh = accountModelRefresher(r.Context(), h.db, id, true)
+		modelRefresh = accountModelRefresher(r.Context(), h.db.DB, id, true)
 		if modelRefreshSucceeded(modelRefresh) {
-			if err := service.UpdateAccountFields(h.db, id, map[string]any{"status": "active"}); err != nil {
+			if err := service.UpdateAccountFields(h.db.DB, id, map[string]any{"status": "active"}); err != nil {
 				slog.Error("Failed to reactivate account after model refresh", "err", err, "account_id", id)
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "model refresh succeeded but account activation failed"})
 				return
@@ -303,13 +303,13 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 			// Keep expired; never claim active on failed model refresh.
 			msg := modelRefreshErrorMessage(modelRefresh)
 			slog.Warn("expired API-key recovery model refresh failed", "account_id", id, "message", msg)
-			if err := service.UpdateAccountFields(h.db, id, map[string]any{"status": "expired"}); err != nil {
+			if err := service.UpdateAccountFields(h.db.DB, id, map[string]any{"status": "expired"}); err != nil {
 				slog.Warn("failed to preserve expired status after recovery failure", "account_id", id, "err", err)
 			}
 		}
 	}
 
-	updatedRow, err := service.GetAccountWithSiteByID(h.db, id)
+	updatedRow, err := service.GetAccountWithSiteByID(h.db.DB, id)
 	if err != nil {
 		slog.Error("Failed to load updated account", "err", err, "account_id", id)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to load updated account", "errorCode": "resourceLoadFailed"})
@@ -387,12 +387,12 @@ func (h *accountsHandler) deleteAccount(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	if err := service.DeleteAccount(h.db, id); err != nil {
+	if err := service.DeleteAccount(h.db.DB, id); err != nil {
 		slog.Error("Failed to delete account", "err", err, "account_id", id)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to delete account"})
 		return
 	}
-	service.RebuildRoutesBestEffort(h.db)
+	service.RebuildRoutesBestEffort(h.db.DB)
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -428,7 +428,7 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 		id := int64(rawID)
 
 		if action == "refreshBalance" {
-			result, err := balanceService.RefreshBalance(h.cfg, h.db, id)
+			result, err := balanceService.RefreshBalance(h.cfg, h.db.DB, id)
 			if result == nil && err == nil {
 				failedItems = append(failedItems, map[string]any{"id": id, "message": "Account not found"})
 				continue
@@ -455,7 +455,7 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 		}
 
 		var existing store.Account
-		err := h.db.Get(&existing, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), id)
+		err := h.db.Get(&existing, "SELECT * FROM accounts WHERE id = ?", id)
 		if err != nil {
 			failedItems = append(failedItems, map[string]any{"id": id, "message": "Account not found"})
 			continue
@@ -465,11 +465,11 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 		var execErr error
 		switch action {
 		case "delete":
-			_, execErr = h.db.Exec(h.db.Rebind("DELETE FROM accounts WHERE id = ?"), id)
+			_, execErr = h.db.Exec("DELETE FROM accounts WHERE id = ?", id)
 		case "enable":
-			_, execErr = h.db.Exec(h.db.Rebind("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ?"), now, id)
+			_, execErr = h.db.Exec("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ?", now, id)
 		case "disable":
-			_, execErr = h.db.Exec(h.db.Rebind("UPDATE accounts SET status = 'disabled', updated_at = ? WHERE id = ?"), now, id)
+			_, execErr = h.db.Exec("UPDATE accounts SET status = 'disabled', updated_at = ? WHERE id = ?", now, id)
 		}
 		if execErr != nil {
 			failedItems = append(failedItems, map[string]any{"id": id, "message": "Account update failed"})
@@ -484,7 +484,7 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if shouldRebuildRoutes {
-		service.RebuildRoutesBestEffort(h.db)
+		service.RebuildRoutesBestEffort(h.db.DB)
 	} else if shouldInvalidateRoutes {
 		routing.InvalidateCache()
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/jmoiron/sqlx"
 )
 
 // ---- Login Account ----
@@ -42,7 +41,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Get site
 	var site store.Site
-	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
+	if err := h.db.Get(&site, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?", body.SiteID); err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "site not found")
 		return
 	}
@@ -54,7 +53,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	var existing store.Account
 	err := h.db.Get(&existing,
-		h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"),
+		"SELECT * FROM accounts WHERE site_id = ? AND username = ?",
 		body.SiteID, body.Username,
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -107,8 +106,8 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	if reused {
 		// Update existing account
 		if _, err := h.db.Exec(
-			h.db.Rebind(`UPDATE accounts SET access_token = ?, checkin_enabled = ?, status = 'active',
-			 extra_config = ?, updated_at = ? WHERE id = ?`),
+			`UPDATE accounts SET access_token = ?, checkin_enabled = ?, status = 'active',
+			 extra_config = ?, updated_at = ? WHERE id = ?`,
 			loginAccessToken, true, extraConfigStr, now, existing.ID,
 		); err != nil {
 			slog.Error("Failed to update login account", "err", err, "account_id", existing.ID)
@@ -116,11 +115,11 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		sortOrder, _ := service.GetNextAccountSortOrder(h.db)
+		sortOrder, _ := service.GetNextAccountSortOrder(h.db.DB)
 		if _, err := h.db.Exec(
-			h.db.Rebind(`INSERT INTO accounts (site_id, username, access_token, checkin_enabled, status,
+			`INSERT INTO accounts (site_id, username, access_token, checkin_enabled, status,
 			 is_pinned, sort_order, extra_config, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`),
+			 VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
 			body.SiteID, body.Username, loginAccessToken, true, false, sortOrder, extraConfigStr, now, now,
 		); err != nil {
 			slog.Error("Failed to insert login account", "err", err, "site_id", body.SiteID)
@@ -131,7 +130,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch the created/updated account for response
 	var loginAcct store.Account
-	if err := h.db.Get(&loginAcct, h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"), body.SiteID, body.Username); err != nil {
+	if err := h.db.Get(&loginAcct, "SELECT * FROM accounts WHERE site_id = ? AND username = ?", body.SiteID, body.Username); err != nil {
 		slog.Error("Failed to load login account", "err", err, "site_id", body.SiteID)
 		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load account.")
 		return
@@ -162,7 +161,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// model and was the user-visible #1179 failure. The refresh is reported
 	// honestly but remains partial initialization: the verified account and its
 	// synced relay keys stay saved when a particular upstream cannot list models.
-	modelRefresh := accountModelRefresher(r.Context(), h.db, loginAcct.ID, false)
+	modelRefresh := accountModelRefresher(r.Context(), h.db.DB, loginAcct.ID, false)
 
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
@@ -212,7 +211,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 
 	// Get site
 	var site store.Site
-	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
+	if err := h.db.Get(&site, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?", body.SiteID); err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "site not found")
 		return
 	}
@@ -339,9 +338,9 @@ func credentialFieldsChanged(prev store.Account, updates map[string]any) bool {
 }
 
 // clearAccountAuthRuntimeHealth removes auth-sourced runtimeHealth best-effort after recovery.
-func clearAccountAuthRuntimeHealth(db *sqlx.DB, accountID int64) error {
+func clearAccountAuthRuntimeHealth(db *store.DB, accountID int64) error {
 	var extraConfig *string
-	if err := db.Get(&extraConfig, db.Rebind("SELECT extra_config FROM accounts WHERE id = ?"), accountID); err != nil {
+	if err := db.Get(&extraConfig, "SELECT extra_config FROM accounts WHERE id = ?", accountID); err != nil {
 		return err
 	}
 	cfg := service.ParseExtraConfig(extraConfig)
@@ -366,10 +365,10 @@ func clearAccountAuthRuntimeHealth(db *sqlx.DB, accountID int64) error {
 	merged := service.MergeExtraConfig(extraConfig, map[string]any{"runtimeHealth": nil})
 	now := time.Now().UTC().Format(time.RFC3339)
 	if merged == nil {
-		_, err = db.Exec(db.Rebind("UPDATE accounts SET extra_config = NULL, updated_at = ? WHERE id = ?"), now, accountID)
+		_, err = db.Exec("UPDATE accounts SET extra_config = NULL, updated_at = ? WHERE id = ?", now, accountID)
 		return err
 	}
-	_, err = db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?"), *merged, now, accountID)
+	_, err = db.Exec("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?", *merged, now, accountID)
 	return err
 }
 
@@ -396,7 +395,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
+	row, err := service.GetAccountWithSiteByID(h.db.DB, accountID)
 	if err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
@@ -417,7 +416,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 	extraConfigStr := service.MergeExtraConfig(row.Account.ExtraConfig, extraConfigPatch)
 
 	if _, err := h.db.Exec(
-		h.db.Rebind("UPDATE accounts SET access_token = ?, status = 'active', extra_config = ?, updated_at = ? WHERE id = ?"),
+		"UPDATE accounts SET access_token = ?, status = 'active', extra_config = ?, updated_at = ? WHERE id = ?",
 		nextAccessToken, extraConfigStr, now, accountID,
 	); err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update account")
@@ -426,7 +425,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 
 	// Fetch updated account for response
 	var rebindAcct store.Account
-	if err := h.db.Get(&rebindAcct, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
+	if err := h.db.Get(&rebindAcct, "SELECT * FROM accounts WHERE id = ?", accountID); err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to read updated account")
 		return
 	}

@@ -15,7 +15,7 @@ import (
 // so a restore can never resurrect files/videos as shared objects.
 func TestBackupImportLeavesMissingOwnershipDenied(t *testing.T) {
 	db := setupBackupTestDB(t)
-	handler := &backupHandler{db: db.DB}
+	handler := &backupHandler{db: db}
 
 	payload := `{
 		"metadata": {"exported_at": "2026-01-01T00:00:00Z", "version": "1.0"},

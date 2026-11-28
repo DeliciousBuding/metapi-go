@@ -66,7 +66,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, exportType := range []string{"all", "accounts"} {
-				payload, err := buildBackupPayload(db.DB, exportType)
+				payload, err := buildBackupPayload(db, exportType)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -85,7 +85,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 				"proxy_file_objects": `[{"file_id":"planted-file","owner":"user-key:fixture"}]`,
 				"proxy_video_tasks":  `[{"public_id":"planted-video","upstream_video_id":"fixture","site_url":"","token_value":"","direct_identity":"{\"owner\": \"user-key:fixture\"}"}]`,
 			} {
-				if _, err := importBackupTables(db.DB, map[string]json.RawMessage{table: json.RawMessage(raw)}, false); err == nil {
+				if _, err := importBackupTables(db, map[string]json.RawMessage{table: json.RawMessage(raw)}, false); err == nil {
 					t.Fatalf("user media import accepted: %s", table)
 				}
 			}
@@ -94,7 +94,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 				`{"name":"planted","key":"sk-planted-fixture","key_owner_type":"user"}`,
 				`{"name":"planted","key":"sk-planted-fixture","owner_user_id":1}`,
 			} {
-				if _, err := importBackupTables(db.DB, map[string]json.RawMessage{"downstream_api_keys": json.RawMessage("[" + row + "]")}, false); err == nil {
+				if _, err := importBackupTables(db, map[string]json.RawMessage{"downstream_api_keys": json.RawMessage("[" + row + "]")}, false); err == nil {
 					t.Fatalf("user Key portable import accepted: %s", row)
 				}
 			}

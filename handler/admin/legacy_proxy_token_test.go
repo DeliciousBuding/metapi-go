@@ -30,7 +30,7 @@ func TestBackupImportCannotRestoreRetiredRootSetting(t *testing.T) {
 	if err := store.MigrateLegacyProxyToken(db, rt, 0); err != nil {
 		t.Fatal(err)
 	}
-	result, err := importBackupTables(db.DB, map[string]json.RawMessage{
+	result, err := importBackupTables(db, map[string]json.RawMessage{
 		"settings": json.RawMessage(`[{"key":"proxy_token","value":"\"sk-synthetic-backup-root\""}]`),
 	}, false)
 	if err != nil {

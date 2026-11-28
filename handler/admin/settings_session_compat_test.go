@@ -46,7 +46,7 @@ func TestSettingsSessionCompatibilitySurvivesUnrelatedEdit(t *testing.T) {
 			config.Set(cfg)
 			config.SetRuntime(rt)
 			r := chi.NewRouter()
-			RegisterSettingsRoutes(r, db.DB, cfg)
+			RegisterSettingsRoutes(r, db, cfg)
 			for _, payload := range []map[string]any{
 				{"proxySessionChannelConcurrencyLimit": 7, "proxySessionChannelQueueWaitMs": 2600},
 				{"codexUpstreamWebsocketEnabled": true},

@@ -18,7 +18,7 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	row, err := service.GetAccountWithSiteByID(h.db, id)
+	row, err := service.GetAccountWithSiteByID(h.db.DB, id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
@@ -36,7 +36,7 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 		CheckedAt *string `db:"checked_at"`
 	}
 	var modelRows []modelRow
-	if err := h.db.Select(&modelRows, h.db.Rebind("SELECT model_name, available, latency_ms, is_manual, checked_at FROM model_availability WHERE account_id = ? ORDER BY model_name ASC"), id); err != nil {
+	if err := h.db.Select(&modelRows, "SELECT model_name, available, latency_ms, is_manual, checked_at FROM model_availability WHERE account_id = ? ORDER BY model_name ASC", id); err != nil {
 		slog.Error("failed to load account model availability", "account_id", id, "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load model availability", "errorCode": "resourceLoadFailed"})
 		return
@@ -44,7 +44,7 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 
 	// Get disabled models for this site
 	var disabledRows []string
-	h.db.Select(&disabledRows, h.db.Rebind("SELECT model_name FROM site_disabled_models WHERE site_id = ?"), row.Account.SiteID)
+	h.db.Select(&disabledRows, "SELECT model_name FROM site_disabled_models WHERE site_id = ?", row.Account.SiteID)
 
 	disabledSet := map[string]bool{}
 	for _, m := range disabledRows {
@@ -102,7 +102,7 @@ func (h *accountsHandler) manualModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var account store.Account
-	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), id); err != nil {
+	if err := h.db.Get(&account, "SELECT * FROM accounts WHERE id = ?", id); err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
 	}

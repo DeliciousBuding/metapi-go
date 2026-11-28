@@ -4,218 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 )
 
-func (h *accountTokensHandler) syncAccount(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid account ID")
-		return
-	}
-
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
-	if err != nil {
-		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-
-	result, syncErr := executeAccountTokenSync(ctx, h.db, h.cfg, row)
-	if syncErr != nil {
-		writeError(w, http.StatusBadGateway, syncErr.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
-// ---- Sync All ----
-
-func (h *accountTokensHandler) syncAll(w http.ResponseWriter, r *http.Request) {
-	var body payloads.AccountTokenSyncAllPayload
-	if err := decodeJSONRequest(r, &body); err != nil {
-		// Empty body is allowed for background mode.
-		body = payloads.AccountTokenSyncAllPayload{}
-	}
-
-	wait := body.Wait != nil && *body.Wait
-	db := h.db
-	cfg := h.cfg
-
-	if wait {
-		summary, results := executeSyncAllAccountTokens(context.Background(), db, cfg)
-		writeJSON(w, http.StatusOK, map[string]any{
-			"success": true,
-			"summary": summary,
-			"results": results,
-		})
-		return
-	}
-
-	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
-		Type:      "sync-all-account-tokens",
-		Title:     "Sync all account tokens",
-		DedupeKey: "sync-all-account-tokens",
-	}, func() (any, error) {
-		summary, results := executeSyncAllAccountTokens(context.Background(), db, cfg)
-		return map[string]any{
-			"summary": summary,
-			"results": results,
-		}, nil
-	})
-
-	writeJSON(w, http.StatusAccepted, map[string]any{
-		"success": true,
-		"queued":  true,
-		"reused":  reused,
-		"jobId":   task.ID,
-		"taskId":  task.ID,
-		"status":  string(task.Status),
-		"message": "all-account token sync started; check the program logs later",
-	})
-}
-
-// ---- Get Groups ----
-
-func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid account ID")
-		return
-	}
-
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
-	if err != nil {
-		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
-		return
-	}
-
-	if service.IsAPIKeyConnection(&row.Account) {
-		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support fetching account token groups")
-		return
-	}
-
-	accessToken := strings.TrimSpace(row.Account.AccessToken)
-	adapter := platform.GetAdapter(row.Site.Platform)
-	proxyCfg := service.BuildPlatformProxyConfig(h.cfg, &row.Account, &row.Site)
-	platformUserID := service.ResolvePlatformUserIDPtr(&row.Account)
-
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-	defer cancel()
-
-	groups, err := service.GetTokenGroups(
-		ctx,
-		h.db,
-		accountID,
-		adapter,
-		row.Site.URL,
-		accessToken,
-		platformUserID,
-		proxyCfg,
-	)
-	if err != nil {
-		slog.Error("Failed to load token groups", "err", err, "account_id", accountID)
-		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load token groups")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"groups":  groups,
-	})
-}
-
-// ---- Get Account Default Token ----
-
-func (h *accountTokensHandler) getAccountDefault(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid account ID")
-		return
-	}
-
-	var account store.Account
-	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	if service.IsAPIKeyConnection(&account) {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	token, err := service.GetDefaultTokenForAccount(h.db, accountID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	var site store.Site
-	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), account.SiteID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to read the site")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"token":   tokenToMapMasked(*token, site.Platform),
-	})
-}
-
-// ---- Upstream helpers ----
-
-func parseFlexibleEpochSeconds(v any) (int64, bool) {
-	switch val := v.(type) {
-	case float64:
-		return int64(val), true
-	case float32:
-		return int64(val), true
-	case int:
-		return int64(val), true
-	case int64:
-		return val, true
-	case string:
-		s := strings.TrimSpace(val)
-		if s == "" {
-			return 0, false
-		}
-		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-			return n, true
-		}
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			return t.Unix(), true
-		}
-		if t, err := time.Parse("2006-01-02", s); err == nil {
-			return t.Unix(), true
-		}
-		return 0, false
-	default:
-		if n, ok := parseFlexibleFloat(v); ok {
-			return int64(n), true
-		}
-		return 0, false
-	}
-}
-
-func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Config, row *service.AccountWithSite) (map[string]any, error) {
+func executeAccountTokenSync(ctx context.Context, db *store.DB, cfg *config.Config, row *service.AccountWithSite) (map[string]any, error) {
 	if row == nil {
 		return nil, fmt.Errorf("account not found")
 	}
@@ -247,7 +46,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	if accessToken == "" {
 		if row.Account.APIToken != nil && strings.TrimSpace(*row.Account.APIToken) != "" {
 			if _, err := service.EnsureDefaultTokenForAccount(
-				db,
+				db.DB,
 				accountID,
 				strings.TrimSpace(*row.Account.APIToken),
 				"default",
@@ -298,7 +97,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 		proxyCfg,
 	)
 	if err != nil {
-		_ = service.CreateEvent(db, "token_sync", "account token sync failed", err.Error(), "error", accountID, "account")
+		_ = service.CreateEvent(db.DB, "token_sync", "account token sync failed", err.Error(), "error", accountID, "account")
 		return nil, fmt.Errorf("failed to sync upstream tokens: %w", err)
 	}
 	if len(upstreamListing.Tokens) == 0 {
@@ -308,9 +107,9 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 		return base, nil
 	}
 
-	syncResult, syncErr := service.SyncTokensFromUpstream(db, accountID, upstreamListing)
+	syncResult, syncErr := service.SyncTokensFromUpstream(db.DB, accountID, upstreamListing)
 	if syncErr != nil {
-		_ = service.CreateEvent(db, "token_sync", "account token sync failed", syncErr.Error(), "error", accountID, "account")
+		_ = service.CreateEvent(db.DB, "token_sync", "account token sync failed", syncErr.Error(), "error", accountID, "account")
 		return nil, syncErr
 	}
 
@@ -346,7 +145,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	}
 
 	_ = service.CreateEvent(
-		db,
+		db.DB,
 		"token_sync",
 		eventTitle,
 		base["message"].(string),
@@ -357,7 +156,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	return base, nil
 }
 
-func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.Config) (map[string]int, []map[string]any) {
+func executeSyncAllAccountTokens(ctx context.Context, db *store.DB, cfg *config.Config) (map[string]int, []map[string]any) {
 	type accountIDRow struct {
 		ID int64 `db:"id"`
 	}
@@ -391,7 +190,7 @@ func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.C
 			wg.Add(1)
 			go func(idx int, accountID int64) {
 				defer wg.Done()
-				row, err := service.GetAccountWithSiteByID(db, accountID)
+				row, err := service.GetAccountWithSiteByID(db.DB, accountID)
 				if err != nil {
 					out[idx] = batchItem{result: map[string]any{
 						"success":   false,
@@ -450,8 +249,6 @@ func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.C
 	return summary, results
 }
 
-// ---- Post-create token sync (#1002) ----
-
 // Post-create token sync statuses. These are reported truthfully in account
 // create/login responses: never a fixed count, never a fake success.
 const (
@@ -473,8 +270,8 @@ type postCreateTokenSyncReport struct {
 // freshly created or rebound session-credential account (#1002). It never
 // fails the surrounding create/login request: a sync failure is reported as a
 // partial-initialization warning while the already-persisted account is kept.
-func syncTokensAfterAccountCreate(ctx context.Context, db *sqlx.DB, cfg *config.Config, accountID int64) postCreateTokenSyncReport {
-	row, err := service.GetAccountWithSiteByID(db, accountID)
+func syncTokensAfterAccountCreate(ctx context.Context, db *store.DB, cfg *config.Config, accountID int64) postCreateTokenSyncReport {
+	row, err := service.GetAccountWithSiteByID(db.DB, accountID)
 	if err != nil {
 		return postCreateTokenSyncReport{
 			Status:     postCreateSyncStatusSkipped,
@@ -522,9 +319,9 @@ func syncTokensAfterAccountCreate(ctx context.Context, db *sqlx.DB, cfg *config.
 
 // countPersistedAccountTokens returns the real persisted account_tokens row
 // count for an account. Any read error reports 0: never a fake count.
-func countPersistedAccountTokens(db *sqlx.DB, accountID int64) int {
+func countPersistedAccountTokens(db *store.DB, accountID int64) int {
 	var count int
-	if err := db.Get(&count, db.Rebind("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?"), accountID); err != nil {
+	if err := db.Get(&count, "SELECT COUNT(*) FROM account_tokens WHERE account_id = ?", accountID); err != nil {
 		return 0
 	}
 	return count

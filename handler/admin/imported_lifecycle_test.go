@@ -284,7 +284,7 @@ func TestUpstreamLifecycleReplacementRevisionHTTP(t *testing.T) {
 			if kind == "axonhub" {
 				full = []byte(backupFixtureAxonHubV14)
 			}
-			h := &backupHandler{db: db.DB}
+			h := &backupHandler{db: db}
 			commit := func(raw []byte, revision string) *httptest.ResponseRecorder {
 				req := httptest.NewRequest("POST", "/api/settings/backup/import", strings.NewReader(string(raw)))
 				req.Header.Set("X-External-Origin-Key", "lifecycle")

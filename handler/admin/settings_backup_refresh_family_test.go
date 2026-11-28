@@ -56,7 +56,7 @@ func TestRefreshFamilyPortableRestoreRetainsUncertainty(t *testing.T) {
 					targetDialect = store.DialectPostgres
 				}
 				target := catalogTestDB(t, targetDialect, ":memory:")
-				if _, err := importBackupTables(target.DB, tables, true); err != nil {
+				if _, err := importBackupTables(target, tables, true); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := store.AcquireCredentialRefreshFamily(context.Background(), target.DB, scope, fingerprint, store.CredentialRefreshConsumable); !errors.Is(err, store.ErrRefreshUncertain) {
@@ -110,7 +110,7 @@ func TestRefreshFamilyImportCannotDowngradeTargetFacts(t *testing.T) {
 			}
 			families, _ := json.Marshal([]map[string]any{{"id": oldFingerprint, "provider": scope, "current_fingerprint": oldFingerprint, "generation": 0, "state": "active", "attempt_id": "", "result_scope": "", "result_id": 0}})
 			aliases, _ := json.Marshal([]map[string]any{{"fingerprint": oldFingerprint, "family_id": oldFingerprint, "generation": 0, "retired": false}})
-			if _, err := importBackupTables(db.DB, map[string]json.RawMessage{"credential_refresh_families": families, "credential_refresh_aliases": aliases}, true); err != nil {
+			if _, err := importBackupTables(db, map[string]json.RawMessage{"credential_refresh_families": families, "credential_refresh_aliases": aliases}, true); err != nil {
 				t.Fatal(err)
 			}
 			var state, current string
@@ -141,7 +141,7 @@ func TestRefreshFamilyImportRejectsMalformedJournal(t *testing.T) {
 					row[key] = value
 				}
 				raw, _ := json.Marshal([]map[string]any{row})
-				if _, err := importBackupTables(db.DB, map[string]json.RawMessage{"credential_refresh_families": raw}, true); err == nil {
+				if _, err := importBackupTables(db, map[string]json.RawMessage{"credential_refresh_families": raw}, true); err == nil {
 					t.Fatal("malformed journal silently succeeded")
 				}
 			}

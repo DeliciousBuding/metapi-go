@@ -1,31 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { isAxiosError } from 'axios'
-import { ChevronDown, KeyRound } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import { StringMapEditor } from '@/components/common/string-map-editor'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+import { Form } from '@/components/ui/form'
 import {
   Sheet,
   SheetContent,
@@ -35,13 +19,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
-import {
-  upstreamPresetsApi,
-  type UpstreamPreset,
-} from '@/lib/api/upstream-presets'
+import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 import { toast } from '@/lib/toast'
 
 import { upstreamKeys } from '../lib/upstream-config'
@@ -51,9 +30,10 @@ import {
   upstreamCreateSchema,
   type UpstreamCreateValues,
 } from '../lib/upstream-create'
-import { ChannelProviderBinding } from './channel-provider-binding'
+import { UpstreamCreateAdvancedFields } from './upstream-create-advanced-fields'
+import { UpstreamCreateCredentialFields } from './upstream-create-credential-fields'
 import { UpstreamCreateEndpoints } from './upstream-create-endpoints'
-import { UpstreamPresetPicker } from './upstream-preset-picker'
+import { UpstreamCreatePresets } from './upstream-create-presets'
 
 export function UpstreamCreateSheet(props: {
   onClose: () => void
@@ -72,18 +52,7 @@ export function UpstreamCreateSheet(props: {
     defaultValues: upstreamCreateDefaults,
   })
   const pending = saving || form.formState.isSubmitting
-  const presets = useQuery({
-    queryKey: ['upstream-presets'],
-    queryFn: upstreamPresetsApi.getUpstreamPresets,
-  })
   const credentialMode = selected?.credentialMode ?? 'apiKey'
-  let providerCredentialKind: 'api_key' | 'none' | 'gcp_service_account' =
-    'api_key'
-  if (credentialMode === 'gcpServiceAccount')
-    providerCredentialKind = 'gcp_service_account'
-  else if (credentialMode === 'optional' && !form.watch('apiKey').trim())
-    providerCredentialKind = 'none'
-  const customEndpoints = form.watch('customEndpoints')
   const requiresBaseUrl = selected?.requiresBaseUrl ?? !selected?.defaultUrl
   const { handleOpenChange, guard } = useDirtyDialogClose({
     enabled: form.formState.isDirty,
@@ -189,312 +158,32 @@ export function UpstreamCreateSheet(props: {
                 ref={contentRef}
                 className='min-h-0 flex-1 space-y-5 overflow-y-auto p-5'
               >
-                <QueryErrorBanner
-                  error={presets.error}
-                  messageKey='channels.create.presetsFailed'
-                  onRetry={() => void presets.refetch()}
-                  isRetrying={presets.isFetching}
-                />
-                {presets.isPending && (
-                  <div
-                    role='status'
-                    className='flex items-center gap-2 text-sm'
-                  >
-                    <Spinner aria-hidden />
-                    {t('channels.create.loading')}
-                  </div>
-                )}
-                <UpstreamPresetPicker
-                  presets={presets.data?.items ?? []}
+                <UpstreamCreatePresets
                   selectedId={selected?.id ?? null}
-                  disabled={pending}
+                  pending={pending}
                   onSelect={selectPreset}
                 />
-                {presets.data?.items.length === 0 && (
-                  <p className='text-muted-foreground text-sm'>
-                    {t('channels.create.noPresets')}
-                  </p>
-                )}
                 {selected && credentialMode !== 'oauth' && (
                   <div className='space-y-5 border-t pt-5'>
-                    {requiresBaseUrl && (
-                      <FormField
-                        control={form.control}
-                        name='baseUrl'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t('channels.upstream.baseUrl')}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder='https://…'
-                                disabled={pending}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {selected.requiresProject && (
-                      <FormField
-                        control={form.control}
-                        name='projectId'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t(
-                                customEndpoints
-                                  ? 'channels.create.projectForPreset'
-                                  : 'channels.create.projectId'
-                              )}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder='my-gcp-project'
-                                autoComplete='off'
-                                disabled={pending}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {credentialMode === 'gcpServiceAccount' ? (
-                      <FormField
-                        control={form.control}
-                        name='gcpServiceAccount'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t('channels.upstream.gcpServiceAccount')}
-                            </FormLabel>
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                rows={8}
-                                spellCheck={false}
-                                autoComplete='off'
-                                placeholder='{"type":"service_account",...}'
-                                disabled={pending}
-                                className='min-h-32 font-mono text-xs'
-                              />
-                            </FormControl>
-                            <p className='text-muted-foreground text-xs'>
-                              {t('channels.upstream.gcpServiceAccountHint')}
-                            </p>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name='apiKey'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t(
-                                credentialMode === 'optional'
-                                  ? 'channels.create.optionalKey'
-                                  : 'channels.create.apiKey'
-                              )}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                type='password'
-                                autoComplete='new-password'
-                                disabled={pending}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
+                    <UpstreamCreateCredentialFields
+                      selected={selected}
+                      pending={pending}
+                      requiresBaseUrl={requiresBaseUrl}
+                    />
                     <UpstreamCreateEndpoints
                       key={selected.id}
                       preset={selected}
                       disabled={pending}
                       onResolvingChange={setResolvingEndpoints}
                     />
-                    <Collapsible
-                      open={advanced}
-                      onOpenChange={setAdvanced}
-                      className='rounded-xl border'
-                    >
-                      <CollapsibleTrigger className='group focus-visible:outline-ring flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-2'>
-                        {t('channels.upstream.advanced')}
-                        <ChevronDown
-                          aria-hidden
-                          className='size-4 transition-transform group-data-[panel-open]:rotate-180'
-                        />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent
-                        keepMounted
-                        className='space-y-4 border-t p-4'
-                      >
-                        <FormField
-                          control={form.control}
-                          name='name'
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {t('channels.create.optionalName')}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder={selected.name}
-                                  disabled={pending}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        {!requiresBaseUrl && (
-                          <FormField
-                            control={form.control}
-                            name='baseUrl'
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>
-                                  {t('channels.upstream.baseUrl')}
-                                </FormLabel>
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    placeholder={selected.defaultUrl}
-                                    disabled={pending}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                        <FormField
-                          control={form.control}
-                          name='useSystemProxy'
-                          render={({ field }) => (
-                            <FormItem className='flex items-center justify-between gap-3'>
-                              <FormLabel>
-                                {t('channels.upstream.systemProxy')}
-                              </FormLabel>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                  disabled={pending}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name='channelProxy'
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {t('channels.upstream.channelProxy')}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  type='password'
-                                  autoComplete='new-password'
-                                  disabled={pending}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name='customHeaders'
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {t('channels.upstream.customHeaders')}
-                              </FormLabel>
-                              <FormControl>
-                                <StringMapEditor
-                                  {...field}
-                                  ordered
-                                  structuredOnly
-                                  disabled={pending}
-                                  keyLabel={t('stringMapEditor.headerName')}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name='providerBinding'
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {t('channels.plugins.providerBinding')}
-                              </FormLabel>
-                              <FormDescription>
-                                {t('channels.plugins.providerDescription')}
-                              </FormDescription>
-                              <FormControl>
-                                <ChannelProviderBinding
-                                  {...field}
-                                  value={field.value ?? null}
-                                  protocols={
-                                    customEndpoints
-                                      ? Object.entries(
-                                          form.watch('endpointConfig')
-                                        ).flatMap(([key, endpoint]) =>
-                                          endpoint
-                                            ? [
-                                                key as UpstreamPreset['protocols'][number],
-                                              ]
-                                            : []
-                                        )
-                                      : form.watch('protocols')
-                                  }
-                                  credentialKind={providerCredentialKind}
-                                  newChannel
-                                  disabled={pending || resolvingEndpoints}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name='paramOverride'
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {t('channels.upstream.paramOverride')}
-                              </FormLabel>
-                              <FormControl>
-                                <StringMapEditor
-                                  {...field}
-                                  disabled={pending}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </CollapsibleContent>
-                    </Collapsible>
+                    <UpstreamCreateAdvancedFields
+                      selected={selected}
+                      pending={pending}
+                      requiresBaseUrl={requiresBaseUrl}
+                      advanced={advanced}
+                      setAdvanced={setAdvanced}
+                      resolvingEndpoints={resolvingEndpoints}
+                    />
                   </div>
                 )}
                 {form.formState.errors.root && (
