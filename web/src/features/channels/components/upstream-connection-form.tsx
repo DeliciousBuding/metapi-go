@@ -1,33 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, LockKeyhole, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { StringMapEditor } from '@/components/common/string-map-editor'
 import { Button } from '@/components/ui/button'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { Form } from '@/components/ui/form'
 import { api } from '@/lib/api'
-import {
-  pluginBindingSchema,
-  providerBindingSchema,
-} from '@/lib/api/channel-plugins'
 import type { ImportedUpstreamDetail } from '@/lib/api/imported-upstreams'
 import { toast } from '@/lib/toast'
 
@@ -35,15 +14,11 @@ import {
   connectionPatch,
   connectionSchema,
   connectionValues,
-  headersForEditor,
   upstreamKeys,
   type ConnectionValues,
 } from '../lib/upstream-config'
-import { ChannelPluginBindings } from './channel-plugin-bindings'
-import { ChannelProviderBinding } from './channel-provider-binding'
-import { ChannelRuntimeSettings } from './channel-runtime-settings'
-import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
-import { UpstreamPresetEndpoints } from './upstream-preset-endpoints'
+import { UpstreamConnectionAdvanced } from './upstream-connection-advanced'
+import { UpstreamConnectionEndpoints } from './upstream-connection-endpoints'
 
 export function UpstreamConnectionForm(props: {
   detail: ImportedUpstreamDetail
@@ -56,77 +31,14 @@ export function UpstreamConnectionForm(props: {
     resolver: zodResolver(connectionSchema),
     defaultValues: connectionValues(props.detail),
   })
-  const [configState, setConfigState] = useState<
-    'locked' | 'loading' | 'ready'
-  >('locked')
-  const request = useRef<AbortController | null>(null)
   const dirty = form.formState.isDirty
   const pending = form.formState.isSubmitting
   const [resolvingPreset, setResolvingPreset] = useState(false)
-  const [advanced, setAdvanced] = useState(false)
-  const advancedInvalid = [
-    'streamPolicy',
-    'rateLimit',
-    'channelProxy',
-    'customHeaders',
-    'paramOverride',
-    'pluginBindings',
-    'providerBinding',
-  ].some((key) => !!form.formState.errors[key as keyof ConnectionValues])
-  const submitCount = form.formState.submitCount
-  const legacyPaths =
-    !Object.keys(props.detail.endpointConfig ?? {}).length &&
-    [
-      props.detail.openaiChatCompletionPath,
-      props.detail.openaiResponsePath,
-      props.detail.anthropicMessagePath,
-    ].some(Boolean)
-  useEffect(() => {
-    if (advancedInvalid) setAdvanced(true)
-  }, [advancedInvalid, submitCount])
   const onDirtyChange = props.onDirtyChange
   useEffect(() => {
     onDirtyChange('connection', dirty)
     return () => onDirtyChange('connection', false)
   }, [dirty, onDirtyChange])
-  useEffect(
-    () => () => {
-      request.current?.abort()
-    },
-    []
-  )
-
-  async function loadRequestConfig() {
-    request.current?.abort()
-    const controller = new AbortController()
-    request.current = controller
-    setConfigState('loading')
-    try {
-      const config = await api.getImportedRequestConfig(
-        props.detail.id,
-        controller.signal
-      )
-      if (controller.signal.aborted) return
-      const providerBinding = providerBindingSchema
-        .nullable()
-        .parse(config.providerBinding ?? null)
-      const pluginBindings = pluginBindingSchema
-        .array()
-        .parse(config.pluginBindings ?? [])
-      form.resetField('channelProxy', { defaultValue: config.channelProxy })
-      form.resetField('customHeaders', {
-        defaultValue: headersForEditor(config.customHeaders),
-      })
-      form.resetField('paramOverride', { defaultValue: config.paramOverride })
-      form.resetField('pluginBindings', {
-        defaultValue: pluginBindings,
-      })
-      form.resetField('providerBinding', { defaultValue: providerBinding })
-      setConfigState('ready')
-    } catch {
-      if (!controller.signal.aborted) setConfigState('locked')
-    }
-  }
 
   async function save(values: ConnectionValues) {
     if (resolvingPreset) return false
@@ -141,6 +53,18 @@ export function UpstreamConnectionForm(props: {
     return true
   }
 
+  function manageModels() {
+    if (!dirty) {
+      props.onManageModels?.()
+      return
+    }
+    void form
+      .handleSubmit(async (values) => {
+        if (await save(values)) props.onManageModels?.()
+      })()
+      .catch(() => {})
+  }
+
   return (
     <Form {...form}>
       <form
@@ -148,346 +72,13 @@ export function UpstreamConnectionForm(props: {
         noValidate
         onSubmit={form.handleSubmit((values) => save(values).catch(() => {}))}
       >
-        <div className='space-y-3'>
-          <FormField
-            control={form.control}
-            name='name'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('channels.upstream.name')}</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled={pending} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <FormField
-          control={form.control}
-          name='baseUrl'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('channels.upstream.baseUrl')}</FormLabel>
-              <FormControl>
-                <Input {...field} disabled={pending} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        <UpstreamConnectionEndpoints
+          detail={props.detail}
+          resolvingPreset={resolvingPreset}
+          onResolvingChange={setResolvingPreset}
+          onManageModels={props.onManageModels && manageModels}
         />
-        <section className='space-y-4'>
-          {legacyPaths ? (
-            <p className='text-muted-foreground text-sm'>
-              {t('channels.upstream.legacyPresetNote')}
-            </p>
-          ) : (
-            <UpstreamPresetEndpoints
-              baseUrl={form.watch('baseUrl')}
-              disabled={pending}
-              onResolvingChange={setResolvingPreset}
-              onApply={(endpoints) => {
-                const existing = form.getValues('endpointConfig')
-                const missing = Object.fromEntries(
-                  Object.entries(endpoints).filter(
-                    ([key]) => !existing[key as keyof typeof existing]
-                  )
-                )
-                const count = Object.keys(missing).length
-                if (count) {
-                  form.setValue(
-                    'endpointConfig',
-                    { ...existing, ...missing },
-                    {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    }
-                  )
-                }
-                return count
-              }}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name='endpointConfig'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('channels.imported.endpoints')}</FormLabel>
-                <FormDescription>
-                  {t('channels.upstream.endpointCapabilitiesHint')}
-                </FormDescription>
-                <FormControl>
-                  <div
-                    className='min-w-0'
-                    role='group'
-                    aria-label={t('channels.imported.endpoints')}
-                    ref={field.ref}
-                  >
-                    <UpstreamEndpointsEditor
-                      value={field.value}
-                      onChange={field.onChange}
-                      provider={props.detail.provider}
-                      disabled={pending}
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className='text-muted-foreground space-y-2 text-sm'>
-            <p>{t('channels.upstream.modelAccessHint')}</p>
-            {props.onManageModels && (
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                disabled={pending || resolvingPreset}
-                onClick={() => {
-                  if (!dirty) props.onManageModels?.()
-                  else {
-                    void form
-                      .handleSubmit(async (values) => {
-                        if (await save(values)) props.onManageModels?.()
-                      })()
-                      .catch(() => {})
-                  }
-                }}
-              >
-                {t(
-                  dirty
-                    ? 'channels.upstream.saveAndManageModels'
-                    : 'channels.upstream.manageModels'
-                )}
-              </Button>
-            )}
-          </div>
-          {!Object.keys(props.detail.endpointConfig ?? {}).length && (
-            <div className='grid gap-3 sm:grid-cols-2'>
-              {(
-                [
-                  'openaiChatCompletionPath',
-                  'openaiResponsePath',
-                  'anthropicMessagePath',
-                ] as const
-              ).map((name) => (
-                <FormField
-                  key={name}
-                  control={form.control}
-                  name={name}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t(`channels.upstream.${name}`)}</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={pending} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-        <Collapsible
-          open={advanced}
-          onOpenChange={setAdvanced}
-          className='rounded-xl border'
-        >
-          <CollapsibleTrigger className='group focus-visible:outline-ring flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium focus-visible:outline-2'>
-            <SlidersHorizontal
-              className='text-muted-foreground size-4'
-              aria-hidden='true'
-            />
-            <span className='flex-1'>{t('channels.upstream.advanced')}</span>
-            <ChevronDown
-              className='size-4 transition-transform group-data-[panel-open]:rotate-180'
-              aria-hidden='true'
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent keepMounted className='space-y-5 border-t p-4'>
-            <ChannelRuntimeSettings disabled={pending} />
-            <FormField
-              control={form.control}
-              name='useSystemProxy'
-              render={({ field }) => (
-                <FormItem className='flex items-center gap-3'>
-                  <FormLabel>{t('channels.upstream.systemProxy')}</FormLabel>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={pending}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <section className='space-y-4 rounded-xl border p-4'>
-              <div className='flex flex-wrap items-center justify-between gap-3'>
-                <h3 className='flex items-center gap-2 text-sm font-semibold'>
-                  <SlidersHorizontal className='text-muted-foreground size-4' />
-                  {t('channels.upstream.requestConfig')}
-                </h3>
-                {configState !== 'ready' && (
-                  <Button
-                    type='button'
-                    size='sm'
-                    variant='outline'
-                    disabled={configState === 'loading'}
-                    onClick={() => void loadRequestConfig()}
-                  >
-                    <LockKeyhole className='size-4' />
-                    {t('channels.upstream.editRequestConfig')}
-                  </Button>
-                )}
-              </div>
-              {configState !== 'ready' && (
-                <div className='text-muted-foreground flex flex-wrap gap-x-5 gap-y-2 text-xs'>
-                  <span>
-                    {t('channels.upstream.channelProxy')} ·{' '}
-                    {t(
-                      props.detail.hasChannelProxy
-                        ? 'channels.upstream.configured'
-                        : 'channels.upstream.unset'
-                    )}
-                  </span>
-                  <span>
-                    {t('channels.upstream.customHeaders')} ·{' '}
-                    {t(
-                      props.detail.hasCustomHeaders
-                        ? 'channels.upstream.configured'
-                        : 'channels.upstream.unset'
-                    )}
-                  </span>
-                  <span>
-                    {t('channels.upstream.paramOverride')} ·{' '}
-                    {t(
-                      props.detail.hasParamOverride
-                        ? 'channels.upstream.configured'
-                        : 'channels.upstream.unset'
-                    )}
-                  </span>
-                </div>
-              )}
-              {/* Registered while locked so explicit reads can replace defaults without
-          marking untouched secrets dirty or wiping other field drafts. */}
-              <div hidden={configState !== 'ready'} className='space-y-4'>
-                <FormField
-                  control={form.control}
-                  name='channelProxy'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('channels.upstream.channelProxy')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='password'
-                          autoComplete='off'
-                          disabled={pending}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='customHeaders'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('channels.upstream.customHeaders')}
-                      </FormLabel>
-                      <FormControl>
-                        <StringMapEditor
-                          {...field}
-                          ordered
-                          structuredOnly
-                          disabled={pending}
-                          keyLabel={t('stringMapEditor.headerName')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='paramOverride'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('channels.upstream.paramOverride')}
-                      </FormLabel>
-                      <FormControl>
-                        <StringMapEditor {...field} disabled={pending} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='providerBinding'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('channels.plugins.providerBinding')}
-                      </FormLabel>
-                      <FormDescription>
-                        {t('channels.plugins.providerDescription')}
-                      </FormDescription>
-                      <FormControl>
-                        <ChannelProviderBinding
-                          {...field}
-                          value={field.value ?? null}
-                          protocols={Object.entries(
-                            form.watch('endpointConfig')
-                          ).flatMap(([key, endpoint]) =>
-                            endpoint
-                              ? [
-                                  key as keyof NonNullable<
-                                    ImportedUpstreamDetail['endpointConfig']
-                                  >,
-                                ]
-                              : []
-                          )}
-                          disabled={pending}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='pluginBindings'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('channels.plugins.bindings')}</FormLabel>
-                      <FormDescription>
-                        {t('channels.plugins.bindingDescription')}
-                      </FormDescription>
-                      <FormControl>
-                        <ChannelPluginBindings
-                          {...field}
-                          value={field.value ?? []}
-                          endpoints={form.watch('endpointConfig')}
-                          disabled={pending}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </section>
-          </CollapsibleContent>
-        </Collapsible>
+        <UpstreamConnectionAdvanced detail={props.detail} />
         <div className='bg-background/95 sticky bottom-0 -mx-1 flex justify-end border-t px-1 py-3'>
           <Button type='submit' disabled={!dirty || pending || resolvingPreset}>
             {t('channels.upstream.saveConnection')}
