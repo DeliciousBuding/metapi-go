@@ -1,206 +1,21 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { ImportedUpstreamInventory } from '@/lib/api/imported-upstreams'
 import type { UpstreamGroup } from '@/lib/api/upstream-catalog'
-import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { useUpstreamClock } from '../hooks/use-upstream-clock'
 import { upstreamKeys } from '../lib/upstream-config'
-import {
-  upstreamGroupBindingSchema,
-  type UpstreamGroupBindingValues,
-} from '../lib/upstream-group-schema'
+import { GroupBindingForm } from './upstream-group-binding-form'
 import { UpstreamGroupForm, type GroupGrantOption } from './upstream-group-form'
-import { UpstreamRouteTopology } from './upstream-route-topology'
-
-function GroupBindingForm(props: {
-  groups: UpstreamGroup[]
-  grants: GroupGrantOption[]
-  onDirtyChange: (key: string, dirty: boolean) => void
-  onSaved: () => void
-}) {
-  const { t } = useTranslation()
-  const client = useQueryClient()
-  const form = useForm<UpstreamGroupBindingValues>({
-    resolver: zodResolver(upstreamGroupBindingSchema),
-    defaultValues: { groupId: 0, grantId: 0 },
-  })
-  const dirty = form.formState.isDirty
-  const onDirtyChange = props.onDirtyChange
-  useEffect(() => {
-    onDirtyChange('group-bind', dirty)
-  }, [dirty, onDirtyChange])
-  useEffect(() => () => onDirtyChange('group-bind', false), [onDirtyChange])
-  const group = props.groups.find((item) => item.id === form.watch('groupId'))
-  const options = props.grants.filter(
-    (grant) => !group?.members.some((member) => member.grantId === grant.id)
-  )
-  const mutation = useMutation({
-    mutationFn: (values: UpstreamGroupBindingValues) =>
-      api.createUpstreamMember(values.groupId, { grantId: values.grantId }),
-    onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: upstreamKeys.all }),
-        client.invalidateQueries({ queryKey: ['routes'] }),
-      ])
-    },
-  })
-  async function save(values: UpstreamGroupBindingValues) {
-    if (!group) {
-      form.setError('groupId', { message: 'channels.group.groupRequired' })
-      return
-    }
-    if (!options.some((option) => option.id === values.grantId)) {
-      form.setError('grantId', { message: 'channels.group.grantsChanged' })
-      return
-    }
-    try {
-      await mutation.mutateAsync(values)
-      form.reset({ groupId: 0, grantId: 0 })
-      toast.success(t('channels.upstream.saved'))
-      props.onSaved()
-    } catch (error) {
-      form.setError('root', {
-        message:
-          error instanceof Error
-            ? error.message
-            : t('channels.group.saveError'),
-      })
-    }
-  }
-  return (
-    <Form {...form}>
-      <form
-        aria-label={t('channels.group.bind')}
-        onSubmit={form.handleSubmit(save)}
-        className='space-y-4 rounded-xl border p-4'
-      >
-        <FormField
-          control={form.control}
-          name='groupId'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('channels.group.targetGroup')}</FormLabel>
-              <Select
-                value={String(field.value)}
-                items={[
-                  { value: '0', label: t('channels.group.chooseGroup') },
-                  ...props.groups.map((item) => ({
-                    value: String(item.id),
-                    label: `${item.name} · ${item.modelPattern}`,
-                  })),
-                ]}
-                onValueChange={(value) => field.onChange(Number(value))}
-                disabled={mutation.isPending}
-              >
-                <FormControl>
-                  <SelectTrigger ref={field.ref} className='w-full min-w-0'>
-                    <SelectValue className='truncate' />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value='0'>
-                    {t('channels.group.chooseGroup')}
-                  </SelectItem>
-                  {props.groups.map((item) => (
-                    <SelectItem key={item.id} value={String(item.id)}>
-                      {item.name} · {item.modelPattern}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='grantId'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('channels.group.grant')}</FormLabel>
-              <Select
-                value={String(field.value)}
-                items={[
-                  { value: '0', label: t('channels.group.chooseGrant') },
-                  ...options.map((option) => ({
-                    value: String(option.id),
-                    label: option.label,
-                  })),
-                ]}
-                onValueChange={(value) => field.onChange(Number(value))}
-                disabled={mutation.isPending || !group}
-              >
-                <FormControl>
-                  <SelectTrigger ref={field.ref} className='w-full min-w-0'>
-                    <SelectValue className='truncate' />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value='0'>
-                    {t('channels.group.chooseGrant')}
-                  </SelectItem>
-                  {options.map((grant) => (
-                    <SelectItem key={grant.id} value={String(grant.id)}>
-                      {grant.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {group && !options.length && (
-          <p className='text-muted-foreground text-sm'>
-            {t('channels.group.noUnboundGrants')}
-          </p>
-        )}
-        {form.formState.errors.root && (
-          <p role='alert' className='text-destructive text-sm'>
-            {form.formState.errors.root.message}
-          </p>
-        )}
-        <div className='flex justify-end'>
-          <Button
-            type='submit'
-            size='sm'
-            disabled={!dirty || mutation.isPending}
-          >
-            {t('channels.group.bind')}
-          </Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
+import { UpstreamGroupItem } from './upstream-group-item'
 
 export function UpstreamGroupManager(props: {
   channelId: number
@@ -332,77 +147,31 @@ export function UpstreamGroupManager(props: {
         />
       </div>
       {relatedGroups.map((group) => (
-        <article key={group.id} className='overflow-hidden rounded-xl border'>
-          <div className='flex flex-wrap items-center justify-between gap-3 p-4'>
-            <div className='min-w-0 flex-1'>
-              <p className='text-sm font-semibold break-words'>{group.name}</p>
-              <Link
-                to='/token-routes'
-                search={{ routeId: group.routeId }}
-                className='text-muted-foreground text-xs break-all hover:underline'
-              >
-                {group.displayName || group.modelPattern}
-              </Link>
-              <p className='text-muted-foreground mt-1 text-xs'>
-                {t('channels.group.memberCount', {
-                  count: group.members.length,
-                })}
-              </p>
-            </div>
-            <div className='flex items-center gap-1'>
-              <Badge variant={group.enabled ? 'success' : 'secondary'}>
-                {t(
-                  group.enabled
-                    ? `channels.group.${group.mode}`
-                    : 'channels.group.inactive'
-                )}
-              </Badge>
-              <Button
-                size='icon-sm'
-                variant='ghost'
-                aria-label={t('channels.group.edit', { name: group.name })}
-                aria-expanded={expanded.includes(group.id)}
-                onClick={() =>
-                  setExpanded((ids) =>
-                    ids.includes(group.id)
-                      ? ids.filter((id) => id !== group.id)
-                      : [...ids, group.id]
-                  )
-                }
-              >
-                <Pencil className='size-4' />
-              </Button>
-              <Button
-                size='icon-sm'
-                variant='ghost'
-                disabled={isPending}
-                aria-label={t('channels.group.delete', { name: group.name })}
-                onClick={() => {
-                  const action = () => {
-                    void removeGroup(group)
-                  }
-                  if (props.beforeDelete) props.beforeDelete(action)
-                  else action()
-                }}
-              >
-                <Trash2 className='size-4' />
-              </Button>
-            </div>
-          </div>
-          <UpstreamRouteTopology
-            group={group}
-            inventory={props.inventory}
-            channelId={props.channelId}
-            now={now}
-          />
-          <div hidden={!expanded.includes(group.id)}>
-            <UpstreamGroupForm
-              group={group}
-              grants={grants}
-              onDirtyChange={props.onDirtyChange}
-            />
-          </div>
-        </article>
+        <UpstreamGroupItem
+          key={group.id}
+          group={group}
+          grants={grants}
+          channelId={props.channelId}
+          now={now}
+          inventory={props.inventory}
+          expanded={expanded.includes(group.id)}
+          isPending={isPending}
+          onDirtyChange={props.onDirtyChange}
+          onToggle={() =>
+            setExpanded((ids) =>
+              ids.includes(group.id)
+                ? ids.filter((id) => id !== group.id)
+                : [...ids, group.id]
+            )
+          }
+          onDelete={() => {
+            const action = () => {
+              void removeGroup(group)
+            }
+            if (props.beforeDelete) props.beforeDelete(action)
+            else action()
+          }}
+        />
       ))}
       {dialog}
     </section>

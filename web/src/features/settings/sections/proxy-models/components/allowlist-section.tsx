@@ -4,230 +4,39 @@
 // switches sourced from api.getBrandList(). Both saves trigger a routes
 // rebuild through the shared task observer so completion is not inferred from
 // a launch acknowledgement.
-//
-// Brand toggles are instant operations: switches are disabled while a toggle
-// is in flight (serializing concurrent clicks so the last click wins), and a
-// failed toggle refetches runtime settings so the local state realigns with
-// the server instead of silently diverging.
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
 
-import { ModelPill } from '@/components/common/model-pill'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+import { Form } from '@/components/ui/form'
 import { Switch } from '@/components/ui/switch'
-import { useRebuildRoutes } from '@/features/token-routes'
-import { api } from '@/lib/api'
-import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { useSettingsForm } from '../../../hooks/use-settings-form'
-import {
-  collectChangedFields,
-  hasChanges,
-} from '../../../lib/collect-changed-fields'
-import {
-  runtimeSettingsQueryKeys,
-  useRuntimeSettings,
-  useUpdateRuntimeSettings,
-  type RuntimeSettings,
-} from '../../../lib/runtime-settings'
+import { AllowedModelsField } from './allowed-models-field'
+import { useModelAllowlist } from './use-model-allowlist'
 
 const ALLOWLIST_FORM_ID = 'settings-proxy-models-allowlist-form'
 
-const allowlistSchema = z.object({
-  globalAllowedModels: z.string().optional(),
-})
-
-type AllowlistFormValues = z.infer<typeof allowlistSchema>
-
-const DEFAULT_VALUES: AllowlistFormValues = { globalAllowedModels: '' }
-
-type BrandListResponse = { brands: string[] }
-type TokenCandidates = { models: Record<string, unknown> }
-
-const brandsQueryKeys = {
-  all: ['settings-brand-list'] as const,
-}
-const candidatesQueryKeys = {
-  all: ['model-token-candidates'] as const,
-}
-
-function splitAllowed(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    return raw.map((item) => String(item)).filter(Boolean)
-  }
-  if (typeof raw === 'string') {
-    return raw
-      .split(/\r?\n|,/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
-  return []
-}
-
-function deriveServerValues(
-  data: RuntimeSettings | undefined
-): AllowlistFormValues | null {
-  if (!data) {
-    return null
-  }
-  return {
-    globalAllowedModels: splitAllowed(data.globalAllowedModels).join('\n'),
-  }
-}
-
 export function AllowlistSection() {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const { data, isLoading, isError, refetch } = useRuntimeSettings()
-  const updateMutation = useUpdateRuntimeSettings()
-  const rebuildMutation = useRebuildRoutes()
-
-  const brandsQuery = useQuery<BrandListResponse>({
-    queryKey: brandsQueryKeys.all,
-    queryFn: async () => (await api.getBrandList()) as BrandListResponse,
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const candidatesQuery = useQuery<TokenCandidates>({
-    queryKey: candidatesQueryKeys.all,
-    queryFn: async () =>
-      (await api.getModelTokenCandidates()) as TokenCandidates,
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const serverValues = deriveServerValues(data)
-  const { form, baseline, syncFromServer } =
-    useSettingsForm<AllowlistFormValues>({
-      schema: allowlistSchema,
-      defaultValues: DEFAULT_VALUES,
-      serverValues,
-    })
-
-  const [pendingModel, setPendingModel] = useState('')
-  const [allowedModels, setAllowedModels] = useState<string[]>([])
-
-  const initialAllowed = useMemo(
-    () => splitAllowed(data?.globalAllowedModels),
-    [data]
-  )
-
-  useEffect(() => {
-    if (!form.formState.isDirty) {
-      setAllowedModels(initialAllowed)
-    }
-  }, [form.formState.isDirty, initialAllowed])
-
-  const candidateModels = useMemo(
-    () => Object.keys(candidatesQuery.data?.models ?? {}),
-    [candidatesQuery.data]
-  )
-
-  const [blockedBrands, setBlockedBrands] = useState<string[]>([])
-
-  useEffect(() => {
-    setBlockedBrands(splitAllowed(data?.globalBlockedBrands))
-  }, [data])
-
-  const brandToggleMutation = useMutation({
-    mutationFn: async (nextBlocked: string[]) => {
-      await api.updateRuntimeSettings({ globalBlockedBrands: nextBlocked })
-      try {
-        await rebuildMutation.mutateAsync({ refreshModels: false, wait: false })
-      } catch {
-        // The setting was saved; only the rebuild acknowledgement is unknown.
-        toast.warning(t('settings.proxyModels.allowlist.toast.rebuildFailed'))
-      }
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: runtimeSettingsQueryKeys.all,
-      })
-      // Derived routing queries refresh when the shared task observer verifies
-      // completion, not when the queue merely acknowledges the request.
-      toast.success(t('settings.proxyModels.allowlist.toast.brandsSaved'))
-    },
-    onError: () => {
-      // Re-align local state with the server so a failed toggle does not
-      // leave the switches diverged from the persisted allowlist.
-      void queryClient.invalidateQueries({
-        queryKey: runtimeSettingsQueryKeys.all,
-      })
-      toast.error(t('settings.proxyModels.allowlist.toast.brandsSaveFailed'))
-    },
-  })
-
-  function toggleBrand(brand: string) {
-    if (brandToggleMutation.isPending) {
-      return
-    }
-    const next = blockedBrands.includes(brand)
-      ? blockedBrands.filter((item) => item !== brand)
-      : [...blockedBrands, brand]
-    setBlockedBrands(next)
-    brandToggleMutation.mutate(next)
-  }
-
-  function addAllowedModel(model: string) {
-    const trimmed = model.trim()
-    if (!trimmed || allowedModels.includes(trimmed)) {
-      setPendingModel('')
-      return
-    }
-    const next = [...allowedModels, trimmed]
-    setAllowedModels(next)
-    form.setValue('globalAllowedModels', next.join('\n'), { shouldDirty: true })
-    setPendingModel('')
-  }
-
-  function removeAllowedModel(model: string) {
-    const next = allowedModels.filter((item) => item !== model)
-    setAllowedModels(next)
-    form.setValue('globalAllowedModels', next.join('\n'), { shouldDirty: true })
-  }
-
-  function onSubmit(values: AllowlistFormValues) {
-    const changed = collectChangedFields(values, baseline)
-    if (!hasChanges(changed) && changed.globalAllowedModels === undefined) {
-      toast.info(t('settings.common.noChanges'))
-      return
-    }
-    updateMutation.mutate(
-      { globalAllowedModels: splitAllowed(values.globalAllowedModels) },
-      {
-        onSuccess: () => {
-          void rebuildMutation
-            .mutateAsync({ refreshModels: false, wait: false })
-            .catch(() => {
-              toast.warning(
-                t('settings.proxyModels.allowlist.toast.rebuildFailed')
-              )
-            })
-          toast.success(t('settings.proxyModels.allowlist.toast.saved'))
-        },
-        onError: () =>
-          toast.error(t('settings.proxyModels.allowlist.toast.saveFailed')),
-      }
-    )
-  }
-
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    form,
+    onSubmit,
+    reset,
+    isSaving,
+    models,
+    brands,
+    loadingBrands,
+    blockedBrands,
+    toggleBrand,
+    brandTogglePending,
+  } = useModelAllowlist()
   if (isLoading) {
     return (
       <SectionCard
@@ -252,8 +61,6 @@ export function AllowlistSection() {
   }
 
   const isDirty = form.formState.isDirty
-  const brands = brandsQuery.data?.brands ?? []
-  const brandTogglePending = brandToggleMutation.isPending
 
   return (
     <SectionCard
@@ -267,98 +74,12 @@ export function AllowlistSection() {
             onSubmit={form.handleSubmit(onSubmit)}
             className='space-y-4'
           >
-            <FormField
-              control={form.control}
-              name='globalAllowedModels'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t(
-                      'settings.proxyModels.allowlist.fields.globalAllowedModels'
-                    )}
-                  </FormLabel>
-                  <FormDescription>
-                    {t(
-                      'settings.proxyModels.allowlist.fields.globalAllowedModelsHint'
-                    )}
-                  </FormDescription>
-                  <div className='flex flex-wrap gap-2'>
-                    {allowedModels.map((model) => (
-                      <Badge
-                        key={model}
-                        variant='default'
-                        render={<button type='button' />}
-                        className='h-auto min-h-6 cursor-pointer'
-                        aria-label={t(
-                          'settings.downstream.keys.access.removeModel',
-                          { model }
-                        )}
-                        onClick={() => removeAllowedModel(model)}
-                      >
-                        <ModelPill model={model} variant='inline' /> ×
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className='flex gap-2'>
-                    <FormControl>
-                      <Input
-                        value={pendingModel}
-                        onChange={(event) =>
-                          setPendingModel(event.target.value)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            if (
-                              event.nativeEvent.isComposing ||
-                              event.nativeEvent.keyCode === 229
-                            )
-                              return
-                            addAllowedModel(pendingModel)
-                          }
-                        }}
-                        placeholder={t(
-                          'settings.proxyModels.allowlist.addPlaceholder'
-                        )}
-                      />
-                    </FormControl>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={() => addAllowedModel(pendingModel)}
-                    >
-                      {t('settings.common.add')}
-                    </Button>
-                  </div>
-                  {candidateModels.length > 0 ? (
-                    <div className='flex flex-wrap gap-1'>
-                      {candidateModels.slice(0, 20).map((model) => (
-                        <button
-                          type='button'
-                          key={model}
-                          className='cursor-pointer'
-                          onClick={() => addAllowedModel(model)}
-                        >
-                          <Badge variant='secondary'>
-                            + <ModelPill model={model} variant='inline' />
-                          </Badge>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  <input type='hidden' {...field} />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <AllowedModelsField control={form.control} models={models} />
             <SettingsFormActions
               formId={ALLOWLIST_FORM_ID}
               isDirty={isDirty}
-              isPending={updateMutation.isPending}
-              onReset={() =>
-                syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
-              }
+              isPending={isSaving}
+              onReset={reset}
             />
           </form>
         </Form>
@@ -374,17 +95,17 @@ export function AllowlistSection() {
               )}
             </p>
           </div>
-          {brandsQuery.isLoading ? (
+          {loadingBrands ? (
             <p className='text-muted-foreground text-sm'>
               {t('settings.proxyModels.allowlist.loadingBrands')}
             </p>
           ) : null}
-          {!brandsQuery.isLoading && brands.length === 0 ? (
+          {!loadingBrands && brands.length === 0 ? (
             <p className='text-muted-foreground text-sm'>
               {t('settings.proxyModels.allowlist.noBrands')}
             </p>
           ) : null}
-          {!brandsQuery.isLoading && brands.length > 0 ? (
+          {!loadingBrands && brands.length > 0 ? (
             <div className='grid grid-cols-2 gap-3 sm:grid-cols-3'>
               {brands.map((brand) => (
                 <div

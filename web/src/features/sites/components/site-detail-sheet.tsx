@@ -10,13 +10,10 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight as ArrowRightIcon,
   CheckCircle2 as CheckCircle2Icon,
-  ExternalLink as ExternalLinkIcon,
   PauseCircle as PauseCircleIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { DetailField } from '@/components/common/detail-field'
-import { ExpandableText } from '@/components/common/expandable-text'
 import { PlatformBadge } from '@/components/common/platform-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,15 +26,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { toBcp47 } from '@/i18n/languages'
-import {
-  formatAbsoluteDateTime,
-  formatCurrency,
-  formatRelativeTime,
-} from '@/lib/format'
 
-import { isHttpUrl, isValidEndpointUrl } from '../lib/endpoints'
-import { resolveSiteBalanceUsd } from '../lib/site-balance'
-import type { Site, SiteApiEndpoint, SiteStatus } from '../types'
+import type { Site, SiteStatus } from '../types'
+import { SiteBalanceSection } from './site-detail-balance'
+import { SiteDetailConfiguration } from './site-detail-configuration'
+import { SiteDetailEndpoints } from './site-detail-endpoints'
 import { SiteProbePanel } from './site-probe-panel'
 
 type SiteDetailSheetProps = {
@@ -74,8 +67,6 @@ export function SiteDetailSheet({
   const endpoints = site.apiEndpoints ?? []
   const tags = site.tags ?? []
   const siteId = site.id
-  const siteURL = site.url.trim()
-  const hasSafeSiteURL = isHttpUrl(siteURL)
 
   function goToAccounts() {
     onOpenChange(false)
@@ -129,106 +120,8 @@ export function SiteDetailSheet({
 
           <Separator />
 
-          <section>
-            <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-              <DetailField label={t('sites.detail.url')} full title={site.url}>
-                <ExpandableText text={site.url} className='max-w-full'>
-                  {hasSafeSiteURL ? (
-                    <a
-                      href={siteURL}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
-                    >
-                      <span className='min-w-0 break-all'>{site.url}</span>
-                      <ExternalLinkIcon className='size-4 shrink-0' />
-                    </a>
-                  ) : (
-                    <span className='block max-w-full break-all'>
-                      {site.url}
-                    </span>
-                  )}
-                </ExpandableText>
-              </DetailField>
-              {site.externalCheckinUrl ? (
-                <DetailField
-                  label={t('sites.detail.externalCheckinUrl')}
-                  full
-                  title={site.externalCheckinUrl}
-                >
-                  <ExpandableText
-                    text={site.externalCheckinUrl}
-                    className='max-w-full'
-                  >
-                    {/^https?:\/\//i.test(site.externalCheckinUrl) &&
-                    isValidEndpointUrl(site.externalCheckinUrl) ? (
-                      <a
-                        href={site.externalCheckinUrl}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
-                      >
-                        <span className='min-w-0 break-all'>
-                          {site.externalCheckinUrl}
-                        </span>
-                        <ExternalLinkIcon className='size-4 shrink-0' />
-                      </a>
-                    ) : (
-                      <span className='text-muted-foreground break-all'>
-                        {site.externalCheckinUrl}
-                      </span>
-                    )}
-                  </ExpandableText>
-                </DetailField>
-              ) : null}
-              {site.platform ? (
-                <DetailField label={t('sites.detail.platform')}>
-                  <PlatformBadge platform={site.platform} />
-                </DetailField>
-              ) : null}
-              <DetailField label={t('sites.detail.globalWeight')}>
-                {site.globalWeight ?? 1}
-              </DetailField>
-              <DetailField label={t('sites.detail.maxConcurrency')}>
-                {site.maxConcurrency
-                  ? site.maxConcurrency
-                  : t('sites.detail.unlimited')}
-              </DetailField>
-              <DetailField label={t('sites.detail.useSystemProxy')}>
-                {site.useSystemProxy
-                  ? t('sites.detail.yes')
-                  : t('sites.detail.no')}
-              </DetailField>
-              {site.proxyUrl ? (
-                <DetailField
-                  label={t('sites.detail.proxyUrl')}
-                  title={site.proxyUrl}
-                >
-                  {site.proxyUrl}
-                </DetailField>
-              ) : null}
-            </dl>
-          </section>
-
-          {endpoints.length > 0 && (
-            <>
-              <Separator />
-              <section>
-                <h3 className='text-sm font-medium'>
-                  {t('sites.detail.endpoints')}
-                </h3>
-                <ul className='mt-2 space-y-2'>
-                  {endpoints.map((endpoint) => (
-                    <EndpointRow
-                      key={endpoint.url}
-                      endpoint={endpoint}
-                      locale={locale}
-                    />
-                  ))}
-                </ul>
-              </section>
-            </>
-          )}
+          <SiteDetailConfiguration site={site} />
+          <SiteDetailEndpoints endpoints={endpoints} locale={locale} />
 
           {tags.length > 0 && (
             <>
@@ -268,151 +161,5 @@ export function SiteDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Balance & subscription block
-// ---------------------------------------------------------------------------
-
-/**
- * Renders only when the backend provided at least one displayable balance /
- * subscription value — a site without this data keeps the plain registry
- * view. The balance row prefers `totalBalance` and falls back to the
- * subscription summary's remaining USD (shared with the list column via
- * `resolveSiteBalanceUsd`); the separate "Remaining" row is suppressed in
- * the fallback case so the same number is never shown twice.
- */
-function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
-  const { t } = useTranslation()
-  const summary = site.subscriptionSummary ?? null
-  const balanceUsd = resolveSiteBalanceUsd(site)
-  const planNames = summary?.planNames ?? []
-  const hasSubscriptionDetail =
-    planNames.length > 0 ||
-    typeof summary?.totalUsedUsd === 'number' ||
-    typeof summary?.totalRemainingUsd === 'number' ||
-    Boolean(summary?.nextExpiresAt)
-  if (balanceUsd === null && !hasSubscriptionDetail) {
-    return null
-  }
-  const showRemainingRow =
-    typeof site.totalBalance === 'number' &&
-    typeof summary?.totalRemainingUsd === 'number'
-  return (
-    <>
-      <section>
-        <h3 className='text-sm font-medium'>
-          {t('sites.detail.balanceTitle')}
-        </h3>
-        <dl className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-          {balanceUsd !== null && (
-            <DetailField label={t('sites.detail.balance')}>
-              <span className='tabular-nums'>{formatCurrency(balanceUsd)}</span>
-            </DetailField>
-          )}
-          {planNames.length > 0 && (
-            <DetailField label={t('sites.detail.plans')}>
-              <span className='flex flex-wrap gap-1'>
-                {planNames.map((planName) => (
-                  <Badge key={planName} variant='outline'>
-                    {planName}
-                  </Badge>
-                ))}
-              </span>
-            </DetailField>
-          )}
-          {typeof summary?.totalUsedUsd === 'number' && (
-            <DetailField label={t('sites.detail.monthlyUsage')}>
-              <span className='tabular-nums'>
-                {formatCurrency(summary.totalUsedUsd)}
-                {typeof summary.totalMonthlyLimitUsd === 'number'
-                  ? ` / ${formatCurrency(summary.totalMonthlyLimitUsd)}`
-                  : ''}
-              </span>
-            </DetailField>
-          )}
-          {showRemainingRow && (
-            <DetailField label={t('sites.detail.remaining')}>
-              <span className='tabular-nums'>
-                {formatCurrency(summary?.totalRemainingUsd)}
-              </span>
-            </DetailField>
-          )}
-          {summary?.nextExpiresAt && (
-            <DetailField
-              label={t('sites.detail.nextExpires')}
-              title={
-                formatAbsoluteDateTime(summary.nextExpiresAt, locale) ||
-                undefined
-              }
-            >
-              {formatRelativeTime(summary.nextExpiresAt, locale)}
-            </DetailField>
-          )}
-        </dl>
-      </section>
-      <Separator />
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// API endpoint row (enabled state + live cooldown / failure signals)
-// ---------------------------------------------------------------------------
-
-function EndpointRow({
-  endpoint,
-  locale,
-}: {
-  endpoint: SiteApiEndpoint
-  locale: string
-}) {
-  const { t } = useTranslation()
-  const cooldownActive =
-    Boolean(endpoint.cooldownUntil) &&
-    new Date(endpoint.cooldownUntil as string) > new Date()
-  const failureReason = endpoint.lastFailureReason?.trim() || null
-  return (
-    <li className='flex flex-col gap-1 text-sm'>
-      <div className='flex items-start gap-2'>
-        <Badge variant={endpoint.enabled === false ? 'secondary' : 'outline'}>
-          {endpoint.enabled === false
-            ? t('sites.detail.disabled')
-            : t('sites.detail.enabled')}
-        </Badge>
-        <ExpandableText
-          text={endpoint.url}
-          className='min-w-0 flex-1 text-sm leading-normal'
-        >
-          <span className='break-all'>{endpoint.url}</span>
-        </ExpandableText>
-      </div>
-      {cooldownActive && (
-        <div className='flex items-center gap-1.5'>
-          <Badge variant='warning'>{t('sites.detail.endpointCooldown')}</Badge>
-          <span
-            className='text-muted-foreground text-xs tabular-nums'
-            title={
-              formatAbsoluteDateTime(endpoint.cooldownUntil, locale) ||
-              undefined
-            }
-          >
-            {formatRelativeTime(endpoint.cooldownUntil, locale)}
-          </span>
-        </div>
-      )}
-      {failureReason && (
-        <div>
-          <div className='text-muted-foreground text-xs font-medium'>
-            {t('sites.detail.endpointFailureReason')}
-          </div>
-          <ExpandableText
-            text={failureReason}
-            className='text-destructive text-sm leading-normal break-words'
-          />
-        </div>
-      )}
-    </li>
   )
 }
